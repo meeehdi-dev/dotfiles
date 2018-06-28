@@ -7,6 +7,7 @@ COMPLETION_WAITING_DOTS="true"
 plugins=(
     git
     tmux
+    ssh-agent
 )
 source $ZSH/oh-my-zsh.sh
 
@@ -17,7 +18,7 @@ export LANG=en_US.UTF-8
 export EDITOR='vim'
 
 # ssh
-#export SSH_KEY_PATH="~/.ssh/rsa_id"
+export SSH_KEY_PATH="~/.ssh/rsa_id"
 
 # base16
 BASE16_SHELL="$HOME/.config/base16-shell/"
