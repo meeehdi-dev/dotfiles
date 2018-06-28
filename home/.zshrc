@@ -36,7 +36,8 @@ alias uuac="update && upgrade && autoremove && clean"
 # vcxsrv
 export DISPLAY=":0"
 alias startx="cd $HOME/win/Documents && xlaunch.exe -run config.xlaunch &> /dev/null && cd -"
-alias i3="startx; sh $HOME/.fehbg; exec i3"
+alias wp="sh $HOME/.fehbg"
+alias i3="startx; wp; exec i3"
 
 # misc
 alias cat="lolcat"
