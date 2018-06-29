@@ -27,8 +27,8 @@ do
         then
             mkdir "../BACKUP/$ORIGIN"
         fi
-        sudo cp --remove-destination -v "$i/$j" "../BACKUP/$ORIGIN"
-        sudo cp --remove-destination --parents -v "$j" "$i"
+        sudo cp --remove-destination -pv "$i/$j" "../BACKUP/$ORIGIN"
+        sudo cp --remove-destination --parents -pv "$j" "$i"
         ln -fv $i/$j $j
     done
     cd - &> /dev/null
