@@ -37,7 +37,7 @@ then
 fi
 
 # vcxsrv (WSL)
-if [[ `cat /proc/version | grep "Microsoft" | wc -l` ]];
+if [[ `cat /proc/version | grep "Microsoft"` ]];
 then
     export DISPLAY=":0"
     alias startx="cd $HOME/win/Documents && xlaunch.exe -run config.xlaunch &> /dev/null && cd -"
