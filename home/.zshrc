@@ -27,17 +27,23 @@ BASE16_SHELL="$HOME/.config/base16-shell/"
     eval "$("$BASE16_SHELL/profile_helper.sh")"
 
 # ubuntu
-alias update="sudo apt-get update"
-alias upgrade="sudo apt-get upgrade"
-alias autoremove="sudo apt-get autoremove"
-alias clean="sudo apt-get clean"
-alias uuac="update && upgrade && autoremove && clean"
+if [[ `lsb_release &> /dev/null && lsb_release -a | head -n1 | tail -n1 | cut -f2` = "Ubuntu" ]];
+then
+    alias update="sudo apt-get update"
+    alias upgrade="sudo apt-get upgrade"
+    alias autoremove="sudo apt-get autoremove"
+    alias clean="sudo apt-get clean"
+    alias uuac="update && upgrade && autoremove && clean"
+fi
 
-# vcxsrv
-export DISPLAY=":0"
-alias startx="cd $HOME/win/Documents && xlaunch.exe -run config.xlaunch &> /dev/null && cd -"
-alias wp="sh $HOME/.fehbg"
-alias i3="startx; wp; exec i3"
+# vcxsrv (WSL)
+if [[ `cat /proc/version | grep "Microsoft" | wc -l` ]];
+then
+    export DISPLAY=":0"
+    alias startx="cd $HOME/win/Documents && xlaunch.exe -run config.xlaunch &> /dev/null && cd -"
+    alias wp="sh $HOME/.fehbg"
+    alias i3="startx; wp; exec i3"
+fi
 
 # misc
 alias cat="lolcat"
