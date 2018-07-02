@@ -18,7 +18,7 @@ export LANG=en_US.UTF-8
 export EDITOR='vim'
 
 # ssh
-export SSH_KEY_PATH="~/.ssh/rsa_id"
+export SSH_KEY_PATH="~/.ssh/id_rsa"
 
 # base16
 BASE16_SHELL="$HOME/.config/base16-shell/"
