@@ -20,6 +20,10 @@ export EDITOR='vim'
 # ssh
 export SSH_KEY_PATH="~/.ssh/id_rsa"
 
+# compiler
+export CC=clang
+export CXX=clang++
+
 # base16
 BASE16_SHELL="$HOME/.config/base16-shell/"
 [ -n "$PS1" ] && \
