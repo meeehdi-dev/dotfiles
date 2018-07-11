@@ -1,5 +1,7 @@
+! Font
 *font: xft:Hack:size=9
 
+! Scrollbar
 URxvt*scrollBar: true
 URxvt*scrollBar_right: true
 URxvt*scrollstyle: plain
