@@ -1,2 +1,3 @@
 #!/bin/sh
-feh --bg-fill '/home/frisbee/kanagawa.jpg' 
+
+feh --no-fehbg --bg-fill "$HOME/kanagawa.jpg"
