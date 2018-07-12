@@ -46,7 +46,8 @@ then
     export DISPLAY=":0"
     alias startx="cd $HOME/win/Documents && xlaunch.exe -run config.xlaunch &> /dev/null && cd -"
     alias wp="sh $HOME/.fehbg"
-    alias i3="startx; wp; exec i3"
+    alias comptondaemon="compton --config $HOME/.config/compton/config -b"
+    alias i3="startx; wp; comptondaemon; exec i3"
 fi
 
 # misc
