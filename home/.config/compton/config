@@ -1,7 +1,10 @@
 # Opacity
 inactive-opacity = 0.8;
 active-opacity = 0.95;
-opacity-rule = [ "99:class_g = 'Firefox'" ];
+opacity-rule = [
+    "99:class_g = 'Firefox'",
+    "90:window_type = 'dock' && class_g = 'i3bar'"
+];
 
 # Fading
 fading = true;
