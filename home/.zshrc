@@ -30,25 +30,5 @@ BASE16_SHELL="$HOME/.config/base16-shell/"
     [ -s "$BASE16_SHELL/profile_helper.sh" ] && \
     eval "$("$BASE16_SHELL/profile_helper.sh")"
 
-# ubuntu
-if [[ `lsb_release &> /dev/null && lsb_release -a | head -n1 | tail -n1 | cut -f2` = "Ubuntu" ]];
-then
-    alias update="sudo apt-get update"
-    alias upgrade="sudo apt-get upgrade"
-    alias autoremove="sudo apt-get autoremove"
-    alias clean="sudo apt-get clean"
-    alias uuac="update && upgrade && autoremove && clean"
-fi
-
-# vcxsrv (WSL)
-if [[ `cat /proc/version | grep "Microsoft"` ]];
-then
-    export DISPLAY=":0"
-    alias startx="cd $HOME/win/Documents && xlaunch.exe -run config.xlaunch &> /dev/null && cd -"
-    alias wp="sh $HOME/.fehbg"
-    alias comptondaemon="compton --config $HOME/.config/compton/config -b"
-    alias i3="startx; wp; comptondaemon; exec i3"
-fi
-
 # misc
 alias less="vim -u $HOME/.vimrc.more"
