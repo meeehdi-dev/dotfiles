@@ -50,4 +50,4 @@ then
 fi
 
 # misc
-alias cat="lolcat"
+alias less="vim -u $HOME/.vimrc.more"
