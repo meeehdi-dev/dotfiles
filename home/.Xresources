@@ -2,9 +2,7 @@
 *font: xft:Hack:size=9
 
 ! Scrollbar
-URxvt*scrollBar: true
-URxvt*scrollBar_right: true
-URxvt*scrollstyle: plain
+URxvt*scrollBar: false
 
 ! Base16 Tomorrow Night
 ! Scheme: Chris Kempson (http://chriskempson.com)
