@@ -14,9 +14,9 @@
 font pango:Hack 9
 
 # Hide borders
-default_border pixel 1
-client.focused #000000 #000000 #000000 #000000 #808080
-client.unfocused #000000 #000000 #000000 #000000 #404040
+default_border none
+#client.focused #000000 #000000 #000000 #000000 #808080
+#client.unfocused #000000 #000000 #000000 #000000 #404040
 hide_edge_borders both
 
 # use these keys for focus, movement, and resize directions when reaching for
