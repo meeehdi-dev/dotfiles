@@ -1,4 +1,4 @@
-export PATH=$HOME/bin:/usr/local/bin:$PATH
+export PATH=$HOME/.yarn/bin:$HOME/bin:/usr/local/bin:$PATH
 
 # zsh
 export ZSH="$HOME/.oh-my-zsh"
