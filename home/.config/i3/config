@@ -165,3 +165,7 @@ bar {
         focused_workspace #404040 #202020 #DFDFDF
     }
 }
+
+bindsym XF86AudioLowerVolume exec amixer set Master 2%-
+bindsym XF86AudioRaiseVolume exec amixer set Master 2%+
+bindsym XF86AudioMute exec amixer set Master toggle 
