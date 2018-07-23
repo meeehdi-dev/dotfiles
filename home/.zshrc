@@ -30,3 +30,4 @@ BASE16_SHELL="$HOME/.config/base16-shell/"
 
 # misc
 alias lesss="vim -u $HOME/.vimrc.more"
+alias top="htop"
