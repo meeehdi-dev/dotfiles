@@ -3,14 +3,14 @@
 if [[ "$1" = "up" ]];
 then
     amixer set Master 2%+
-fi
-if [[ "$1" = "down" ]];
+elif [[ "$1" = "down" ]];
 then
     amixer set Master 2%-
-fi
-if [[ "$1" = "toggle" ]];
+elif [[ "$1" = "toggle" ]];
 then
     amixer set Master toggle
+else
+    exit 1
 fi
 
 
