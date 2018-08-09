@@ -166,6 +166,6 @@ bar {
     }
 }
 
-bindsym XF86AudioLowerVolume exec $HOME/volume.sh down
-bindsym XF86AudioRaiseVolume exec $HOME/volume.sh up
-bindsym XF86AudioMute exec $HOME/volume.sh toggle
+bindsym XF86AudioLowerVolume exec $HOME/bin/volume.sh down
+bindsym XF86AudioRaiseVolume exec $HOME/bin/volume.sh up
+bindsym XF86AudioMute exec $HOME/bin/volume.sh toggle
