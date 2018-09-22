@@ -35,4 +35,5 @@ fi
 sh $HOME/.fehbg &
 compton --config $HOME/.config/compton/config -b
 setxkbmap fr
+pgrep redshift &> /dev/null || redshift &> /dev/null &
 exec i3
