@@ -39,7 +39,7 @@ let g:deoplete#enable_at_startup = 1
 autocmd BufNewFile,BufRead *.tsx set filetype=typescript
 autocmd FileType typescript nnoremap <C-O> :TSImport<Enter>
 autocmd FileType typescript nnoremap <A-O> :TSOrganizeImports<Enter>
-nnoremap <C-D> :TSDef<Enter>
+autocmd FileType typescript nnoremap <C-D> :TSDef<Enter>
 " ALE
 let g:ale_linters_explicit = 1
 let g:ale_fix_on_save = 1
