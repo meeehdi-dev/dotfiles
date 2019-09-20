@@ -64,6 +64,6 @@ nnoremap <C-F> :PrettierAsync<Enter>
 " fuzzy file finder
 nnoremap <C-P> :FZF<Enter>
 " back to previous buffer
-nnoremap <C-B> :bprevious<Enter>
+nnoremap <C-S> :bprevious<Enter>
 " errors list
 nnoremap <C-Space> :lopen<Enter>
