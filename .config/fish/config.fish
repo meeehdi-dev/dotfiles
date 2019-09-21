@@ -20,3 +20,6 @@ alias uuac="sudo apt update; sudo apt upgrade; sudo apt autoremove; sudo apt cle
 
 # use fd for fzf to respect .gitignore
 export FZF_DEFAULT_COMMAND="fd --type f"
+
+# set vim as default editor
+export EDITOR="vim"
