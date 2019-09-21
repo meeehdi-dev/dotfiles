@@ -36,10 +36,11 @@ highlight SpellBad ctermbg=088
 let g:deoplete#enable_at_startup = 1
 
 " typescript
-autocmd BufNewFile,BufRead *.tsx set filetype=typescript
 autocmd FileType typescript nnoremap <C-O> :TSImport<Enter>
 autocmd FileType typescript nnoremap <A-O> :TSOrganizeImports<Enter>
 autocmd FileType typescript nnoremap <C-D> :TSDef<Enter>
+" tsx
+autocmd BufNewFile,BufRead *.tsx set filetype=typescript
 autocmd FileType typescript set omnifunc=xmlcomplete#CompleteTags
 " ALE
 let g:ale_linters_explicit = 1
