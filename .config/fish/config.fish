@@ -3,20 +3,20 @@ if status --is-interactive
   source "$BASE16_SHELL/profile_helper.fish"
 end
 
-# git
-alias ga="git add"
-alias gc="git commit"
-alias gd="git diff"
-alias gf="git fetch"
-alias gl="git pull"
-alias gp="git push"
-alias gs="git status"
-
 alias r="ranger"
 alias vim="nvim"
 
+# git
+abbr ga "git add"
+abbr gc "git commit"
+abbr gd "git diff"
+abbr gf "git fetch"
+abbr gl "git pull"
+abbr gp "git push"
+abbr gs "git status"
+
 # system update (echo at the end to avoid fish error due to missing argument)
-alias uuac="sudo apt update; sudo apt upgrade; sudo apt autoremove; sudo apt clean; echo"
+abbr uuac "sudo apt update; sudo apt upgrade; sudo apt autoremove; sudo apt clean"
 
 # use fd for fzf to respect .gitignore
 export FZF_DEFAULT_COMMAND="fd --type f"
