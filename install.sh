@@ -1,3 +1,3 @@
 #!/bin/bash
 
-rsync -r --exclude="install.sh" . $HOME
+rsync -r --exclude=".git" --exclude="install.sh" . $HOME
