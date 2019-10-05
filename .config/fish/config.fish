@@ -9,6 +9,7 @@ alias vim="nvim"
 # git
 abbr ga "git add"
 abbr gc "git commit"
+abbr gco "git checkout"
 abbr gd "git diff"
 abbr gf "git fetch"
 abbr gl "git pull"
