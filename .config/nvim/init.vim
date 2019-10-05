@@ -10,6 +10,7 @@ Plug 'prettier/vim-prettier', { 'do': 'yarn install' }
 Plug 'othree/html5.vim'
 Plug 'chriskempson/base16-vim'
 Plug 'tpope/vim-commentary'
+Plug 'tpope/vim-fugitive'
 
 call plug#end()
 
