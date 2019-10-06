@@ -16,7 +16,11 @@ abbr gl "git pull"
 abbr gp "git push"
 abbr gs "git status"
 
-# system update (echo at the end to avoid fish error due to missing argument)
+# tmux
+abbr ta "tmux a -t"
+abbr tls "tmux list-sessions"
+
+# system update
 abbr uuac "sudo apt update; sudo apt upgrade; sudo apt autoremove; sudo apt clean"
 
 # use fd for fzf to respect .gitignore
