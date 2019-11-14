@@ -34,6 +34,8 @@ highlight SpellBad ctermbg=088
 nnoremap <C-P> :FZF<Enter>
 " errors list
 nnoremap <C-Space> :lopen<Enter>
+" rename symbol
+nmap <F2> <Plug>(coc-rename)
 
 " tsx
 autocmd BufNewFile,BufRead *.tsx set filetype=typescript.tsx
