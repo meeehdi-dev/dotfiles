@@ -23,7 +23,7 @@ set softtabstop=2 " 1 tab = 2 spaces (deja vu)
 set statusline=%F " always show file path in status bar
 
 " colorscheme
-let base16colorspace=256
+set termguicolors
 colorscheme base16-horizon-dark
 " darken error highlight color
 highlight Error ctermbg=088
