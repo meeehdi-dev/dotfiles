@@ -2,7 +2,8 @@
 set fish_greeting
 
 # chezmoi
-alias c="$HOME/bin/chezmoi"
+alias chezmoi="$HOME/bin/chezmoi"
+abbr c "chezmoi"
 
 # neovim
 alias nvim="$HOME/nvim-linux64/bin/nvim"
