@@ -30,14 +30,5 @@ require("indent_blankline").setup({
   show_current_context = true,
 })
 
-local twilight = require("twilight")
-twilight.setup({
-  dimming = {
-    alpha = 0.5,
-  },
-  context = 20,
-})
--- twilight.enable()
-
 require("config.keymap")
 
