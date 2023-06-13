@@ -11,7 +11,7 @@ return require("packer").startup(function(use)
   use "folke/tokyonight.nvim" -- Theme
   use {
     "nvim-telescope/telescope.nvim", -- Fuzzy finder
-    tag = "0.1.1",
+    tag = "0.1.2",
     requires = { "nvim-lua/plenary.nvim" },
   }
   use {
