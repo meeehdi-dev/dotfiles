@@ -6,7 +6,7 @@ alias chezmoi="$HOME/bin/chezmoi"
 abbr c "chezmoi"
 
 # neovim
-alias nvim="$HOME/nvim-linux64/bin/nvim"
+alias nvim="$HOME/nvim/bin/nvim"
 alias vim="nvim"
 
 # exports
