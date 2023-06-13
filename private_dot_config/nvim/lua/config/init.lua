@@ -29,6 +29,9 @@ require("nvim-autopairs").setup()
 require("indent_blankline").setup({
   show_current_context = true,
 })
+require('distant').setup({
+  ['*'] = require('distant.settings').chip_default(),
+})
 
 require("config.keymap")
 

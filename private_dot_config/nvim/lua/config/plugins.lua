@@ -60,4 +60,8 @@ return require("packer").startup(function(use)
   use "windwp/nvim-ts-autotag" -- Autotag
   use "lukas-reineke/indent-blankline.nvim" -- Indent lines
   use "airblade/vim-gitgutter" -- Git gutter
+  use {
+  'chipsenkbeil/distant.nvim',
+    branch = 'v0.2',
+  }
 end)
