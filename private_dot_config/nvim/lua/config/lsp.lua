@@ -75,7 +75,7 @@ lsp.on_attach(function(client, bufnr)
   end, opts)
 
   vim.api.nvim_create_autocmd("BufWritePre", {
-    pattern = {"*.ts", "*.tsx", "*.js", "*.jsx", "*.json"},
+    pattern = {"*.ts", "*.tsx", "*.js", "*.jsx"},
     -- buffer = bufnr,
     command = "EslintFixAll",
   })
