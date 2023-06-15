@@ -7,10 +7,10 @@ abbr c "chezmoi"
 
 # neovim
 alias nvim="$HOME/nvim/bin/nvim"
-alias vim="nvim"
+alias vim="$HOME/nvim/bin/nvim"
 
 # exports
-set -gx EDITOR nvim
+set -gx EDITOR "$HOME/nvim/bin/nvim"
 set -gx GPG_TTY (tty)
 
 # prompt
