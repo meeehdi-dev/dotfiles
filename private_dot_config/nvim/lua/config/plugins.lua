@@ -2,7 +2,7 @@ vim.cmd [[packadd packer.nvim]]
 
 return require("packer").startup(function(use)
   use "wbthomason/packer.nvim" -- Package manager
-  use "github/copilot.vim" -- Copilot
+  use "zbirenbaum/copilot.lua" -- Copilot
   use {
     "nvim-lualine/lualine.nvim", -- Status line
     requires = { "nvim-tree/nvim-web-devicons" },
@@ -60,8 +60,4 @@ return require("packer").startup(function(use)
   use "windwp/nvim-ts-autotag" -- Autotag
   use "lukas-reineke/indent-blankline.nvim" -- Indent lines
   use "airblade/vim-gitgutter" -- Git gutter
-  use {
-  'chipsenkbeil/distant.nvim',
-    branch = 'v0.2',
-  }
 end)

@@ -29,8 +29,13 @@ require("nvim-autopairs").setup()
 require("indent_blankline").setup({
   show_current_context = true,
 })
-require('distant').setup({
-  ['*'] = require('distant.settings').chip_default(),
+require("copilot").setup({
+  suggestion = {
+    auto_trigger = true,
+    keymap = {
+      accept = "<Tab>",
+    },
+  },
 })
 
 require("config.keymap")
