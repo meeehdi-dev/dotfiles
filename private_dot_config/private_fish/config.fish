@@ -10,6 +10,7 @@ alias nvim="$HOME/nvim/bin/nvim"
 alias vim="$HOME/nvim/bin/nvim"
 
 # exports
+set -gx TERM "xterm-256color"
 set -gx EDITOR "$HOME/nvim/bin/nvim"
 set -gx GPG_TTY (tty)
 
