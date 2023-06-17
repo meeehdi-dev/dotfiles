@@ -31,9 +31,9 @@ require("indent_blankline").setup({
 })
 require("copilot").setup({
   suggestion = {
-    auto_trigger = true,
     keymap = {
-      accept = "<Tab>",
+      next = "<S-Tab>",
+      accept = "<C-Right>",
     },
   },
 })

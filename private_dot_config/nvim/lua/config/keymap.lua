@@ -30,8 +30,3 @@ vim.keymap.set("n", "Q", "<nop>")
 vim.keymap.set("n", "<F5>", vim.cmd.UndotreeToggle)
 vim.keymap.set("n", "<C-t>", vim.cmd.TroubleToggle)
 
-vim.keymap.set("i", "<C-right>", function()
-  local suggestion = vim.fn["copilot#Accept"]("")
-  local bar = vim.fn["copilot#TextQueuedForInsertion"]()
-  return vim.fn.split(bar, [[[ .]\zs]])[1]
-end, {expr = true, remap = false})
