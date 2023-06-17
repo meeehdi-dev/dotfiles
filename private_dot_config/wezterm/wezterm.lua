@@ -6,11 +6,11 @@ if wezterm.config_builder then
   config = wezterm.config_builder()
 end
 
-local bg = os.getenv("HOME") .. "/bg.png"
+local bg = (os.getenv("HOME") or "") .. "/bg.png"
 
-if wezterm.target_triple == 'x86_64-pc-windows-msvc' then
-  config.default_prog = {'wsl.exe', '~', '-d', 'Ubuntu'}
-  bg = os.getenv("userprofile") .. "/bg.png"
+if wezterm.target_triple == "x86_64-pc-windows-msvc" then
+  config.default_prog = {"wsl.exe", "~", "-d", "Ubuntu"}
+  bg = (os.getenv("userprofile") or "") .. "/bg.png"
 end
 
 config.hide_tab_bar_if_only_one_tab = true
