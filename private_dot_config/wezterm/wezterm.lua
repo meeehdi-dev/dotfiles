@@ -6,7 +6,7 @@ if wezterm.config_builder then
   config = wezterm.config_builder()
 end
 
-local bg = "~/bg.png"
+local bg = os.getenv("HOME") .. "/bg.png"
 
 if wezterm.target_triple == 'x86_64-pc-windows-msvc' then
   config.default_prog = {'wsl.exe', '~', '-d', 'Ubuntu'}
