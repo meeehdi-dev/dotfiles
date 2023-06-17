@@ -37,6 +37,7 @@ require("copilot").setup({
     },
   },
 })
+require("early-retirement").setup()
 
 require("config.keymap")
 
