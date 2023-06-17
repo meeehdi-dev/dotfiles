@@ -1,14 +1,14 @@
 vim.cmd [[packadd packer.nvim]]
 
 return require("packer").startup(function(use)
-  use "wbthomason/packer.nvim" -- Package manager
-  use "zbirenbaum/copilot.lua" -- Copilot
+  use "wbthomason/packer.nvim"   -- Package manager
+  use "zbirenbaum/copilot.lua"   -- Copilot
   use {
     "nvim-lualine/lualine.nvim", -- Status line
     requires = { "nvim-tree/nvim-web-devicons" },
   }
-  use "tpope/vim-fugitive" -- Git commands in nvim
-  use "folke/tokyonight.nvim" -- Theme
+  use "tpope/vim-fugitive"           -- Git commands in nvim
+  use "folke/tokyonight.nvim"        -- Theme
   use {
     "nvim-telescope/telescope.nvim", -- Fuzzy finder
     tag = "0.1.2",
@@ -23,7 +23,7 @@ return require("packer").startup(function(use)
   }
   use "nvim-treesitter/nvim-treesitter-context" -- Treesitter context
   use {
-    "folke/trouble.nvim", -- LSP diagnostics
+    "folke/trouble.nvim",                       -- LSP diagnostics
     requires = { "nvim-tree/nvim-web-devicons" },
   }
   use {
@@ -31,7 +31,7 @@ return require("packer").startup(function(use)
     requires = { "nvim-tree/nvim-web-devicons" },
   }
   use "tpope/vim-commentary" -- Commenting
-  use "mbbill/undotree" -- Undo tree
+  use "mbbill/undotree"      -- Undo tree
   use {
     "prettier/vim-prettier", -- Prettier
     run = "yarn install",
@@ -54,11 +54,12 @@ return require("packer").startup(function(use)
       "L3MON4D3/LuaSnip",
     },
   }
-  use "sindrets/diffview.nvim" -- Diffview
-  use "rmagatti/auto-session" -- Auto session
-  use "windwp/nvim-autopairs" -- Autopairs
-  use "windwp/nvim-ts-autotag" -- Autotag
+  use "sindrets/diffview.nvim"              -- Diffview
+  use "rmagatti/auto-session"               -- Auto session
+  use "windwp/nvim-autopairs"               -- Autopairs
+  use "windwp/nvim-ts-autotag"              -- Autotag
   use "lukas-reineke/indent-blankline.nvim" -- Indent lines
-  use "airblade/vim-gitgutter" -- Git gutter
-  use "chrisgrieser/nvim-early-retirement" -- Auto close inactive buffers
+  use "airblade/vim-gitgutter"              -- Git gutter
+  use "chrisgrieser/nvim-early-retirement"  -- Auto close inactive buffers
+  use "zbirenbaum/copilot-cmp"              -- Integrate copilot with cmp
 end)

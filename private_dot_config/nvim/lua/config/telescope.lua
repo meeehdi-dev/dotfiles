@@ -1,8 +1,8 @@
 require("telescope").setup({
   pickers = {
     live_grep = {
-      additional_args = function(opts)
-        return {"--hidden"}
+      additional_args = function()
+        return { "--hidden" }
       end
     },
     buffers = {
@@ -14,10 +14,9 @@ require("telescope").setup({
       },
     },
   },
-  defaults = { 
-    file_ignore_patterns = { 
-      "node_modules" 
+  defaults = {
+    file_ignore_patterns = {
+      "node_modules"
     }
   }
 })
-

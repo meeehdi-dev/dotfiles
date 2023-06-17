@@ -16,7 +16,7 @@ vim.keymap.set("n", "<C-p>", function()
 end)
 vim.keymap.set("n", "<C-b>", telescope.buffers)
 
-vim.keymap.set("n", "<C-e>", function ()
+vim.keymap.set("n", "<C-e>", function()
   tree.tree.toggle({
     find_file = true,
     focus = false,
@@ -29,4 +29,3 @@ vim.keymap.set("n", "Q", "<nop>")
 
 vim.keymap.set("n", "<F5>", vim.cmd.UndotreeToggle)
 vim.keymap.set("n", "<C-t>", vim.cmd.TroubleToggle)
-

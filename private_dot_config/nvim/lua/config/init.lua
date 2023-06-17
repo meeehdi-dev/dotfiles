@@ -29,15 +29,6 @@ require("nvim-autopairs").setup()
 require("indent_blankline").setup({
   show_current_context = true,
 })
-require("copilot").setup({
-  suggestion = {
-    keymap = {
-      next = "<S-Tab>",
-      accept = "<C-Right>",
-    },
-  },
-})
 require("early-retirement").setup()
 
 require("config.keymap")
-
