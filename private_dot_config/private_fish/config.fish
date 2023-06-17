@@ -45,3 +45,8 @@ abbr yw "yarn workspace"
 abbr yu "yarn upgrade-interactive"
 abbr ygu "yarn global upgrade-interactive"
 
+if status is-interactive
+  and not set -q TMUX
+  exec tmux
+end
+
