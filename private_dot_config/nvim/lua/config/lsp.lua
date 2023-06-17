@@ -75,7 +75,7 @@ lsp.on_attach(function(client, bufnr)
   end, opts)
 
   vim.api.nvim_create_autocmd("BufWritePre", {
-    pattern = {"*.ts", "*.tsx", "*.js", "*.jsx"},
+    pattern = {"*.ts", "*.tsx", "*.js", "*.jsx", "*.json"},
     -- buffer = bufnr,
     command = "EslintFixAll",
   })
@@ -92,3 +92,8 @@ lsp.on_attach(function(client, bufnr)
 end)
 
 lsp.setup()
+
+require("lspconfig").eslint.setup({
+  filetypes = {"javascript", "javascriptreact", "typescript", "typescriptreact", "json"},
+})
+
