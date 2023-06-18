@@ -1,18 +1,16 @@
 # remove greeting
 set fish_greeting
 
-# chezmoi
-alias chezmoi="$HOME/bin/chezmoi"
-abbr c "chezmoi"
-
 # neovim
-alias nvim="$HOME/nvim/bin/nvim"
-alias vim="$HOME/nvim/bin/nvim"
+alias vim="nvim"
 
 # exports
 set -gx TERM "xterm-256color"
-set -gx EDITOR "$HOME/nvim/bin/nvim"
+set -gx EDITOR "nvim"
 set -gx GPG_TTY (tty)
+
+# chezmoi
+abbr c "chezmoi"
 
 # git
 abbr ga "git add"
