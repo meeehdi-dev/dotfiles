@@ -14,9 +14,6 @@ set -gx TERM "xterm-256color"
 set -gx EDITOR "$HOME/nvim/bin/nvim"
 set -gx GPG_TTY (tty)
 
-# prompt
-starship init fish | source
-
 # git
 abbr ga "git add"
 abbr gc "git commit"
@@ -38,16 +35,9 @@ abbr tls "tmux list-sessions"
 # update
 abbr u "sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y"
 
-# vim
-abbr v "nvim"
-
 # yarn
 abbr yw "yarn workspace"
-abbr yu "yarn upgrade-interactive"
-abbr ygu "yarn global upgrade-interactive"
 
-if status is-interactive
-  and not set -q TMUX
-  exec tmux
-end
+# prompt
+starship init fish | source
 
