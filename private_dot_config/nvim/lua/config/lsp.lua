@@ -1,7 +1,6 @@
 local lsp = require("lsp-zero")
 local telescope = require("telescope.builtin")
 local cmp = require("cmp")
-local tree = require("nvim-tree.api")
 local cmp_autopairs = require("nvim-autopairs.completion.cmp")
 
 require("copilot").setup({
@@ -21,12 +20,9 @@ local cmp_select = { behavior = cmp.SelectBehavior.Select }
 local cmp_mappings = lsp.defaults.cmp_mappings({
   ["<Up>"] = cmp.mapping.select_prev_item(cmp_select),
   ["<Down>"] = cmp.mapping.select_next_item(cmp_select),
-  ["<CR>"] = cmp.mapping.confirm({ select = false }),
+  ["<CR>"] = cmp.mapping.confirm({ behavior = cmp.ConfirmBehavior.Replace, select = false }),
   ["<C-Space>"] = cmp.mapping.complete(),
 })
-
-cmp_mappings["<Tab>"] = nil
-cmp_mappings["<S-Tab>"] = nil
 
 cmp.setup.cmdline({ "/", "?" }, {
   mapping = cmp.mapping.preset.cmdline({
@@ -53,12 +49,12 @@ cmp.setup.cmdline(":", {
 lsp.setup_nvim_cmp({
   mapping = cmp_mappings,
   sources = {
-    { name = "copilot" },
-    { name = "path" },
+    { name = "copilot", max_item_count = 3 },
+    { name = "path", max_item_count = 3 },
     { name = "nvim_lsp" },
-    { name = "luasnip", keyword_length = 2 },
-    { name = "nvim_lua" },
-    { name = "buffer",  keyword_length = 3 },
+    { name = "luasnip", max_item_count = 3 },
+    { name = "nvim_lua", max_item_count = 3 },
+    { name = "buffer", max_item_count = 3 },
   },
   snippet = {
     expand = function(args)
