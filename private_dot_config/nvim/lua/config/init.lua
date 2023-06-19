@@ -4,6 +4,10 @@ require("config.plugins")
 
 require("tokyonight").setup({
   transparent = true,
+  on_colors = function(colors)
+    colors.fg_dark = "#ffffff"
+    colors.fg_gutter = "#557799"
+  end
 })
 vim.cmd [[colorscheme tokyonight]]
 
