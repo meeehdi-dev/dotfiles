@@ -7,6 +7,7 @@ require("tokyonight").setup({
   on_colors = function(colors)
     colors.fg_dark = "#ffffff"
     colors.fg_gutter = "#557799"
+    colors.bg_highlight = "#445566"
   end
 })
 vim.cmd [[colorscheme tokyonight]]
