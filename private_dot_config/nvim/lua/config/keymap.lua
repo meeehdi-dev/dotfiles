@@ -29,3 +29,7 @@ vim.keymap.set("n", "Q", "<nop>")
 
 vim.keymap.set("n", "<F5>", vim.cmd.UndotreeToggle)
 vim.keymap.set("n", "<C-t>", vim.cmd.TroubleToggle)
+
+vim.keymap.set("n", "<C-d>", "<C-d>zz", { noremap = true })
+vim.keymap.set("n", "<C-u>", "<C-u>zz", { noremap = true })
+
