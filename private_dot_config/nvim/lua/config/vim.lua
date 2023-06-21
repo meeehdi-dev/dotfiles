@@ -1,8 +1,7 @@
+vim.opt.cindent = true
 vim.opt.cursorcolumn = true
 vim.opt.cursorline = true
-vim.opt.encoding = "utf-8"
 vim.opt.expandtab = true
-vim.opt.fileencoding = "utf-8"
 vim.opt.hlsearch = true
 vim.opt.ignorecase = true
 vim.opt.laststatus = 2

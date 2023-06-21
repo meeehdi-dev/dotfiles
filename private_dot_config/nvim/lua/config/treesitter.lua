@@ -9,7 +9,16 @@ require("nvim-treesitter.configs").setup({
     additional_vim_regex_highlighting = false,
   },
 
+  textobjects = {
+    enable = true,
+    lookahead = true,
+    include_surrouding_whitespace = true,
+  },
+
   autotag = {
     enable = true,
+    enable_rename = true,
+    enable_close = true,
+    enable_close_on_slash = true,
   },
 })

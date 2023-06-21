@@ -1,65 +1,56 @@
 vim.cmd [[packadd packer.nvim]]
 
 return require("packer").startup(function(use)
-  use "wbthomason/packer.nvim"   -- Package manager
-  use "zbirenbaum/copilot.lua"   -- Copilot
+  use "wbthomason/packer.nvim"
+  use "folke/tokyonight.nvim"
+  use "nvim-lualine/lualine.nvim"
+  use "tpope/vim-fugitive"
   use {
-    "nvim-lualine/lualine.nvim", -- Status line
-    requires = { "nvim-tree/nvim-web-devicons" },
-  }
-  use "tpope/vim-fugitive"           -- Git commands in nvim
-  use "folke/tokyonight.nvim"        -- Theme
-  use {
-    "nvim-telescope/telescope.nvim", -- Fuzzy finder
+    "nvim-telescope/telescope.nvim",
     tag = "0.1.2",
     requires = { "nvim-lua/plenary.nvim" },
   }
   use {
-    "nvim-treesitter/nvim-treesitter", -- Treesitter
+    "nvim-treesitter/nvim-treesitter",
     run = function()
       local ts_update = require("nvim-treesitter.install").update({ with_sync = true })
       ts_update()
     end,
   }
-  use "nvim-treesitter/nvim-treesitter-context" -- Treesitter context
   use {
-    "folke/trouble.nvim",                       -- LSP diagnostics
-    requires = { "nvim-tree/nvim-web-devicons" },
+    "nvim-treesitter/nvim-treesitter-textobjects",
+    requires = { "nvim-treesitter/nvim-treesitter" },
   }
   use {
-    "nvim-tree/nvim-tree.lua", -- File explorer
-    requires = { "nvim-tree/nvim-web-devicons" },
+    "nvim-treesitter/nvim-treesitter-context",
+    requires = { "nvim-treesitter/nvim-treesitter" },
   }
-  use "tpope/vim-commentary" -- Commenting
-  use "mbbill/undotree"      -- Undo tree
-  use {
-    "prettier/vim-prettier", -- Prettier
-    run = "yarn install",
-  }
-  use {
-    "VonHeikemen/lsp-zero.nvim", -- LSP
-    requires = {
-      "neovim/nvim-lspconfig",
-      "williamboman/mason.nvim",
-      "williamboman/mason-lspconfig.nvim",
+  use "nvim-tree/nvim-tree.lua"
+  use "folke/trouble.nvim"
+  use "rmagatti/auto-session"
+  use "windwp/nvim-autopairs"
+  use "lukas-reineke/indent-blankline.nvim"
+  use "chrisgrieser/nvim-early-retirement"
+  use "zbirenbaum/copilot.lua"
+  use "zbirenbaum/copilot-cmp"
 
-      "hrsh7th/nvim-cmp",
-      "hrsh7th/cmp-nvim-lsp",
-      "hrsh7th/cmp-buffer",
-      "hrsh7th/cmp-path",
-      "hrsh7th/cmp-cmdline",
-
-      "hrsh7th/cmp-nvim-lua",
-      "saadparwaiz1/cmp_luasnip",
-      "L3MON4D3/LuaSnip",
-    },
+  use {
+    "williamboman/mason.nvim",
+    run = ":MasonUpdate",
   }
-  use "sindrets/diffview.nvim"              -- Diffview
-  use "rmagatti/auto-session"               -- Auto session
-  use "windwp/nvim-autopairs"               -- Autopairs
-  use "windwp/nvim-ts-autotag"              -- Autotag
-  use "lukas-reineke/indent-blankline.nvim" -- Indent lines
-  use "airblade/vim-gitgutter"              -- Git gutter
-  use "chrisgrieser/nvim-early-retirement"  -- Auto close inactive buffers
-  use "zbirenbaum/copilot-cmp"              -- Integrate copilot with cmp
+  use "williamboman/mason-lspconfig.nvim"
+  use "neovim/nvim-lspconfig"
+  use "hrsh7th/nvim-cmp"
+  use "hrsh7th/cmp-nvim-lsp"
+  use "hrsh7th/cmp-buffer"
+  use "hrsh7th/cmp-path"
+  use "hrsh7th/cmp-cmdline"
+  use "L3MON4D3/LuaSnip"
+  use "lukas-reineke/lsp-format.nvim"
+
+  use "numToStr/Comment.nvim"
+  use "mbbill/undotree"
+  use "sindrets/diffview.nvim"
+  use "airblade/vim-gitgutter"
+  use "windwp/nvim-ts-autotag"
 end)

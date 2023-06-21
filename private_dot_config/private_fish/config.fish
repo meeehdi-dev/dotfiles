@@ -5,7 +5,7 @@ set fish_greeting
 alias vim="nvim"
 
 # exports
-set -gx TERM "xterm-256color"
+set -gx TERM "tmux-256color"
 set -gx EDITOR "nvim"
 set -gx GPG_TTY (tty)
 

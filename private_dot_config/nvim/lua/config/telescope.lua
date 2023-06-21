@@ -5,18 +5,5 @@ require("telescope").setup({
         return { "--hidden" }
       end
     },
-    buffers = {
-      sort_lastused = true,
-      mappings = {
-        n = {
-          ["<C-d>"] = require("telescope.actions").delete_buffer,
-        },
-      },
-    },
   },
-  defaults = {
-    file_ignore_patterns = {
-      "node_modules"
-    }
-  }
 })
