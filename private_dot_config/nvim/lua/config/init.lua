@@ -26,7 +26,6 @@ require("copilot").setup({
 })
 require("copilot_cmp").setup()
 require("Comment").setup()
-require("nvim-ts-autotag").setup()
 
 require("config.cmp")
 require("config.lsp")
