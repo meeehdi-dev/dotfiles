@@ -42,7 +42,7 @@ vim.api.nvim_create_autocmd('LspAttach', {
     vim.keymap.set("n", "gr", telescope.lsp_references, opts)
     vim.keymap.set("n", "gi", vim.lsp.buf.hover, opts)
     vim.keymap.set("n", "<C-a>", vim.lsp.buf.code_action, opts)
-    vim.keymap.set("n", "<C-S-i>", function()
+    vim.keymap.set("n", "<C-i>", function()
       vim.lsp.buf.execute_command({ command = "_typescript.organizeImports", arguments = { vim.api.nvim_buf_get_name(0) } })
     end, opts)
 
@@ -52,7 +52,7 @@ vim.api.nvim_create_autocmd('LspAttach', {
       command = "EslintFixAll",
     })
 
-    vim.lsp.for_each_buffer_client(bufnr, function (client)
+    vim.lsp.for_each_buffer_client(bufnr, function(client)
       lsp_format.on_attach(client)
       if client.supports_method('textDocument/documentHighlight') then
         if client.supports_method("textDocument/documentHighlight") then
