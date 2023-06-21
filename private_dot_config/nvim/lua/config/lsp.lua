@@ -3,7 +3,6 @@ local mason = require("mason")
 local mason_lsp = require("mason-lspconfig")
 local lspconfig = require('lspconfig')
 local lsp_capabilities = require('cmp_nvim_lsp').default_capabilities()
-local lsp_format = require("lsp-format")
 
 mason.setup()
 mason_lsp.setup({
@@ -30,8 +29,6 @@ mason_lsp.setup_handlers({
   end,
 })
 
-require("lsp-format").setup()
-
 vim.api.nvim_create_autocmd('LspAttach', {
   callback = function(ev)
     local bufnr = ev.buf
@@ -47,13 +44,15 @@ vim.api.nvim_create_autocmd('LspAttach', {
     end, opts)
 
     vim.api.nvim_create_autocmd("BufWritePre", {
-      pattern = { "*.ts", "*.tsx", "*.js", "*.jsx", "*.json" },
-      -- buffer = bufnr,
-      command = "EslintFixAll",
+      buffer = bufnr,
+      callback = function()
+        if vim.fn.exists(":EslintFixAll") > 0 then
+          vim.cmd.EslintFixAll()
+        end
+      end
     })
 
     vim.lsp.for_each_buffer_client(bufnr, function(client)
-      lsp_format.on_attach(client)
       if client.supports_method('textDocument/documentHighlight') then
         if client.supports_method("textDocument/documentHighlight") then
           vim.api.nvim_create_autocmd("CursorHold", {
@@ -68,4 +67,8 @@ vim.api.nvim_create_autocmd('LspAttach', {
       end
     end)
   end
+})
+
+vim.diagnostic.config({
+  update_in_insert = true,
 })

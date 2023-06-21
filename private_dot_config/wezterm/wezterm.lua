@@ -9,7 +9,7 @@ end
 local bg = (os.getenv("HOME") or "") .. "/bg.png"
 
 if wezterm.target_triple == "x86_64-pc-windows-msvc" then
-  config.default_prog = {"wsl.exe", "~", "-d", "Ubuntu"}
+  config.default_prog = { "wsl.exe", "~", "-d", "Ubuntu" }
   bg = (os.getenv("userprofile") or "") .. "/bg.png"
 end
 
@@ -57,4 +57,3 @@ config.font = wezterm.font("CaskaydiaCove Nerd Font Mono")
 config.font_size = 12.0
 
 return config
-

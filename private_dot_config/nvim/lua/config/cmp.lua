@@ -19,7 +19,7 @@ cmp.setup({
     expand = function(args)
       require('luasnip').lsp_expand(args.body)
     end,
-  }
+  },
 })
 
 cmp.event:on("confirm_done", cmp_autopairs.on_confirm_done())
@@ -43,4 +43,3 @@ cmp.setup.cmdline(":", {
     { name = "cmdline", max_item_count = 10 },
   }),
 })
-

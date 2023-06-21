@@ -20,6 +20,7 @@ require("indent_blankline").setup({
 require("early-retirement").setup({
   retirementAgeMins = 10,
 })
+
 require("copilot").setup({
   suggestion = { enabled = false },
   panel = { enabled = false },
