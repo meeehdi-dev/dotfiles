@@ -1,10 +1,11 @@
 require("tokyonight").setup({
   transparent = true,
   on_colors = function(colors)
-    colors.comment = "#667788"
+    colors.comment = "#8899bb"
+    colors.terminal_black = "#667799"
     colors.fg_dark = "#ffffff"
-    colors.fg_gutter = "#556677"
-    colors.bg_highlight = "#445566"
+    colors.fg_gutter = "#556688"
+    colors.bg_highlight = "#445577"
   end
 })
 vim.cmd [[colorscheme tokyonight]]
