@@ -26,7 +26,6 @@ return require("packer").startup(function(use)
     requires = { "nvim-treesitter/nvim-treesitter" },
   }
   use "nvim-tree/nvim-tree.lua"
-  use "folke/trouble.nvim"
   use "rmagatti/auto-session"
   use "windwp/nvim-autopairs"
   use "lukas-reineke/indent-blankline.nvim"

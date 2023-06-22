@@ -7,11 +7,6 @@ require("config.telescope")
 require("config.treesitter")
 
 require("nvim-tree").setup()
-require("trouble").setup({
-  icons = false,
-  auto_open = false,
-  auto_close = true,
-})
 require("auto-session").setup()
 require("nvim-autopairs").setup()
 require("indent_blankline").setup({
@@ -22,8 +17,12 @@ require("early-retirement").setup({
 })
 
 require("copilot").setup({
-  suggestion = { enabled = false },
-  panel = { enabled = false },
+  panel = {
+    enable = false,
+  },
+  suggestion = {
+    enable = false,
+  },
 })
 require("copilot_cmp").setup()
 require("Comment").setup()

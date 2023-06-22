@@ -1,5 +1,4 @@
 vim.opt.cindent = true
-vim.opt.clipboard:append("unnamedplus")
 vim.opt.cursorcolumn = true
 vim.opt.cursorline = true
 vim.opt.expandtab = true

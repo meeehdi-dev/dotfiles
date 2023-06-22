@@ -25,6 +25,10 @@ mason_lsp.setup_handlers({
       }
     end
 
+    if server_name == "eslint" then
+      opts.filetypes = { "javascript", "javascriptreact", "javascript.jsx", "typescript", "typescriptreact", "typescript.tsx", "vue", "svelte", "astro", "json" }
+    end
+
     lspconfig[server_name].setup(opts)
   end,
 })
