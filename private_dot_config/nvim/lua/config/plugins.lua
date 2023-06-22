@@ -27,11 +27,9 @@ return require("packer").startup(function(use)
   }
   use "nvim-tree/nvim-tree.lua"
   use "rmagatti/auto-session"
-  use "windwp/nvim-autopairs"
   use "lukas-reineke/indent-blankline.nvim"
   use "chrisgrieser/nvim-early-retirement"
   use "zbirenbaum/copilot.lua"
-  use "zbirenbaum/copilot-cmp"
 
   use {
     "williamboman/mason.nvim",

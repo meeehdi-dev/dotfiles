@@ -8,7 +8,6 @@ require("config.treesitter")
 
 require("nvim-tree").setup()
 require("auto-session").setup()
-require("nvim-autopairs").setup()
 require("indent_blankline").setup({
   show_current_context = true,
 })
@@ -21,10 +20,13 @@ require("copilot").setup({
     enable = false,
   },
   suggestion = {
-    enable = false,
+    auto_trigger = true,
+    debounce = 500,
+    keymap = {
+      accept = "<Tab>",
+    },
   },
 })
-require("copilot_cmp").setup()
 require("Comment").setup()
 
 require("config.cmp")
