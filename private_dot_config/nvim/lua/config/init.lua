@@ -28,6 +28,10 @@ require("copilot").setup({
   },
 })
 require("Comment").setup()
+require("trouble").setup({
+  icons = false,
+  auto_close = true,
+})
 
 require("config.cmp")
 require("config.lsp")

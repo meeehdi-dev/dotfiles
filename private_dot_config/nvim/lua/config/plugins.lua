@@ -30,6 +30,7 @@ return require("packer").startup(function(use)
   use "lukas-reineke/indent-blankline.nvim"
   use "chrisgrieser/nvim-early-retirement"
   use "zbirenbaum/copilot.lua"
+  use "folke/trouble.nvim"
 
   use {
     "williamboman/mason.nvim",

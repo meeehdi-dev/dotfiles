@@ -24,7 +24,7 @@ end)
 vim.keymap.set("x", "p", "\"_dP")
 
 vim.keymap.set("n", "<F5>", vim.cmd.UndotreeToggle, { remap = false })
-vim.keymap.set("n", "<C-t>", telescope.diagnostics)
+vim.keymap.set("n", "<C-t>", vim.cmd.TroubleToggle)
 vim.keymap.set("n", "<leader>p", vim.cmd.Prettier)
 vim.keymap.set("n", "<leader>f", vim.lsp.buf.format)
 
