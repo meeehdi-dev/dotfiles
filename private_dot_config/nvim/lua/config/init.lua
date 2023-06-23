@@ -21,9 +21,11 @@ require("copilot").setup({
   },
   suggestion = {
     auto_trigger = true,
-    debounce = 500,
+    debounce = 100,
     keymap = {
+      next = "<S-Tab>",
       accept = "<Tab>",
+      accept_word = "<C-Right>",
     },
   },
 })
