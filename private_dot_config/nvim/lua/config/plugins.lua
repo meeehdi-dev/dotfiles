@@ -1,57 +1,64 @@
-vim.cmd [[packadd packer.nvim]]
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not vim.loop.fs_stat(lazypath) then
+  vim.fn.system({
+    "git",
+    "clone",
+    "--filter=blob:none",
+    "https://github.com/folke/lazy.nvim.git",
+    "--branch=stable", -- latest stable release
+    lazypath,
+  })
+end
+vim.opt.rtp:prepend(lazypath)
 
-return require("packer").startup(function(use)
-  use "wbthomason/packer.nvim"
-  use "folke/tokyonight.nvim"
-  use "nvim-lualine/lualine.nvim"
-  use "tpope/vim-fugitive"
-  use {
+require("lazy").setup({
+  "folke/tokyonight.nvim",
+  "nvim-lualine/lualine.nvim",
+  "tpope/vim-fugitive",
+  {
     "nvim-telescope/telescope.nvim",
     tag = "0.1.2",
-    requires = { "nvim-lua/plenary.nvim" },
-  }
-  use {
+    dependencies = { "nvim-lua/plenary.nvim" },
+  },
+  {
     "nvim-treesitter/nvim-treesitter",
-    run = function()
-      local ts_update = require("nvim-treesitter.install").update({ with_sync = true })
-      ts_update()
+    build = function()
+      pcall(require("nvim-treesitter.install").update({ with_sync = true }))
     end,
-  }
-  use {
+  },
+  {
     "nvim-treesitter/nvim-treesitter-textobjects",
-    requires = { "nvim-treesitter/nvim-treesitter" },
-  }
-  use {
+    dependencies = { "nvim-treesitter/nvim-treesitter" },
+  },
+  {
     "nvim-treesitter/nvim-treesitter-context",
-    requires = { "nvim-treesitter/nvim-treesitter" },
-  }
-  use "nvim-tree/nvim-tree.lua"
-  use "rmagatti/auto-session"
-  use "lukas-reineke/indent-blankline.nvim"
-  use "chrisgrieser/nvim-early-retirement"
-  use "zbirenbaum/copilot.lua"
-  use "folke/trouble.nvim"
-
-  use {
+    dependencies = { "nvim-treesitter/nvim-treesitter" },
+  },
+  "nvim-tree/nvim-tree.lua",
+  "rmagatti/auto-session",
+  "lukas-reineke/indent-blankline.nvim",
+  "chrisgrieser/nvim-early-retirement",
+  "zbirenbaum/copilot.lua",
+  "folke/trouble.nvim",
+  {
     "williamboman/mason.nvim",
-    run = ":MasonUpdate",
-  }
-  use "williamboman/mason-lspconfig.nvim"
-  use "neovim/nvim-lspconfig"
-  use "hrsh7th/nvim-cmp"
-  use "hrsh7th/cmp-nvim-lsp"
-  use "hrsh7th/cmp-buffer"
-  use "hrsh7th/cmp-path"
-  use "hrsh7th/cmp-cmdline"
-  use "L3MON4D3/LuaSnip"
-  use {
+    build = ":MasonUpdate",
+  },
+  "williamboman/mason-lspconfig.nvim",
+  "neovim/nvim-lspconfig",
+  "hrsh7th/nvim-cmp",
+  "hrsh7th/cmp-nvim-lsp",
+  "hrsh7th/cmp-buffer",
+  "hrsh7th/cmp-path",
+  "hrsh7th/cmp-cmdline",
+  "L3MON4D3/LuaSnip",
+  {
     "prettier/vim-prettier",
     build = "yarn install --frozen-lockfile --production",
-  }
-
-  use "numToStr/Comment.nvim"
-  use "mbbill/undotree"
-  use "sindrets/diffview.nvim"
-  use "airblade/vim-gitgutter"
-  use "windwp/nvim-ts-autotag"
-end)
+  },
+  "numToStr/Comment.nvim",
+  "mbbill/undotree",
+  "sindrets/diffview.nvim",
+  "airblade/vim-gitgutter",
+  "windwp/nvim-ts-autotag",
+})
