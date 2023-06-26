@@ -56,10 +56,11 @@ vim.keymap.set("x", "p", "\"_dP")
 vim.keymap.set("n", "<F5>", vim.cmd.UndotreeToggle)
 vim.keymap.set("n", "<C-t>", vim.cmd.TroubleToggle)
 vim.keymap.set("n", "<leader>f", function()
-  if vim.fn.exists(":Prettier") == 1 then
-    vim.cmd.Prettier()
-  else
+  local file = vim.fn.findfile(".prettierrc", ".;")
+  if file == "" then
     vim.lsp.buf.format()
+  else
+    vim.cmd.Prettier()
   end
 end)
 
@@ -76,10 +77,10 @@ vim.keymap.set("i", "<C-c>", "<nop>", { remap = false })
 
 vim.keymap.set("n", "<F2>", vim.lsp.buf.rename)
 vim.keymap.set("n", "gd", function()
-  require("telescope").lsp_definitions()
+  require("telescope.builtin").lsp_definitions()
 end)
 vim.keymap.set("n", "gr", function()
-  require("telescope").lsp_references()
+  require("telescope.builtin").lsp_references()
 end)
 vim.keymap.set("n", "gi", vim.lsp.buf.hover)
 vim.keymap.set("n", "<C-a>", vim.lsp.buf.code_action)
@@ -93,6 +94,25 @@ vim.api.nvim_create_autocmd("BufWritePre", {
       vim.cmd.EslintFixAll()
     end
   end
+})
+vim.api.nvim_create_autocmd("CursorHold", {
+  callback = function()
+    vim.lsp.buf.document_highlight()
+    vim.diagnostic.open_float()
+  end
+})
+vim.api.nvim_create_autocmd("CursorMoved", {
+  callback = vim.lsp.buf.clear_references
+})
+
+vim.diagnostic.config({
+  underline = true,
+  update_in_insert = true,
+  virtual_text = false,
+  float = {
+    focusable = false,
+  },
+  severity_sort = true,
 })
 
 require("lazy").setup("plugins")
