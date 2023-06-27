@@ -21,7 +21,6 @@ vim.opt.ignorecase = true
 vim.opt.laststatus = 2
 vim.opt.list = true
 vim.opt.listchars:append("eol:↴")
-vim.opt.listchars:append("space:⋅")
 vim.opt.mouse = "n"
 vim.opt.number = true
 vim.opt.numberwidth = 2
@@ -74,6 +73,7 @@ vim.keymap.set("n", "<PageUp>", "<nop>", { remap = false })
 vim.keymap.set("n", "<PageDown>", "<nop>", { remap = false })
 vim.keymap.set("n", "<C-f>", "<nop>", { remap = false })
 vim.keymap.set("i", "<C-c>", "<nop>", { remap = false })
+vim.keymap.set("n", "<F3>", ":noh<CR>", { remap = false })
 
 vim.keymap.set("n", "<F2>", vim.lsp.buf.rename)
 vim.keymap.set("n", "gd", function()
@@ -82,28 +82,14 @@ end)
 vim.keymap.set("n", "gr", function()
   require("telescope.builtin").lsp_references()
 end)
+vim.keymap.set("n", "<C-f>", function()
+  require("telescope.builtin").live_grep()
+end)
 vim.keymap.set("n", "gi", vim.lsp.buf.hover)
 vim.keymap.set("n", "<C-a>", vim.lsp.buf.code_action)
 vim.keymap.set("n", "<C-i>", function()
   vim.lsp.buf.execute_command({ command = "_typescript.organizeImports", arguments = { vim.api.nvim_buf_get_name(0) } })
 end)
-
-vim.api.nvim_create_autocmd("BufWritePre", {
-  callback = function()
-    if vim.fn.exists(":EslintFixAll") > 0 then
-      vim.cmd.EslintFixAll()
-    end
-  end
-})
-vim.api.nvim_create_autocmd("CursorHold", {
-  callback = function()
-    vim.lsp.buf.document_highlight()
-    vim.diagnostic.open_float()
-  end
-})
-vim.api.nvim_create_autocmd("CursorMoved", {
-  callback = vim.lsp.buf.clear_references
-})
 
 vim.diagnostic.config({
   underline = true,
@@ -114,5 +100,10 @@ vim.diagnostic.config({
   },
   severity_sort = true,
 })
+
+vim.fn.sign_define('DiagnosticSignError', { text = '', texthl = 'DiagnosticSignError' })
+vim.fn.sign_define('DiagnosticSignWarn', { text = '', texthl = 'DiagnosticSignWarn' })
+vim.fn.sign_define('DiagnosticSignInfo', { text = '', texthl = 'DiagnosticSignInfo' })
+vim.fn.sign_define('DiagnosticSignHint', { text = '', texthl = 'DiagnosticSignHint' })
 
 require("lazy").setup("plugins")

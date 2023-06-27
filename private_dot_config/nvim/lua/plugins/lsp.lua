@@ -35,6 +35,31 @@ return {
         function(server_name)
           local opts = handler_opts[server_name] or {}
           opts.capabilities = require("cmp_nvim_lsp").default_capabilities()
+          opts.on_attach = function(client, bufnr)
+            vim.api.nvim_create_autocmd("BufWritePre", {
+              buffer = bufnr,
+              callback = function()
+                if vim.fn.exists(":EslintFixAll") > 0 then
+                  vim.cmd.EslintFixAll()
+                end
+              end
+            })
+            vim.api.nvim_create_autocmd("CursorHold", {
+              buffer = bufnr,
+              callback = function()
+                if client.server_capabilities.documentHighlightProvider then
+                  vim.lsp.buf.document_highlight()
+                end
+                vim.diagnostic.open_float()
+              end
+            })
+            if client.server_capabilities.documentHighlightProvider then
+              vim.api.nvim_create_autocmd("CursorMoved", {
+                buffer = bufnr,
+                callback = vim.lsp.buf.clear_references
+              })
+            end
+          end
 
           require("lspconfig")[server_name].setup(opts)
         end,
