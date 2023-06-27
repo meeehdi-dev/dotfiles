@@ -1,15 +1,42 @@
 return {
   {
     "nvim-lualine/lualine.nvim",
+    dependencies = { "nvim-tree/nvim-web-devicons" },
     opts = {
       options = {
-        icons_enabled = false,
+        theme = "tokyonight",
       },
       sections = {
-        lualine_b = { 'diff', 'diagnostics' },
-        lualine_c = { { "filename", path = 1 } },
+        lualine_a = {
+          { 'mode', fmt = function(str) return string.lower(str:sub(1, 1)) end }
+        },
+        lualine_b = {
+          {
+            'branch',
+            fmt = function(str)
+              local branch = str:sub(1, 10)
+              if str:len() > 10 then
+                branch = branch .. '...'
+              end
+              return branch
+            end
+          },
+          'diff',
+          {
+            'diagnostics',
+            symbols = {
+              error = ' ',
+              warn = ' ',
+              info = ' ',
+              hint = ' ',
+            }
+          },
+        },
+        lualine_c = {
+          { "filename", path = 1 }
+        },
         lualine_x = {
-          'encoding', 'fileformat',
+          -- 'encoding', 'fileformat',
           function()
             local lsp = {}
             local buf_ft = vim.api.nvim_buf_get_option(0, "filetype")
