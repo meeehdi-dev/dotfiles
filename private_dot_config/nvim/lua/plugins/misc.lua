@@ -12,13 +12,13 @@ return {
     "lukas-reineke/indent-blankline.nvim",
     opts = {
       show_current_context = true,
-    }
+    },
   },
   {
     "chrisgrieser/nvim-early-retirement",
     opts = {
       retirementAgeMins = 10,
-    }
+    },
   },
   {
     "zbirenbaum/copilot.lua",
@@ -35,14 +35,14 @@ return {
           accept_word = "<C-Right>",
         },
       },
-    }
+    },
   },
   {
     "folke/trouble.nvim",
+    dependencies = { "nvim-tree/nvim-web-devicons" },
     opts = {
-      icons = false,
       auto_close = true,
-    }
+    },
   },
   {
     "prettier/vim-prettier",
