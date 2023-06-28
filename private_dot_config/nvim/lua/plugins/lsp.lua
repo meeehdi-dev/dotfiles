@@ -44,16 +44,13 @@ return {
                 end
               end
             })
-            vim.api.nvim_create_autocmd("CursorHold", {
-              buffer = bufnr,
-              callback = function()
-                if client.server_capabilities.documentHighlightProvider then
+            if client.server_capabilities.documentHighlightProvider then
+              vim.api.nvim_create_autocmd("CursorHold", {
+                buffer = bufnr,
+                callback = function()
                   vim.lsp.buf.document_highlight()
                 end
-                vim.diagnostic.open_float()
-              end
-            })
-            if client.server_capabilities.documentHighlightProvider then
+              })
               vim.api.nvim_create_autocmd("CursorMoved", {
                 buffer = bufnr,
                 callback = vim.lsp.buf.clear_references
