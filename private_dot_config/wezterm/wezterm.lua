@@ -11,6 +11,8 @@ local bg = (os.getenv("HOME") or "") .. "/bg.png"
 if wezterm.target_triple == "x86_64-pc-windows-msvc" then
   config.default_prog = { "wsl.exe", "~", "-d", "Ubuntu" }
   bg = (os.getenv("userprofile") or "") .. "/bg.png"
+elseif wezterm.target_triple == "aarch64-apple-darwin" then
+  config.send_composed_key_when_left_alt_is_pressed = true
 end
 
 config.hide_tab_bar_if_only_one_tab = true
