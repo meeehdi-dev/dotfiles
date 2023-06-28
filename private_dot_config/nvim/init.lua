@@ -54,6 +54,7 @@ vim.keymap.set("x", "p", "\"_dP")
 
 vim.keymap.set("n", "<F5>", vim.cmd.UndotreeToggle)
 vim.keymap.set("n", "<C-t>", vim.cmd.TroubleToggle)
+vim.keymap.set("n", "<S-t>", vim.diagnostic.open_float)
 vim.keymap.set("n", "<leader>f", function()
   local file = vim.fn.findfile(".prettierrc", ".;")
   if file == "" then
