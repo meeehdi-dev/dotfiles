@@ -21,7 +21,14 @@ return {
               return branch
             end
           },
-          'diff',
+          {
+            'diff',
+            diff_color = {
+              added = { fg = '#44cc44' },
+              modified = { fg = '#cccc44' },
+              removed = { fg = '#ff6666' },
+            },
+          },
           {
             'diagnostics',
             symbols = {
@@ -29,7 +36,13 @@ return {
               warn = ' ',
               info = ' ',
               hint = ' ',
-            }
+            },
+            diagnostics_color = {
+              error = { fg = "#ff6666" },
+              warn = { fg = "#cccc44" },
+              info = { fg = "#4444cc" },
+              hint = { fg = "#44cccc" },
+            },
           },
         },
         lualine_c = {
