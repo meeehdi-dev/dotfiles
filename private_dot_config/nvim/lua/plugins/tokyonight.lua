@@ -1,7 +1,7 @@
 return {
   {
     "folke/tokyonight.nvim",
-    opts = {
+    opts   = {
       transparent = true,
       on_colors = function(colors)
         colors.comment = "#8899bb"
@@ -11,7 +11,7 @@ return {
         colors.bg_highlight = "#445577"
       end
     },
-    config   = function(_, opts)
+    config = function(_, opts)
       require("tokyonight").setup(opts)
       vim.cmd([[colorscheme tokyonight]])
     end
