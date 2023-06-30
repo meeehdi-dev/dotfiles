@@ -3,7 +3,7 @@ local handler_opts = {
     settings = {
       Lua = {
         diagnostics = {
-          globals = { "vim" },
+          globals = { "vim", "hs" },
         },
       }
     }
