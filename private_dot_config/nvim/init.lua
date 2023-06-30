@@ -122,7 +122,6 @@ vim.keymap.set("n", "q", "<nop>", { remap = false })
 vim.keymap.set("n", "Q", "<nop>", { remap = false })
 vim.keymap.set("n", "<PageUp>", "<nop>", { remap = false })
 vim.keymap.set("n", "<PageDown>", "<nop>", { remap = false })
-vim.keymap.set("n", "<C-f>", "<nop>", { remap = false })
 vim.keymap.set("i", "<C-c>", "<nop>", { remap = false })
 
 require("lazy").setup("plugins")
