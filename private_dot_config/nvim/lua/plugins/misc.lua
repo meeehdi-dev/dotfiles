@@ -55,9 +55,4 @@ return {
   "mbbill/undotree",
   "sindrets/diffview.nvim",
   "airblade/vim-gitgutter",
-  "windwp/nvim-ts-autotag",
-  {
-    "windwp/nvim-autopairs",
-    opts = {},
-  }
 }
