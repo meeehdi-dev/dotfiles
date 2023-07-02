@@ -41,5 +41,5 @@ starship init fish | source
 
 if status is-interactive
 and not set -q TMUX
-  tmux new-session
+  tmux attach -t main || tmux new-session -s main
 end
