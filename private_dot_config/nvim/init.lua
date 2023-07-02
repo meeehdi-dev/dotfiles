@@ -59,7 +59,7 @@ vim.fn.sign_define("DiagnosticSignInfo", { text = "", texthl = "DiagnosticSig
 vim.fn.sign_define("DiagnosticSignHint", { text = "", texthl = "DiagnosticSignHint" })
 
 -- WSL Clipboard
-if vim.fn.has("wsl") then
+if vim.fn.has("wsl") == 1 then
   vim.g.clipboard = {
     name = "WslClipboard",
     copy = {
@@ -72,7 +72,7 @@ if vim.fn.has("wsl") then
     },
     cache_enabled = 0,
   }
-  end
+end
 vim.keymap.set("v", "<leader>y", "\"*y")
 vim.keymap.set("x", "<leader>p", "\"_dP")
 
