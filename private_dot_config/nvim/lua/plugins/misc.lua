@@ -79,6 +79,10 @@ return {
     "folke/flash.nvim",
     config = true,
   },
+  {
+    "ErichDonGubler/lsp_lines.nvim",
+    config = true,
+  },
   "mbbill/undotree",
   "sindrets/diffview.nvim",
   "airblade/vim-gitgutter",
