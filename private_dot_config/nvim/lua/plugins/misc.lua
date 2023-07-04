@@ -68,6 +68,17 @@ return {
       }
     }
   },
+  {
+    "folke/todo-comments.nvim",
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+    },
+    config = true,
+  },
+  {
+    "folke/flash.nvim",
+    config = true,
+  },
   "mbbill/undotree",
   "sindrets/diffview.nvim",
   "airblade/vim-gitgutter",
