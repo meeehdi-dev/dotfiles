@@ -7,7 +7,10 @@ return {
       "hrsh7th/cmp-path",
       "hrsh7th/cmp-cmdline",
       "L3MON4D3/LuaSnip",
-      "windwp/nvim-autopairs",
+      {
+        "windwp/nvim-autopairs",
+        config = true,
+      }
     },
     config = function()
       local cmp = require("cmp")
@@ -54,6 +57,5 @@ return {
         }),
       })
     end,
-
   }
 }
