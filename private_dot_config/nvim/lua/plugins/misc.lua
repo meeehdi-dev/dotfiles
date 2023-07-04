@@ -52,6 +52,22 @@ return {
     "numToStr/Comment.nvim",
     config = true,
   },
+  {
+    "folke/noice.nvim",
+    config = true,
+    dependencies = {
+      "MunifTanjim/nui.nvim",
+      {
+        "rcarriga/nvim-notify",
+        opts = {
+          background_colour = "#000000",
+          render = "compact",
+          stages = "fade",
+        },
+        main = "notify",
+      }
+    }
+  },
   "mbbill/undotree",
   "sindrets/diffview.nvim",
   "airblade/vim-gitgutter",
