@@ -22,7 +22,7 @@ return {
         enable_rename = true,
         enable_close = true,
         enable_close_on_slash = false,
-        filetypes = { "html", "xml", "javascriptreact", "typescriptreact" },
+        filetypes = { "html", "xml", "jsx", "tsx" },
       },
     },
     main = "nvim-treesitter.configs",
