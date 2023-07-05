@@ -48,9 +48,6 @@ vim.diagnostic.config({
   underline = true,
   update_in_insert = true,
   virtual_text = false,
-  float = {
-    focusable = false,
-  },
   severity_sort = true,
 })
 
@@ -87,6 +84,9 @@ end)
 
 vim.keymap.set("n", "<F5>", vim.cmd.UndotreeToggle)
 vim.keymap.set("n", "<C-t>", vim.cmd.TroubleToggle)
+vim.keymap.set("n", "<leader>t", function()
+  vim.diagnostic.open_float(nil, { focus = false })
+end)
 vim.keymap.set("n", "<leader>f", function()
   local rc = vim.fn.findfile(".prettierrc", ".;")
   local rcjson = vim.fn.findfile(".prettierrc.json", ".;")
