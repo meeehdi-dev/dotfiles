@@ -12,6 +12,7 @@ return {
     "lukas-reineke/indent-blankline.nvim",
     opts = {
       show_current_context = true,
+      show_current_context_start = true,
     },
   },
   {
@@ -57,15 +58,6 @@ return {
     config = true,
     dependencies = {
       "MunifTanjim/nui.nvim",
-      {
-        "rcarriga/nvim-notify",
-        opts = {
-          background_colour = "#000000",
-          render = "compact",
-          stages = "fade",
-        },
-        main = "notify",
-      }
     }
   },
   {
@@ -77,7 +69,22 @@ return {
   },
   {
     "folke/flash.nvim",
-    config = true,
+    opts = {
+      search = {
+        multi_window = false,
+      },
+      jump = {
+        nohlsearch = true,
+      },
+      prompt = {
+        enabled = false,
+      },
+      modes = {
+        char = {
+          enabled = false,
+        },
+      },
+    },
   },
   "mbbill/undotree",
   "sindrets/diffview.nvim",
