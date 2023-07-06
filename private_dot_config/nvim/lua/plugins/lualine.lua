@@ -46,7 +46,7 @@ return {
           },
         },
         lualine_c = {
-          { "filename", path = 1, fmt = function(str) return " " .. str end}
+          { "filename", path = 1 }
         },
         lualine_x = {
           -- 'encoding', 'fileformat',
@@ -68,13 +68,14 @@ return {
             if #lsp == 0 then
               table.insert(lsp, "None")
             end
-            return " " .. buf_ft .. " [ " .. table.concat(lsp, ", ") .. "]"
+            return " " .. table.concat(lsp, ", ")
           end,
         },
+        lualine_y = {},
       },
       inactive_sections = {
         lualine_c = {
-          { "filename", path = 1, fmt = function(str) return " " .. str end}
+          { "filename", path = 1 },
         },
       },
     },
