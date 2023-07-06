@@ -47,7 +47,6 @@ vim.g.mapleader = " "
 vim.diagnostic.config({
   underline = true,
   update_in_insert = true,
-  virtual_text = false,
   severity_sort = true,
 })
 
@@ -101,6 +100,8 @@ vim.keymap.set("n", "<C-d>", "<C-d>zz", { remap = false })
 vim.keymap.set("n", "<C-u>", "<C-u>zz", { remap = false })
 vim.keymap.set("n", "<C-o>", "<C-o>zz", { remap = false })
 vim.keymap.set("n", "<C-c>", "ciw", { remap = false })
+vim.keymap.set("x", ">", ">gv", { remap = false })
+vim.keymap.set("x", "<", "<gv", { remap = false })
 
 vim.keymap.set("n", "<F3>", ":noh<CR>", { remap = false })
 vim.keymap.set("n", "<F2>", vim.lsp.buf.rename)
