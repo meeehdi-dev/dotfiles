@@ -65,4 +65,7 @@ config.window_padding = {
   bottom = 0,
 }
 
+config.initial_cols = 160
+config.initial_rows = 48
+
 return config
