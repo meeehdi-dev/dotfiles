@@ -6,13 +6,35 @@ if wezterm.config_builder then
   config = wezterm.config_builder()
 end
 
-local bg = (os.getenv("HOME") or "") .. "/bg.png"
+local bgs = {}
 
 if wezterm.target_triple == "x86_64-pc-windows-msvc" then
   config.default_prog = { "wsl.exe", "~", "-d", "Ubuntu" }
-  bg = (os.getenv("userprofile") or "") .. "/bg.png"
+
+  local bgs_path = (os.getenv("userprofile") or "") .. "\\bgs"
+
+  local _, stdout = wezterm.run_child_process({
+    "cmd.exe", "/c", "dir", bgs_path, "/b"
+  })
+
+  for dir in stdout:gmatch("[^\r\n]+")
+  do table.insert(bgs, bgs_path .. "\\" .. dir) end
 elseif wezterm.target_triple == "aarch64-apple-darwin" then
   config.send_composed_key_when_left_alt_is_pressed = true
+
+  local bgs_path = (os.getenv("HOME") or "") .. "/bgs"
+
+  local _, stdout = wezterm.run_child_process({
+    "ls", "-pa", bgs_path, "/b"
+  })
+
+  for dir in stdout:gmatch("[^\r\n]+")
+  do table.insert(bgs, bgs_path .. "/" .. dir) end
+end
+
+local bg = nil
+if #bgs > 0 then
+  bg = bgs[math.random(#bgs)]
 end
 
 config.hide_tab_bar_if_only_one_tab = true
@@ -43,7 +65,10 @@ config.background = {
     height = "100%",
     opacity = 0.2,
   },
-  {
+}
+
+if bg ~= nil then
+  table.insert(config.background, {
     source = {
       File = bg
     },
@@ -52,8 +77,8 @@ config.background = {
     horizontal_align = "Center",
     vertical_align = "Middle",
     opacity = 0.1,
-  },
-}
+  })
+end
 
 config.font = wezterm.font("CaskaydiaCove Nerd Font Mono")
 config.font_size = 12.0
