@@ -18,18 +18,24 @@ if wezterm.target_triple == "x86_64-pc-windows-msvc" then
   })
 
   for dir in stdout:gmatch("[^\r\n]+")
-  do table.insert(bgs, bgs_path .. "\\" .. dir) end
+  do
+    table.insert(bgs, bgs_path .. "\\" .. dir)
+  end
 elseif wezterm.target_triple == "aarch64-apple-darwin" then
   config.send_composed_key_when_left_alt_is_pressed = true
 
   local bgs_path = (os.getenv("HOME") or "") .. "/bgs"
 
   local _, stdout = wezterm.run_child_process({
-    "ls", "-pa", bgs_path, "/b"
+    "ls", "-pa", bgs_path
   })
 
-  for dir in stdout:gmatch("[^\r\n]+")
-  do table.insert(bgs, bgs_path .. "/" .. dir) end
+  for dir in stdout:gmatch("[^\n]+")
+  do
+    if dir:sub(-1) ~= "/" then
+      table.insert(bgs, bgs_path .. "/" .. dir)
+    end
+  end
 end
 
 local bg = nil
