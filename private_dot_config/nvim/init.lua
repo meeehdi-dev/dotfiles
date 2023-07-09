@@ -124,6 +124,8 @@ vim.keymap.set("n", "<C-a>", vim.lsp.buf.code_action)
 vim.keymap.set("n", "<C-i>", function()
   vim.lsp.buf.execute_command({ command = "_typescript.organizeImports", arguments = { vim.api.nvim_buf_get_name(0) } })
 end)
+vim.keymap.set("n", "<leader><Right>", vim.diagnostic.goto_prev)
+vim.keymap.set("n", "<leader><Left>", vim.diagnostic.goto_prev)
 
 vim.keymap.set("n", "q", "<nop>", { remap = false })
 vim.keymap.set("n", "Q", "<nop>", { remap = false })
