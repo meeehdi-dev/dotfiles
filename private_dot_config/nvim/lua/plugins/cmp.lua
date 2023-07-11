@@ -1,3 +1,5 @@
+--
+
 return {
   {
     "hrsh7th/nvim-cmp",
@@ -10,7 +12,7 @@ return {
       {
         "windwp/nvim-autopairs",
         config = true,
-      }
+      },
     },
     config = function()
       local cmp = require("cmp")
@@ -18,6 +20,7 @@ return {
         'confirm_done',
         require('nvim-autopairs.completion.cmp').on_confirm_done()
       )
+
       cmp.setup({
         mapping = cmp.mapping.preset.insert({
           ["<Up>"] = cmp.mapping.select_prev_item({ behavior = cmp.SelectBehavior.Select }),
@@ -37,6 +40,7 @@ return {
           end,
         },
       })
+
       cmp.setup.cmdline({ "/", "?" }, {
         mapping = cmp.mapping.preset.cmdline({
           ["<Up>"] = cmp.mapping(cmp.mapping.select_prev_item(), { "i", "c" }),

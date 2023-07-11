@@ -3,6 +3,17 @@ return {
   {
     "nvim-tree/nvim-tree.lua",
     config = true,
+    keys = {
+      {
+        "<C-e>",
+        function()
+          require("nvim-tree.api").tree.toggle({
+            find_file = true,
+            focus = true,
+          })
+        end
+      }
+    }
   },
   {
     "rmagatti/auto-session",
@@ -44,10 +55,30 @@ return {
     opts = {
       auto_close = true,
     },
+    keys = {
+      {
+        "<C-t>",
+        vim.cmd.TroubleToggle,
+      }
+    }
   },
   {
     "prettier/vim-prettier",
     build = "yarn install --frozen-lockfile --production",
+    keys = {
+      {
+        "<leader>f",
+        function()
+          local rc = vim.fn.findfile(".prettierrc", ".;")
+          local rcjson = vim.fn.findfile(".prettierrc.json", ".;")
+          if rc == "" and rcjson == "" then
+            vim.lsp.buf.format()
+          else
+            vim.cmd.Prettier()
+          end
+        end
+      }
+    }
   },
   {
     "numToStr/Comment.nvim",
@@ -86,7 +117,15 @@ return {
       },
     },
   },
-  "mbbill/undotree",
+  {
+    "mbbill/undotree",
+    keys = {
+      {
+        "<leader>u",
+        vim.cmd.UndotreeToggle,
+      },
+    },
+  },
   "sindrets/diffview.nvim",
   "airblade/vim-gitgutter",
 }

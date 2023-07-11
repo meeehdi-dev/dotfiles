@@ -73,33 +73,15 @@ end
 vim.keymap.set("v", "<leader>y", "\"*y")
 vim.keymap.set("x", "<leader>p", "\"_dP")
 
--- Keymap
-vim.keymap.set("n", "<C-e>", function()
-  require("nvim-tree.api").tree.toggle({
-    find_file = true,
-    focus = true,
-  })
-end)
-
-vim.keymap.set("n", "<F5>", vim.cmd.UndotreeToggle)
-vim.keymap.set("n", "<C-t>", vim.cmd.TroubleToggle)
 vim.keymap.set("n", "<leader>t", function()
   vim.diagnostic.open_float(nil, { focus = false })
-end)
-vim.keymap.set("n", "<leader>f", function()
-  local rc = vim.fn.findfile(".prettierrc", ".;")
-  local rcjson = vim.fn.findfile(".prettierrc.json", ".;")
-  if rc == "" and rcjson == "" then
-    vim.lsp.buf.format()
-  else
-    vim.cmd.Prettier()
-  end
 end)
 
 vim.keymap.set("n", "<C-d>", "<C-d>zz", { remap = false })
 vim.keymap.set("n", "<C-u>", "<C-u>zz", { remap = false })
 vim.keymap.set("n", "<C-o>", "<C-o>zz", { remap = false })
 vim.keymap.set("n", "n", "nzz", { remap = false })
+vim.keymap.set("n", "N", "Nzz", { remap = false })
 
 vim.keymap.set("n", "<C-c>", "ciw", { remap = false })
 vim.keymap.set("x", ">", ">gv", { remap = false })
@@ -107,18 +89,6 @@ vim.keymap.set("x", "<", "<gv", { remap = false })
 
 vim.keymap.set("n", "<F3>", ":noh<CR>", { remap = false })
 vim.keymap.set("n", "<F2>", vim.lsp.buf.rename)
-vim.keymap.set("n", "gd", function()
-  require("telescope.builtin").lsp_definitions()
-end)
-vim.keymap.set("n", "<S-r>", function()
-  require("telescope.builtin").resume()
-end)
-vim.keymap.set("n", "gr", function()
-  require("telescope.builtin").lsp_references()
-end)
-vim.keymap.set("n", "<C-f>", function()
-  require("telescope.builtin").live_grep()
-end)
 vim.keymap.set("n", "gi", vim.lsp.buf.hover)
 vim.keymap.set("n", "<C-a>", vim.lsp.buf.code_action)
 vim.keymap.set("n", "<C-i>", function()
