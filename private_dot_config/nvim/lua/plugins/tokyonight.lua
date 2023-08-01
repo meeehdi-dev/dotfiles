@@ -3,13 +3,23 @@ return {
     "folke/tokyonight.nvim",
     opts   = {
       transparent = true,
-      on_colors = function(colors)
-        colors.comment = "#8899bb"
-        colors.terminal_black = "#667799"
-        colors.fg_dark = "#ffffff"
-        colors.fg_gutter = "#556688"
-        colors.bg_highlight = "#445577"
-      end
+      on_highlights = function(hl, c)
+        hl.LineNr = {
+          fg = c.fg_dark,
+        }
+        hl.DiffAdd = {
+          fg = c.hint,
+          bg = c.fg_gutter,
+        }
+        hl.DiffChange = {
+          fg = c.warning,
+          bg = c.fg_gutter,
+        }
+        hl.DiffDelete = {
+          fg = c.error,
+          bg = c.fg_gutter,
+        }
+      end,
     },
     config = function(_, opts)
       require("tokyonight").setup(opts)

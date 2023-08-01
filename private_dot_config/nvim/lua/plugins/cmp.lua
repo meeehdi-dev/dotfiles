@@ -1,5 +1,3 @@
---
-
 return {
   {
     "hrsh7th/nvim-cmp",
@@ -29,10 +27,10 @@ return {
           ["<C-Space>"] = cmp.mapping.complete(),
         }),
         sources = cmp.config.sources({
-          { name = "nvim_lsp" },
-          { name = "path" },
-          { name = "luasnip" },
-          { name = "buffer" },
+          { name = "path",     max_item_count = 5 },
+          { name = "nvim_lsp", max_item_count = 10, keyword_length = 1 },
+          { name = "buffer",   max_item_count = 5, keyword_length = 3 },
+          { name = "luasnip",  max_item_count = 5, keyword_length = 2 },
         }),
         snippet = {
           expand = function(args)
@@ -47,7 +45,7 @@ return {
           ["<Down>"] = cmp.mapping(cmp.mapping.select_next_item(), { "i", "c" }),
         }),
         sources = cmp.config.sources({
-          { name = "buffer" },
+          { name = "buffer", max_item_count = 10 },
         }),
       })
 
@@ -57,7 +55,7 @@ return {
           ["<Down>"] = cmp.mapping(cmp.mapping.select_next_item(), { "i", "c" }),
         }),
         sources = cmp.config.sources({
-          { name = "cmdline" },
+          { name = "cmdline", max_item_count = 10 },
         }),
       })
     end,

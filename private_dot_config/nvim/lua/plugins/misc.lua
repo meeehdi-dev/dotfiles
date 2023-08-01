@@ -121,7 +121,7 @@ return {
     "mbbill/undotree",
     keys = {
       {
-        "<C-h>",
+        "<leader>u",
         vim.cmd.UndotreeToggle,
       },
     },
