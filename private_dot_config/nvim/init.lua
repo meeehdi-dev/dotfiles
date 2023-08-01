@@ -12,18 +12,14 @@ end
 vim.opt.rtp:prepend(lazypath)
 
 -- Options
-vim.opt.cindent = true
-vim.opt.cursorcolumn = true
-vim.opt.cursorline = true
+vim.opt.autoindent = true
 vim.opt.expandtab = true
 vim.opt.hlsearch = true
 vim.opt.ignorecase = true
 vim.opt.laststatus = 2
-vim.opt.list = true
-vim.opt.listchars:append("eol:↴")
+vim.opt.matchtime = 1
 vim.opt.mouse = "n"
 vim.opt.number = true
-vim.opt.numberwidth = 2
 vim.opt.relativenumber = true
 vim.opt.scrolloff = 2
 vim.opt.shiftwidth = 2
@@ -45,7 +41,6 @@ vim.g.mapleader = " "
 
 -- Diagnostics
 vim.diagnostic.config({
-  underline = true,
   update_in_insert = true,
   severity_sort = true,
 })
@@ -87,14 +82,13 @@ vim.keymap.set("n", "<C-c>", "ciw", { remap = false })
 vim.keymap.set("x", ">", ">gv", { remap = false })
 vim.keymap.set("x", "<", "<gv", { remap = false })
 
-vim.keymap.set("n", "<F3>", ":noh<CR>", { remap = false })
 vim.keymap.set("n", "<F2>", vim.lsp.buf.rename)
-vim.keymap.set("n", "gi", vim.lsp.buf.hover)
-vim.keymap.set("n", "<C-a>", vim.lsp.buf.code_action)
+vim.keymap.set("n", "<leader>h", vim.lsp.buf.hover)
+vim.keymap.set("n", "<leader>0", vim.lsp.buf.code_action)
 vim.keymap.set("n", "<C-i>", function()
   vim.lsp.buf.execute_command({ command = "_typescript.organizeImports", arguments = { vim.api.nvim_buf_get_name(0) } })
 end)
-vim.keymap.set("n", "<leader><Right>", vim.diagnostic.goto_prev)
+vim.keymap.set("n", "<leader><Right>", vim.diagnostic.goto_next)
 vim.keymap.set("n", "<leader><Left>", vim.diagnostic.goto_prev)
 
 vim.keymap.set("n", "q", "<nop>", { remap = false })

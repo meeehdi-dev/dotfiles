@@ -12,10 +12,6 @@ local handler_opts = {
     filetypes = { "javascript", "javascriptreact", "javascript.jsx", "typescript", "typescriptreact",
       "typescript.tsx", "vue", "svelte", "astro", "json" }
   },
-  ["emmet_ls"] = {
-    filetypes = { "javascriptreact", "javascript.jsx", "typescriptreact",
-      "typescript.tsx", "vue", "svelte", "astro", "html" }
-  },
 }
 
 return {
