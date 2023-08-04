@@ -3,18 +3,19 @@ return {
   dependencies = { "nvim-tree/nvim-web-devicons", "folke/tokyonight.nvim" },
   opts = {
     options = {
-      component_separators = "",
+      section_separators = { left = " ", right = " " },
+      component_separators = { left = "", right = "" },
     },
     sections = {
       lualine_a = {
         {
           "mode",
           fmt = function(str) return string.lower(str:sub(1, 1)) end,
-          separator = { left = "", right = "" },
+          separator = { left = "", right = " " },
         },
         {
           "",
-          separator = { left = "", right = "" },
+          separator = { left = "", right = " " },
           color = { bg = "#212736" },
           draw_empty = true,
         },
