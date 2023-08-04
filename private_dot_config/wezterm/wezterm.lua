@@ -45,7 +45,7 @@ end
 
 config.hide_tab_bar_if_only_one_tab = true
 
-config.color_scheme = "Tokyo Night (Gogh)"
+config.color_scheme = "tokyonight_storm"
 
 config.background = {
   {
@@ -86,7 +86,7 @@ if bg ~= nil then
   })
 end
 
-config.font = wezterm.font("CaskaydiaCove Nerd Font Mono")
+config.font = wezterm.font("CaskaydiaCove Nerd Font")
 config.font_size = 12.0
 
 config.window_padding = {

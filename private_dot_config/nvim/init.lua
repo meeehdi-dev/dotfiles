@@ -91,8 +91,6 @@ end)
 vim.keymap.set("n", "<leader><Right>", vim.diagnostic.goto_next)
 vim.keymap.set("n", "<leader><Left>", vim.diagnostic.goto_prev)
 
-vim.keymap.set("n", "q", "<nop>", { remap = false })
-vim.keymap.set("n", "Q", "<nop>", { remap = false })
 vim.keymap.set("n", "<PageUp>", "<nop>", { remap = false })
 vim.keymap.set("n", "<PageDown>", "<nop>", { remap = false })
 vim.keymap.set("i", "<C-c>", "<nop>", { remap = false })

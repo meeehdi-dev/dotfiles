@@ -3,12 +3,21 @@ return {
   dependencies = { "nvim-tree/nvim-web-devicons", "folke/tokyonight.nvim" },
   opts = {
     options = {
-      icons_enabled = true,
-      theme = "tokyonight",
+      component_separators = "",
     },
     sections = {
       lualine_a = {
-        { "mode", fmt = function(str) return string.lower(str:sub(1, 1)) end }
+        {
+          "mode",
+          fmt = function(str) return string.lower(str:sub(1, 1)) end,
+          separator = { left = "", right = "" },
+        },
+        {
+          "",
+          separator = { left = "", right = "" },
+          color = { bg = "#212736" },
+          draw_empty = true,
+        },
       },
       lualine_b = {
         {
@@ -19,7 +28,8 @@ return {
               branch = branch .. "..."
             end
             return branch
-          end
+          end,
+          draw_empty = true,
         },
         {
           "diff",
@@ -30,7 +40,7 @@ return {
           },
           symbols = {
             added = " ",
-            modified = " ",
+            modified = " ",
             removed = " ",
           }
         },
@@ -39,7 +49,7 @@ return {
         {
           "diagnostics",
           symbols = {
-            error = " ",
+            error = "󰀨 ",
             warn = " ",
             info = " ",
             hint = " ",
