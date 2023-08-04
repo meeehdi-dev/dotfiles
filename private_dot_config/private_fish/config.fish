@@ -26,7 +26,7 @@ abbr gs "git status"
 abbr r "ranger"
 
 # tmux
-abbr t "tmux"
+abbr t "tmux attach -t main || tmux new-session -s main"
 abbr ta "tmux attach -t"
 abbr tls "tmux list-sessions"
 
