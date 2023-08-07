@@ -78,7 +78,6 @@ vim.keymap.set("n", "<C-o>", "<C-o>zz", { remap = false })
 vim.keymap.set("n", "n", "nzz", { remap = false })
 vim.keymap.set("n", "N", "Nzz", { remap = false })
 
-vim.keymap.set("n", "<C-c>", "ciw", { remap = false })
 vim.keymap.set("x", ">", ">gv", { remap = false })
 vim.keymap.set("x", "<", "<gv", { remap = false })
 
