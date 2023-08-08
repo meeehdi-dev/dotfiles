@@ -69,6 +69,7 @@ return {
       {
         "<leader>f",
         function()
+          vim.g["prettier#quickfix_enabled"] = 0
           local rc = vim.fn.findfile(".prettierrc", ".;")
           local rcjson = vim.fn.findfile(".prettierrc.json", ".;")
           if rc == "" and rcjson == "" then
@@ -95,6 +96,9 @@ return {
     "folke/todo-comments.nvim",
     dependencies = {
       "nvim-lua/plenary.nvim",
+    },
+    opts = {
+      signs = false,
     },
     config = true,
   },
