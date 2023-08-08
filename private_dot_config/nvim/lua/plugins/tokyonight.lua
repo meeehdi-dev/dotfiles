@@ -19,6 +19,18 @@ return {
           fg = c.error,
           bg = c.fg_gutter,
         }
+        hl.GitGutterAdd = {
+          fg = c.hint,
+          -- bg = c.fg_gutter,
+        }
+        hl.GitGutterChange = {
+          fg = c.warning,
+          -- bg = c.fg_gutter,
+        }
+        hl.GitGutterDelete = {
+          fg = c.error,
+          -- bg = c.fg_gutter,
+        }
       end,
     },
     config = function(_, opts)
