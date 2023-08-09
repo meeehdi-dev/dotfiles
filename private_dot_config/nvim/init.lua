@@ -35,6 +35,8 @@ vim.opt.tabstop = 2
 vim.opt.termguicolors = true
 vim.opt.title = true
 vim.opt.updatetime = 100
+vim.opt.cursorline = true
+vim.opt.cursorlineopt = "number"
 
 -- Leader
 vim.g.mapleader = " "

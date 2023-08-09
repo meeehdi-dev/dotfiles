@@ -7,6 +7,9 @@ return {
         hl.LineNr = {
           fg = c.fg_dark,
         }
+        hl.CursorLineNr = {
+          fg = "#ffffff",
+        }
         hl.DiffAdd = {
           fg = c.hint,
           bg = c.fg_gutter,
