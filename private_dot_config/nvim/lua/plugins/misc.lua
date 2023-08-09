@@ -132,4 +132,8 @@ return {
   },
   "sindrets/diffview.nvim",
   "airblade/vim-gitgutter",
+  {
+    "kylechui/nvim-surround",
+    config = true,
+  }
 }
