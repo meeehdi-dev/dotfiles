@@ -135,5 +135,9 @@ return {
   {
     "kylechui/nvim-surround",
     config = true,
-  }
+  },
+  {
+    "laytan/cloak.nvim",
+    config = true
+  },
 }
