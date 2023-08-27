@@ -41,14 +41,6 @@ local function setup_handler(server_name)
       handler_on_attach(client, bufnr)
     end
 
-    vim.api.nvim_create_autocmd("BufWritePre", {
-      buffer = bufnr,
-      callback = function()
-        if vim.fn.exists(":EslintFixAll") > 0 then
-          vim.cmd.EslintFixAll()
-        end
-      end
-    })
     if client.server_capabilities.documentHighlightProvider then
       vim.api.nvim_create_autocmd("CursorHold", {
         buffer = bufnr,
