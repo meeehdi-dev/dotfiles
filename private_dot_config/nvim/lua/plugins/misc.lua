@@ -138,6 +138,12 @@ return {
   },
   {
     "laytan/cloak.nvim",
-    config = true
+    config = true,
   },
+  {
+    "norcalli/nvim-colorizer.lua",
+    config = function()
+      require("colorizer").setup({ "*" }, { css = true })
+    end
+  }
 }

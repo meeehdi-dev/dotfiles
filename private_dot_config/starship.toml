@@ -1,36 +1,19 @@
 format = """
-[  ](bg:#a3aed2)\
-[ ](fg:#a3aed2 bg:#769ff0)\
 $directory\
-[ ](fg:#769ff0 bg:#212736)\
-[ ](fg:#212736 bg:#394260)\
 $git_branch\
 $git_status\
-[ ](fg:#394260 bg:#212736)\
-$nodejs\
-[ ](fg:#212736)\
-\n$character"""
-
-[character]
-success_symbol = "[ ](bg:green)[ ](fg:green bg:#212736)[ ](fg:#212736)"
-error_symbol = "[ ](bg:red)[ ](fg:red bg:#212736)[ ](fg:#212736)"
+$nodejs """
 
 [directory]
-style = "fg:#e3e5e5 bg:#769ff0"
+style = "fg:#1d202f bg:#769ff0 bold"
 format = "[ $path ]($style)"
 truncation_length = 3
 truncation_symbol = "…/"
 
-[directory.substitutions]
-"Documents" = "󰈙 "
-"Downloads" = " "
-"Music" = " "
-"Pictures" = " "
-
 [git_branch]
-symbol = ""
+symbol = "󰘬"
 style = "bg:#394260"
-format = '[[ $symbol  $branch ](fg:#769ff0 bg:#394260)]($style)'
+format = '[[ $symbol $branch ](fg:#769ff0 bg:#394260 bold)]($style)'
 
 [git_status]
 style = "bg:#394260"
@@ -39,5 +22,5 @@ format = '[[($all_status$ahead_behind )](fg:#769ff0 bg:#394260)]($style)'
 [nodejs]
 symbol = "󰎙"
 style = "bg:#212736"
-format = '[[ $symbol  ($version) ](fg:#769ff0 bg:#212736)]($style)'
+format = '[[ $symbol ($version) ](fg:#769ff0 bg:#212736)]($style)'
 

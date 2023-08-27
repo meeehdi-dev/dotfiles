@@ -12,15 +12,15 @@ return {
         }
         hl.DiffAdd = {
           fg = c.hint,
-          bg = c.fg_gutter,
+          bg = c.bg_statusline,
         }
         hl.DiffChange = {
           fg = c.warning,
-          bg = c.fg_gutter,
+          bg = c.bg_statusline,
         }
         hl.DiffDelete = {
           fg = c.error,
-          bg = c.fg_gutter,
+          bg = c.bg_statusline,
         }
         hl.GitGutterAdd = {
           fg = c.hint,

@@ -1,9 +1,10 @@
 return {
   "nvim-lualine/lualine.nvim",
-  dependencies = { "nvim-tree/nvim-web-devicons", "folke/tokyonight.nvim" },
+  dependencies = { "folke/tokyonight.nvim" },
   opts = {
     options = {
-      section_separators = { left = " ", right = " " },
+      icons_enabled = false,
+      section_separators = { left = "", right = "" },
       component_separators = { left = "", right = "" },
     },
     sections = {
@@ -11,27 +12,25 @@ return {
         {
           "mode",
           fmt = function(str) return string.lower(str:sub(1, 1)) end,
-          separator = { left = "", right = " " },
-        },
-        {
-          "",
-          separator = { left = "", right = " " },
-          color = { bg = "#212736" },
-          draw_empty = true,
+          separator = { left = "", right = "" },
         },
       },
       lualine_b = {
         {
           "branch",
           fmt = function(str)
+            if str:len() == 0 then
+              return "󱓌"
+            end
             local branch = str:sub(1, 10)
             if str:len() > 10 then
               branch = branch .. "..."
             end
-            return branch
+            return "󰘬 " .. branch
           end,
-          draw_empty = true,
         },
+      },
+      lualine_c = {
         {
           "diff",
           diff_color = {
@@ -43,22 +42,21 @@ return {
             added = " ",
             modified = " ",
             removed = " ",
-          }
-        },
+          },
+        }
       },
-      lualine_c = {
+      lualine_x = {
         {
           "diagnostics",
           symbols = {
-            error = "󰀨 ",
+            error = " ",
             warn = " ",
-            info = " ",
-            hint = " ",
+            info = " ",
+            hint = " ",
           },
         },
-        { "filename", path = 1 },
       },
-      lualine_x = {
+      lualine_y = {
         function()
           local lsp = {}
           local buf_ft = vim.api.nvim_buf_get_option(0, "filetype")
@@ -77,15 +75,19 @@ return {
           if #lsp == 0 then
             table.insert(lsp, "None")
           end
-          return " " .. table.concat(lsp, ", ")
+          return table.concat(lsp, ",")
         end,
       },
-      lualine_y = {},
-    },
-    inactive_sections = {
-      lualine_c = {
+      lualine_z = {
         { "filename", path = 1 },
       },
+    },
+    inactive_sections = {
+      lualine_c = {},
+      lualine_x = {},
+      lualine_z = {
+        { "filename", path = 1 },
+      }
     },
   },
   config = function(_, opts)

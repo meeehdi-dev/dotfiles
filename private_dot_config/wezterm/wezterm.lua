@@ -59,7 +59,7 @@ config.background = {
   {
     source = {
       Gradient = {
-        preset = "Viridis",
+        preset = "Cividis",
         orientation = {
           Linear = {
             angle = -30.0,
@@ -69,7 +69,7 @@ config.background = {
     },
     width = "100%",
     height = "100%",
-    opacity = 0.2,
+    opacity = 0.1,
   },
 }
 
