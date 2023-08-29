@@ -37,6 +37,7 @@ vim.opt.title = true
 vim.opt.updatetime = 100
 vim.opt.cursorline = true
 vim.opt.cursorlineopt = "number"
+vim.opt.diffopt = "filler,iwhite,context:5"
 
 -- Leader
 vim.g.mapleader = " "
