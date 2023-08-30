@@ -79,7 +79,7 @@ return {
         end,
       },
       lualine_z = {
-        { "filename", path = 1 },
+        { "filename", path = 1, shorting_target = 80 },
       },
     },
     inactive_sections = {
