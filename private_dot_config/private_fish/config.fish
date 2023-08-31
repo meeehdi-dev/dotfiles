@@ -33,8 +33,10 @@ abbr tls "tmux list-sessions"
 # update
 abbr u "sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y"
 
-# yarn
+# node
 abbr yw "yarn workspace"
+abbr n "nvm"
+abbr p "pnpm"
 
 # prompt
 starship init fish | source
