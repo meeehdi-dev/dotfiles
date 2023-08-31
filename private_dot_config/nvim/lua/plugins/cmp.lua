@@ -24,13 +24,23 @@ return {
           ["<Up>"] = cmp.mapping.select_prev_item({ behavior = cmp.SelectBehavior.Select }),
           ["<Down>"] = cmp.mapping.select_next_item({ behavior = cmp.SelectBehavior.Select }),
           ["<CR>"] = cmp.mapping.confirm({ behavior = cmp.ConfirmBehavior.Insert, select = false }),
-          ["<C-Space>"] = cmp.mapping.complete(),
+          ["<C-Space>"] = function()
+            cmp.close()
+            cmp.complete({
+              config = {
+                sources = {
+                  { name = "nvim_lsp" },
+                  { name = "buffer" },
+                  { name = "luasnip" },
+                }
+              }
+            })
+          end,
         }),
         sources = cmp.config.sources({
-          { name = "path",     max_item_count = 5 },
-          { name = "nvim_lsp", max_item_count = 10, keyword_length = 1 },
-          { name = "buffer",   max_item_count = 5, keyword_length = 3 },
-          { name = "luasnip",  max_item_count = 5, keyword_length = 2 },
+          { name = "path", max_item_count = 5 },
+          { name = "nvim_lsp", max_item_count = 5 },
+          { name = "buffer",   max_item_count = 5 },
         }),
         snippet = {
           expand = function(args)
