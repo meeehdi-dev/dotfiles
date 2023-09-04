@@ -68,13 +68,18 @@ return {
         "williamboman/mason.nvim",
         build = ":MasonUpdate",
         config = true,
-      }
+      },
+      {
+        "folke/neodev.nvim",
+        config = true,
+      },
     },
     config = function()
       local mason_lspconfig = require("mason-lspconfig")
       mason_lspconfig.setup({
         automatic_installation = true,
       })
+      require("neodev").setup()
       mason_lspconfig.setup_handlers({
         setup_handler
       })
