@@ -2,6 +2,25 @@ return {
   "tpope/vim-fugitive",
   {
     "nvim-tree/nvim-tree.lua",
+    dependencies = {
+      {
+        "meeehdi-dev/win-picker.nvim",
+        dev = true,
+        config = true,
+      },
+    },
+    opts = {
+      actions = {
+        open_file = {
+          window_picker = {
+            picker = function()
+              return require("win-picker").pick_win()
+            end,
+          },
+          quit_on_open = true,
+        },
+      },
+    },
     config = true,
     keys = {
       {
@@ -145,5 +164,28 @@ return {
     config = function()
       require("colorizer").setup({ "*" }, { css = true })
     end
-  }
+  },
+  {
+    "meeehdi-dev/win-picker.nvim",
+    -- dev = true,
+    config = {
+      hlgroup = "lualine_a_normal",
+      filter = function(id)
+        local bufid = vim.api.nvim_win_get_buf(id)
+        local ft = vim.api.nvim_buf_get_option(bufid, "filetype")
+        return not vim.tbl_contains({"noice", "notify"}, ft)
+      end,
+    },
+    keys = {
+      {
+        "<leader>w",
+        function()
+          local win_id = require("win-picker").pick_win()
+          if win_id then
+            vim.api.nvim_set_current_win(win_id)
+          end
+        end,
+      },
+    }
+  },
 }
