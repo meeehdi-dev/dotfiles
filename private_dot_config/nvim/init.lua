@@ -108,4 +108,9 @@ vim.keymap.set({ "n", "v", "o" }, "!", "8", { remap = false })
 vim.keymap.set({ "n", "v", "o" }, "ç", "9", { remap = false })
 vim.keymap.set({ "n", "v", "o" }, "à", "0", { remap = false })
 
-require("lazy").setup("plugins")
+require("lazy").setup("plugins", {
+  dev = {
+    path = "~/nvim-plugins",
+    patterns = { "meeehdi-dev" },
+  }
+})
