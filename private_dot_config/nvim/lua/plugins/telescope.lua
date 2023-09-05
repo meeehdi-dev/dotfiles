@@ -26,6 +26,7 @@ return {
           if vim.v.shell_error == 0 then
             telescope.git_files({
               hidden = true,
+              show_untracked = true,
             })
           else
             telescope.find_files({
