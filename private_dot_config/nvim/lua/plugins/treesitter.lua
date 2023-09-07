@@ -2,7 +2,12 @@ return {
   {
     "nvim-treesitter/nvim-treesitter",
     build = ":TSUpdate",
-    dependencies = { "nvim-treesitter/nvim-treesitter-textobjects", "nvim-treesitter/nvim-treesitter-context",
+    dependencies = { "nvim-treesitter/nvim-treesitter-textobjects", {
+      "nvim-treesitter/nvim-treesitter-context",
+      opts = {
+        multiline_threshold = 1,
+      },
+    },
       "windwp/nvim-ts-autotag" },
     opts = {
       ensure_installed = { "c", "lua", "vim", "vimdoc", "query" },
