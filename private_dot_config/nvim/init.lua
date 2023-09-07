@@ -110,7 +110,7 @@ vim.keymap.set({ "n", "v", "o" }, "à", "0", { remap = false })
 
 require("lazy").setup("plugins", {
   dev = {
-    path = "~/nvim-plugins",
+    path = "~/code/nvim-plugins",
     patterns = { "meeehdi-dev" },
   }
 })
