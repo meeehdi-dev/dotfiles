@@ -22,17 +22,14 @@ return {
           fg = c.error,
           bg = c.bg_statusline,
         }
-        hl.GitGutterAdd = {
+        hl.GitSignsAdd = {
           fg = c.hint,
-          -- bg = c.fg_gutter,
         }
-        hl.GitGutterChange = {
+        hl.GitSignsChange = {
           fg = c.warning,
-          -- bg = c.fg_gutter,
         }
-        hl.GitGutterDelete = {
+        hl.GitSignsDelete = {
           fg = c.error,
-          -- bg = c.fg_gutter,
         }
       end,
     },
