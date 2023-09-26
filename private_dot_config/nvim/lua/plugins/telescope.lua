@@ -6,7 +6,8 @@ return {
     opts = {
       defaults = {
         file_ignore_patterns = {
-          "node_modules"
+          "^%.git/",
+          "^node_modules/",
         },
       },
       pickers = {
