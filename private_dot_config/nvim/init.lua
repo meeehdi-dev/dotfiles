@@ -107,6 +107,7 @@ vim.keymap.set({ "n", "v", "o" }, "è", "7", { remap = false })
 vim.keymap.set({ "n", "v", "o" }, "!", "8", { remap = false })
 vim.keymap.set({ "n", "v", "o" }, "ç", "9", { remap = false })
 vim.keymap.set({ "n", "v", "o" }, "à", "0", { remap = false })
+vim.keymap.set({ "n", "v", "o" }, "ù", "`", { remap = false })
 
 require("lazy").setup("plugins", {
   dev = {
