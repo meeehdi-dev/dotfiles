@@ -21,30 +21,6 @@ local handler_opts = {
       })
     end
   },
-  ["tsserver"] = {
-    commands = {
-      OrganizeImports = {
-        function()
-          vim.lsp.buf.execute_command({
-            command = "_typescript.organizeImports",
-            arguments = { vim.api.nvim_buf_get_name(0) }
-          })
-        end,
-        description = "Organize Imports",
-      },
-      PrettierFormat = {
-        function()
-          local rc = vim.tbl_count(vim.fn.glob(".prettierrc*", true, true))
-          if rc > 0 then
-            vim.cmd.Prettier()
-          else
-            vim.lsp.buf.format()
-          end
-        end,
-        description = "Format with Prettier",
-      }
-    }
-  },
   ["gdscript"] = {
     cmd = vim.lsp.rpc.connect('172.31.224.1', 6005), -- wsl host ip
     filetypes = { "gdscript" }

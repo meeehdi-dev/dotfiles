@@ -65,15 +65,33 @@ vim.keymap.set("n", "<leader>h", vim.lsp.buf.hover)
 vim.keymap.set("n", "<leader>0", vim.lsp.buf.code_action)
 vim.keymap.set("n", "<leader><Right>", vim.diagnostic.goto_next)
 vim.keymap.set("n", "<leader><Left>", vim.diagnostic.goto_prev)
-vim.keymap.set("n", "<leader>oi", function()
-  if vim.fn.exists(":OrganizeImports") > 0 then
-    vim.cmd.OrganizeImports()
-  end
-end)
 
+local filetypes = {
+  "javascript",
+  "javascriptreact",
+  "typescript",
+  "typescriptreact",
+}
+vim.keymap.set("n", "<leader>oi", function()
+  local buf_ft = vim.api.nvim_buf_get_option(0, "filetype")
+  if not vim.tbl_contains(filetypes, buf_ft) then
+    return
+  end
+  vim.lsp.buf.execute_command({
+    command = "_typescript.organizeImports",
+    arguments = { vim.api.nvim_buf_get_name(0) }
+  })
+end)
 vim.keymap.set("n", "<leader>f", function()
-  if vim.fn.exists(":PrettierFormat") > 0 then
-    vim.cmd.PrettierFormat()
+  local buf_ft = vim.api.nvim_buf_get_option(0, "filetype")
+  if not vim.tbl_contains(filetypes, buf_ft) then
+    vim.lsp.buf.format()
+    return
+  end
+
+  local rc = vim.tbl_count(vim.fn.glob(".prettierrc*", true, true))
+  if rc > 0 then
+    vim.cmd.Prettier()
   else
     vim.lsp.buf.format()
   end
