@@ -14,6 +14,7 @@ vim.opt.rtp:prepend(lazypath)
 -- Options
 vim.opt.cursorline = true
 vim.opt.cursorlineopt = "number"
+vim.opt.expandtab = true
 vim.opt.matchtime = 1
 vim.opt.mouse = "n"
 vim.opt.number = true
@@ -31,11 +32,6 @@ vim.opt.updatetime = 100
 
 -- Leader
 vim.g.mapleader = " "
-
--- Diagnostics
-vim.diagnostic.config({
-  update_in_insert = true,
-})
 
 vim.fn.sign_define("DiagnosticSignError", { text = "", texthl = "DiagnosticSignError" })
 vim.fn.sign_define("DiagnosticSignWarn", { text = "", texthl = "DiagnosticSignWarn" })

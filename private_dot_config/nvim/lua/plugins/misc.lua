@@ -79,7 +79,7 @@ return {
     }
   },
   {
-    "prettier/vim-prettier",
+    "adnan007d/vim-prettier",
     build = "yarn install --frozen-lockfile --production",
   },
   {
