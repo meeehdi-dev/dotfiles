@@ -12,32 +12,22 @@ end
 vim.opt.rtp:prepend(lazypath)
 
 -- Options
-vim.opt.autoindent = true
-vim.opt.expandtab = true
-vim.opt.hlsearch = true
-vim.opt.ignorecase = true
-vim.opt.laststatus = 2
+vim.opt.cursorline = true
+vim.opt.cursorlineopt = "number"
 vim.opt.matchtime = 1
 vim.opt.mouse = "n"
 vim.opt.number = true
 vim.opt.relativenumber = true
-vim.opt.scrolloff = 2
 vim.opt.shiftwidth = 2
 vim.opt.showmatch = true
 vim.opt.signcolumn = "yes"
-vim.opt.smartcase = true
 vim.opt.smartindent = true
-vim.opt.smarttab = true
-vim.opt.softtabstop = 2
 vim.opt.splitbelow = true
 vim.opt.splitright = true
 vim.opt.tabstop = 2
 vim.opt.termguicolors = true
 vim.opt.title = true
 vim.opt.updatetime = 100
-vim.opt.cursorline = true
-vim.opt.cursorlineopt = "number"
-vim.opt.diffopt = "filler,iwhite,context:5"
 
 -- Leader
 vim.g.mapleader = " "
@@ -45,7 +35,6 @@ vim.g.mapleader = " "
 -- Diagnostics
 vim.diagnostic.config({
   update_in_insert = true,
-  severity_sort = true,
 })
 
 vim.fn.sign_define("DiagnosticSignError", { text = "", texthl = "DiagnosticSignError" })
@@ -75,39 +64,24 @@ vim.keymap.set("n", "<leader>t", function()
   vim.diagnostic.open_float(nil, { focus = false })
 end)
 
-vim.keymap.set("n", "<C-d>", "<C-d>zz", { remap = false })
-vim.keymap.set("n", "<C-u>", "<C-u>zz", { remap = false })
-vim.keymap.set("n", "<C-o>", "<C-o>zz", { remap = false })
-vim.keymap.set("n", "n", "nzz", { remap = false })
-vim.keymap.set("n", "N", "Nzz", { remap = false })
-
-vim.keymap.set("x", ">", ">gv", { remap = false })
-vim.keymap.set("x", "<", "<gv", { remap = false })
-
 vim.keymap.set("n", "<F2>", vim.lsp.buf.rename)
 vim.keymap.set("n", "<leader>h", vim.lsp.buf.hover)
 vim.keymap.set("n", "<leader>0", vim.lsp.buf.code_action)
-vim.keymap.set("n", "<C-i>", function()
-  vim.lsp.buf.execute_command({ command = "_typescript.organizeImports", arguments = { vim.api.nvim_buf_get_name(0) } })
-end)
 vim.keymap.set("n", "<leader><Right>", vim.diagnostic.goto_next)
 vim.keymap.set("n", "<leader><Left>", vim.diagnostic.goto_prev)
+vim.keymap.set("n", "<leader>oi", function()
+  if vim.fn.exists(":OrganizeImports") > 0 then
+    vim.cmd.OrganizeImports()
+  end
+end)
 
-vim.keymap.set("n", "<PageUp>", "<nop>", { remap = false })
-vim.keymap.set("n", "<PageDown>", "<nop>", { remap = false })
-vim.keymap.set("i", "<C-c>", "<nop>", { remap = false })
-
-vim.keymap.set({ "n", "v", "o" }, "&", "1", { remap = false })
-vim.keymap.set({ "n", "v", "o" }, "é", "2", { remap = false })
-vim.keymap.set({ "n", "v", "o" }, "\"", "3", { remap = false })
-vim.keymap.set({ "n", "v", "o" }, "'", "4", { remap = false })
-vim.keymap.set({ "n", "v", "o" }, "(", "5", { remap = false })
-vim.keymap.set({ "n", "v", "o" }, "§", "6", { remap = false })
-vim.keymap.set({ "n", "v", "o" }, "è", "7", { remap = false })
-vim.keymap.set({ "n", "v", "o" }, "!", "8", { remap = false })
-vim.keymap.set({ "n", "v", "o" }, "ç", "9", { remap = false })
-vim.keymap.set({ "n", "v", "o" }, "à", "0", { remap = false })
-vim.keymap.set({ "n", "v", "o" }, "ù", "`", { remap = false })
+vim.keymap.set("n", "<leader>f", function()
+  if vim.fn.exists(":PrettierFormat") > 0 then
+    vim.cmd.PrettierFormat()
+  else
+    vim.lsp.buf.format()
+  end
+end)
 
 require("lazy").setup("plugins", {
   dev = {

@@ -63,7 +63,7 @@ return {
           if buf_ft == "" then
             return "..."
           end
-          local clients = vim.lsp.buf_get_clients()
+          local clients = vim.lsp.get_active_clients()
           if next(clients) ~= nil then
             for _, client in pairs(clients) do
               local filetypes = client.config.filetypes

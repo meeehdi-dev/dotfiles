@@ -5,7 +5,6 @@ return {
     dependencies = {
       {
         "meeehdi-dev/win-picker.nvim",
-        dev = true,
         config = true,
       },
     },
@@ -40,10 +39,8 @@ return {
   },
   {
     "lukas-reineke/indent-blankline.nvim",
-    opts = {
-      show_current_context = true,
-      show_current_context_start = true,
-    },
+    main = "ibl",
+    config = true,
   },
   {
     "chrisgrieser/nvim-early-retirement",
@@ -84,21 +81,6 @@ return {
   {
     "prettier/vim-prettier",
     build = "yarn install --frozen-lockfile --production",
-    keys = {
-      {
-        "<leader>f",
-        function()
-          vim.g["prettier#quickfix_enabled"] = 0
-          local rc = vim.fn.findfile(".prettierrc", ".;")
-          local rcjson = vim.fn.findfile(".prettierrc.json", ".;")
-          if rc == "" and rcjson == "" then
-            vim.lsp.buf.format()
-          else
-            vim.cmd.Prettier()
-          end
-        end
-      }
-    }
   },
   {
     "numToStr/Comment.nvim",
@@ -141,16 +123,6 @@ return {
     },
   },
   {
-    "mbbill/undotree",
-    keys = {
-      {
-        "<leader>u",
-        vim.cmd.UndotreeToggle,
-      },
-    },
-  },
-  "sindrets/diffview.nvim",
-  {
     "lewis6991/gitsigns.nvim",
     config = true,
   },
@@ -170,7 +142,6 @@ return {
   },
   {
     "meeehdi-dev/win-picker.nvim",
-    -- dev = true,
     config = {
       hlgroup = "lualine_a_normal",
       filter = function(id)
