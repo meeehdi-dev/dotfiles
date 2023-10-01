@@ -45,7 +45,7 @@ end
 
 config.hide_tab_bar_if_only_one_tab = true
 
-config.color_scheme = "tokyonight_storm"
+config.color_scheme = "Tokyo Night"
 
 config.background = {
   {
