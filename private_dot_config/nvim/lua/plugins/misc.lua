@@ -108,16 +108,19 @@ return {
     opts = {
       search = {
         multi_window = false,
+        wrap = false,
       },
       jump = {
         nohlsearch = true,
       },
-      prompt = {
-        enabled = false,
-      },
       modes = {
         char = {
-          enabled = false,
+          search = {
+            wrap = false,
+          },
+          highlight = {
+            backdrop = false,
+          },
         },
       },
     },
