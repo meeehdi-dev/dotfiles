@@ -13,7 +13,9 @@ return {
         open_file = {
           window_picker = {
             picker = function()
-              return require("win-picker").pick_win()
+              return require("win-picker").pick_win({
+                mode = "float",
+              })
             end,
           },
           quit_on_open = true,
@@ -146,11 +148,12 @@ return {
   {
     "meeehdi-dev/win-picker.nvim",
     config = {
+      mode = "float",
       hlgroup = "lualine_a_normal",
       filter = function(id)
         local bufid = vim.api.nvim_win_get_buf(id)
         local ft = vim.api.nvim_buf_get_option(bufid, "filetype")
-        return not vim.tbl_contains({ "noice", "notify" }, ft)
+        return not vim.tbl_contains({ "noice", "notify", "" }, ft)
       end,
     },
     keys = {
