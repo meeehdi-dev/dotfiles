@@ -90,9 +90,24 @@ return {
   },
   {
     "folke/noice.nvim",
-    config = true,
     dependencies = {
       "MunifTanjim/nui.nvim",
+      {
+        "rcarriga/nvim-notify",
+        opts = {
+          render = "wrapped-compact",
+          stages = "static",
+        }
+      }
+    },
+    opts = {
+      lsp = {
+        override = {
+          ["vim.lsp.util.convert_input_to_markdown_lines"] = true,
+          ["vim.lsp.util.stylize_markdown"] = true,
+          ["cmp.entry.get_documentation"] = true,
+        },
+      },
     }
   },
   {
@@ -147,7 +162,7 @@ return {
   },
   {
     "meeehdi-dev/win-picker.nvim",
-    config = {
+    opts = {
       mode = "float",
       hlgroup = "lualine_a_normal",
       filter = function(id)
