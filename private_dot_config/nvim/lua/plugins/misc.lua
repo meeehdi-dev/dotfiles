@@ -163,8 +163,7 @@ return {
   {
     "meeehdi-dev/win-picker.nvim",
     opts = {
-      mode = "float",
-      hlgroup = "lualine_a_normal",
+      hl_group = "lualine_a_normal",
       filter = function(id)
         local bufid = vim.api.nvim_win_get_buf(id)
         local ft = vim.api.nvim_buf_get_option(bufid, "filetype")
