@@ -1,6 +1,0 @@
-hs.hotkey.bind("alt", "t", function()
-  hs.application.launchOrFocus("WezTerm")
-end)
-hs.hotkey.bind("alt", "f", function()
-  hs.application.launchOrFocus("Firefox")
-end)
