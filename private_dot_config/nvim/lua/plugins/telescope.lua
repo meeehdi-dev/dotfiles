@@ -55,7 +55,7 @@ return {
         end,
       },
       {
-        "<S-r>",
+        "<S-f>",
         function()
           require("telescope.builtin").resume()
         end
