@@ -14,7 +14,11 @@ return {
           window_picker = {
             picker = function()
               return require("win-picker").pick_win({
-                mode = "float",
+                filter = function(id)
+                  local bufid = vim.api.nvim_win_get_buf(id)
+                  local ft = vim.api.nvim_buf_get_option(bufid, "filetype")
+                  return not vim.tbl_contains({ "noice", "notify", "", "NvimTree" }, ft)
+                end,
               })
             end,
           },
