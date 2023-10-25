@@ -24,11 +24,12 @@ return {
           ["<Up>"] = cmp.mapping.select_prev_item({ behavior = cmp.SelectBehavior.Select }),
           ["<Down>"] = cmp.mapping.select_next_item({ behavior = cmp.SelectBehavior.Select }),
           ["<CR>"] = cmp.mapping.confirm({ behavior = cmp.ConfirmBehavior.Insert, select = false }),
-          ["<C-Space>"] = function()
+          ["<C-Down>"] = function()
             cmp.close()
             cmp.complete({
               config = {
                 sources = {
+                  { name = "copilot" },
                   { name = "nvim_lsp" },
                   { name = "buffer" },
                   { name = "luasnip" },
@@ -39,6 +40,7 @@ return {
         }),
         sources = cmp.config.sources({
           { name = "path",     max_item_count = 5 },
+          { name = "copilot",  max_item_count = 5 },
           { name = "nvim_lsp", max_item_count = 5 },
           { name = "buffer",   max_item_count = 5 },
         }),

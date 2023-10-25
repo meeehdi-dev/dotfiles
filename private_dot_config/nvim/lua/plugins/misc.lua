@@ -58,18 +58,18 @@ return {
     "zbirenbaum/copilot.lua",
     opts = {
       panel = {
-        enable = false,
+        enabled = false,
       },
       suggestion = {
-        auto_trigger = true,
-        debounce = 100,
-        keymap = {
-          next = "<S-Tab>",
-          accept = "<Tab>",
-          accept_word = "<C-Right>",
-        },
+        enabled = false,
       },
     },
+  },
+  {
+    "zbirenbaum/copilot-cmp",
+    config = function()
+      require("copilot_cmp").setup()
+    end
   },
   {
     "folke/trouble.nvim",
