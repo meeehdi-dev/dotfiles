@@ -29,8 +29,8 @@ return {
             cmp.complete({
               config = {
                 sources = {
-                  { name = "copilot" },
                   { name = "nvim_lsp" },
+                  { name = "copilot" },
                   { name = "buffer" },
                   { name = "luasnip" },
                 }
@@ -40,8 +40,8 @@ return {
         }),
         sources = cmp.config.sources({
           { name = "path",     max_item_count = 5 },
-          { name = "copilot",  max_item_count = 5 },
           { name = "nvim_lsp", max_item_count = 5 },
+          { name = "copilot",  max_item_count = 5 },
           { name = "buffer",   max_item_count = 5 },
         }),
         snippet = {
