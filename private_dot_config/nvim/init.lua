@@ -33,10 +33,22 @@ vim.opt.updatetime = 100
 -- Leader
 vim.g.mapleader = " "
 
-vim.fn.sign_define("DiagnosticSignError", { text = "", texthl = "DiagnosticSignError" })
-vim.fn.sign_define("DiagnosticSignWarn", { text = "", texthl = "DiagnosticSignWarn" })
-vim.fn.sign_define("DiagnosticSignInfo", { text = "", texthl = "DiagnosticSignInfo" })
-vim.fn.sign_define("DiagnosticSignHint", { text = "", texthl = "DiagnosticSignHint" })
+vim.fn.sign_define(
+  "DiagnosticSignError",
+  { text = "", texthl = "DiagnosticSignError" }
+)
+vim.fn.sign_define(
+  "DiagnosticSignWarn",
+  { text = "", texthl = "DiagnosticSignWarn" }
+)
+vim.fn.sign_define(
+  "DiagnosticSignInfo",
+  { text = "", texthl = "DiagnosticSignInfo" }
+)
+vim.fn.sign_define(
+  "DiagnosticSignHint",
+  { text = "", texthl = "DiagnosticSignHint" }
+)
 
 -- WSL Clipboard
 if vim.fn.has("wsl") == 1 then
@@ -85,7 +97,8 @@ vim.keymap.set("n", "<leader>oi", function()
   })
 end)
 vim.keymap.set("n", "<leader>f", function()
-  local formatted = require("conform").format({ bufnr = vim.api.nvim_get_current_buf() })
+  local formatted =
+    require("conform").format({ bufnr = vim.api.nvim_get_current_buf() })
   if not formatted then
     vim.lsp.buf.format()
   end

@@ -14,7 +14,7 @@ return {
         live_grep = {
           additional_args = function()
             return { "--hidden" }
-          end
+          end,
         },
       },
     },
@@ -34,19 +34,19 @@ return {
               hidden = true,
             })
           end
-        end
+        end,
       },
       {
         "gd",
         function()
           require("telescope.builtin").lsp_definitions()
-        end
+        end,
       },
       {
         "gr",
         function()
           require("telescope.builtin").lsp_references()
-        end
+        end,
       },
       {
         "<C-f>",
@@ -58,8 +58,8 @@ return {
         "<S-f>",
         function()
           require("telescope.builtin").resume()
-        end
+        end,
       },
     },
-  }
+  },
 }

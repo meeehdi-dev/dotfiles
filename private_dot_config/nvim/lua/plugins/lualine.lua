@@ -1,3 +1,24 @@
+local function lualine_lsp()
+  local lsp = {}
+  local buf_ft = vim.api.nvim_buf_get_option(0, "filetype")
+  if buf_ft == "" then
+    return "..."
+  end
+  local clients = vim.lsp.get_active_clients()
+  if next(clients) ~= nil then
+    for _, client in pairs(clients) do
+      local filetypes = client.config.filetypes
+      if filetypes and vim.fn.index(filetypes, buf_ft) ~= -1 then
+        table.insert(lsp, client.name)
+      end
+    end
+  end
+  if #lsp == 0 then
+    table.insert(lsp, "None")
+  end
+  return table.concat(lsp, ",")
+end
+
 return {
   "nvim-lualine/lualine.nvim",
   dependencies = { "folke/tokyonight.nvim" },
@@ -11,7 +32,9 @@ return {
       lualine_a = {
         {
           "mode",
-          fmt = function(str) return string.lower(str:sub(1, 1)) end,
+          fmt = function(str)
+            return string.lower(str:sub(1, 1))
+          end,
           separator = { left = "", right = "" },
         },
       },
@@ -29,26 +52,7 @@ return {
         },
       },
       lualine_y = {
-        function()
-          local lsp = {}
-          local buf_ft = vim.api.nvim_buf_get_option(0, "filetype")
-          if buf_ft == "" then
-            return "..."
-          end
-          local clients = vim.lsp.get_active_clients()
-          if next(clients) ~= nil then
-            for _, client in pairs(clients) do
-              local filetypes = client.config.filetypes
-              if filetypes and vim.fn.index(filetypes, buf_ft) ~= -1 then
-                table.insert(lsp, client.name)
-              end
-            end
-          end
-          if #lsp == 0 then
-            table.insert(lsp, "None")
-          end
-          return table.concat(lsp, ",")
-        end,
+        lualine_lsp,
       },
       lualine_z = {
         { "filename", path = 1 },
@@ -58,7 +62,9 @@ return {
       lualine_a = {
         {
           "mode",
-          fmt = function() return "." end,
+          fmt = function()
+            return "."
+          end,
           separator = { left = "", right = "" },
         },
       },
@@ -76,26 +82,7 @@ return {
         },
       },
       lualine_y = {
-        function()
-          local lsp = {}
-          local buf_ft = vim.api.nvim_buf_get_option(0, "filetype")
-          if buf_ft == "" then
-            return "..."
-          end
-          local clients = vim.lsp.get_active_clients()
-          if next(clients) ~= nil then
-            for _, client in pairs(clients) do
-              local filetypes = client.config.filetypes
-              if filetypes and vim.fn.index(filetypes, buf_ft) ~= -1 then
-                table.insert(lsp, client.name)
-              end
-            end
-          end
-          if #lsp == 0 then
-            table.insert(lsp, "None")
-          end
-          return table.concat(lsp, ",")
-        end,
+        lualine_lsp,
       },
       lualine_z = {
         { "filename", path = 1 },
@@ -105,5 +92,5 @@ return {
   config = function(_, opts)
     require("tokyonight.colors").setup()
     require("lualine").setup(opts)
-  end
+  end,
 }

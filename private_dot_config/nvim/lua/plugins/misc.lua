@@ -14,7 +14,10 @@ return {
                 filter = function(id)
                   local bufid = vim.api.nvim_win_get_buf(id)
                   local ft = vim.api.nvim_buf_get_option(bufid, "filetype")
-                  return not vim.tbl_contains({ "noice", "notify", "NvimTree" }, ft)
+                  return not vim.tbl_contains(
+                    { "noice", "notify", "NvimTree" },
+                    ft
+                  )
                 end,
               })
             end,
@@ -32,9 +35,9 @@ return {
             find_file = true,
             focus = true,
           })
-        end
-      }
-    }
+        end,
+      },
+    },
   },
   {
     "rmagatti/auto-session",
@@ -67,7 +70,7 @@ return {
     config = true,
   },
   {
-    'stevearc/conform.nvim',
+    "stevearc/conform.nvim",
     opts = {
       formatters_by_ft = {
         lua = { "stylua" },
@@ -76,7 +79,7 @@ return {
         typescript = { "prettierd" },
         typescriptreact = { "prettierd" },
       },
-    }
+    },
   },
   {
     "numToStr/Comment.nvim",
@@ -91,8 +94,8 @@ return {
         opts = {
           render = "wrapped-compact",
           stages = "static",
-        }
-      }
+        },
+      },
     },
     opts = {
       lsp = {
@@ -102,7 +105,7 @@ return {
           ["cmp.entry.get_documentation"] = true,
         },
       },
-    }
+    },
   },
   {
     "folke/todo-comments.nvim",
@@ -151,7 +154,7 @@ return {
     "norcalli/nvim-colorizer.lua",
     config = function()
       require("colorizer").setup({ "*" }, { css = true })
-    end
+    end,
   },
   {
     "meeehdi-dev/win-picker.nvim",
@@ -173,6 +176,6 @@ return {
           end
         end,
       },
-    }
+    },
   },
 }

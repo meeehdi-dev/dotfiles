@@ -1,6 +1,12 @@
 local handler_opts = {
   ["eslint"] = {
-    filetypes = { "javascript", "javascriptreact", "typescript", "typescriptreact", "json" },
+    filetypes = {
+      "javascript",
+      "javascriptreact",
+      "typescript",
+      "typescriptreact",
+      "json",
+    },
     on_attach = function(_, bufnr)
       vim.api.nvim_create_autocmd("BufWritePre", {
         buffer = bufnr,
@@ -8,9 +14,9 @@ local handler_opts = {
           if vim.fn.exists(":EslintFixAll") > 0 then
             vim.cmd.EslintFixAll()
           end
-        end
+        end,
       })
-    end
+    end,
   },
   ["tailwindcss"] = {
     filetypes = { "html", "javascriptreact", "typescriptreact" },
@@ -31,11 +37,11 @@ local function setup_handler(server_name)
         buffer = bufnr,
         callback = function()
           vim.lsp.buf.document_highlight()
-        end
+        end,
       })
       vim.api.nvim_create_autocmd("CursorMoved", {
         buffer = bufnr,
-        callback = vim.lsp.buf.clear_references
+        callback = vim.lsp.buf.clear_references,
       })
     end
   end
@@ -66,7 +72,7 @@ return {
       })
       require("neodev").setup()
       mason_lspconfig.setup_handlers({
-        setup_handler
+        setup_handler,
       })
     end,
   },

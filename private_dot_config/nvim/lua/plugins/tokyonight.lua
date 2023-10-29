@@ -1,7 +1,7 @@
 return {
   {
     "folke/tokyonight.nvim",
-    opts   = {
+    opts = {
       transparent = true,
       on_highlights = function(hl, c)
         hl.LineNr = {
@@ -15,6 +15,6 @@ return {
     config = function(_, opts)
       require("tokyonight").setup(opts)
       vim.cmd("colorscheme tokyonight")
-    end
-  }
+    end,
+  },
 }

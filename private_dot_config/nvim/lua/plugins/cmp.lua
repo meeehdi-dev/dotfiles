@@ -13,9 +13,16 @@ return {
 
       cmp.setup({
         mapping = cmp.mapping.preset.insert({
-          ["<Up>"] = cmp.mapping.select_prev_item({ behavior = cmp.SelectBehavior.Select }),
-          ["<Down>"] = cmp.mapping.select_next_item({ behavior = cmp.SelectBehavior.Select }),
-          ["<CR>"] = cmp.mapping.confirm({ behavior = cmp.ConfirmBehavior.Insert, select = false }),
+          ["<Up>"] = cmp.mapping.select_prev_item({
+            behavior = cmp.SelectBehavior.Select,
+          }),
+          ["<Down>"] = cmp.mapping.select_next_item({
+            behavior = cmp.SelectBehavior.Select,
+          }),
+          ["<CR>"] = cmp.mapping.confirm({
+            behavior = cmp.ConfirmBehavior.Insert,
+            select = false,
+          }),
           ["<C-Space>"] = function()
             cmp.close()
             cmp.complete({
@@ -24,15 +31,15 @@ return {
                   { name = "nvim_lsp" },
                   { name = "copilot" },
                   { name = "luasnip" },
-                }
-              }
+                },
+              },
             })
           end,
         }),
         sources = cmp.config.sources({
-          { name = "path",     max_item_count = 5 },
+          { name = "path", max_item_count = 5 },
           { name = "nvim_lsp", max_item_count = 5 },
-          { name = "buffer",   max_item_count = 5 },
+          { name = "buffer", max_item_count = 5 },
         }),
         snippet = {
           expand = function(args)
@@ -44,7 +51,10 @@ return {
       cmp.setup.cmdline({ "/", "?" }, {
         mapping = cmp.mapping.preset.cmdline({
           ["<Up>"] = cmp.mapping(cmp.mapping.select_prev_item(), { "i", "c" }),
-          ["<Down>"] = cmp.mapping(cmp.mapping.select_next_item(), { "i", "c" }),
+          ["<Down>"] = cmp.mapping(
+            cmp.mapping.select_next_item(),
+            { "i", "c" }
+          ),
         }),
         sources = cmp.config.sources({
           { name = "buffer", max_item_count = 10 },
@@ -54,12 +64,15 @@ return {
       cmp.setup.cmdline(":", {
         mapping = cmp.mapping.preset.cmdline({
           ["<Up>"] = cmp.mapping(cmp.mapping.select_prev_item(), { "i", "c" }),
-          ["<Down>"] = cmp.mapping(cmp.mapping.select_next_item(), { "i", "c" }),
+          ["<Down>"] = cmp.mapping(
+            cmp.mapping.select_next_item(),
+            { "i", "c" }
+          ),
         }),
         sources = cmp.config.sources({
           { name = "cmdline", max_item_count = 10 },
         }),
       })
     end,
-  }
+  },
 }
