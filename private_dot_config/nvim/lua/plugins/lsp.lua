@@ -49,6 +49,47 @@ local function setup_handler(server_name)
   require("lspconfig")[server_name].setup(opts)
 end
 
+local function auto_install(registry, package_name)
+  local is_installed = registry.is_installed(package_name)
+  if not is_installed then
+    local package = registry.get_package(package_name)
+    vim.notify(
+      'Installing "' .. package_name .. '"',
+      vim.log.levels.INFO,
+      { title = "mason.nvim" }
+    )
+    package:install():once("closed", function()
+      if package:is_installed() then
+        vim.notify(
+          '"' .. package_name .. '" was successfully installed.',
+          vim.log.levels.INFO,
+          { title = "mason.nvim" }
+        )
+      else
+        vim.notify(
+          'Failed to install "'
+            .. package_name
+            .. '". Installation logs are available in :Mason and :MasonLog',
+          vim.log.levels.ERROR,
+          { title = "mason.nvim" }
+        )
+      end
+    end)
+  end
+end
+
+local formatters = {
+  "prettierd",
+  "stylua",
+}
+
+local function auto_install_formatters()
+  local registry = require("mason-registry")
+  for _, formatter in pairs(formatters) do
+    auto_install(registry, formatter)
+  end
+end
+
 return {
   {
     "neovim/nvim-lspconfig",
@@ -68,12 +109,25 @@ return {
     config = function()
       local mason_lspconfig = require("mason-lspconfig")
       mason_lspconfig.setup({
+        ensure_installed = {
+          "lua_ls",
+          "tsserver",
+          "eslint",
+          "cssls",
+          "jsonls",
+          "prismals",
+          "tailwindcss",
+          "yamlls",
+          "gopls",
+        },
         automatic_installation = true,
       })
       require("neodev").setup()
       mason_lspconfig.setup_handlers({
         setup_handler,
       })
+
+      vim.schedule(auto_install_formatters)
     end,
   },
 }
