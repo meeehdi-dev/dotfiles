@@ -53,18 +53,20 @@ if vim.fn.has("wsl") == 1 then
     cache_enabled = 0,
   }
 end
-vim.keymap.set("v", "<leader>y", "\"*y")
-vim.keymap.set("x", "<leader>p", "\"_dP")
+vim.keymap.set("v", "Y", '"*y')
 
 vim.keymap.set("n", "<leader>t", function()
   vim.diagnostic.open_float(nil, { focus = false })
 end)
 
 vim.keymap.set("n", "<F2>", vim.lsp.buf.rename)
+vim.keymap.set("n", "<F3>", ":noh<CR>")
 vim.keymap.set("n", "<leader>h", vim.lsp.buf.hover)
 vim.keymap.set("n", "<leader>0", vim.lsp.buf.code_action)
 vim.keymap.set("n", "<leader><Right>", vim.diagnostic.goto_next)
+vim.keymap.set("n", "<leader><Down>", vim.diagnostic.goto_next)
 vim.keymap.set("n", "<leader><Left>", vim.diagnostic.goto_prev)
+vim.keymap.set("n", "<leader><Up>", vim.diagnostic.goto_prev)
 
 local filetypes = {
   "javascript",
@@ -79,20 +81,12 @@ vim.keymap.set("n", "<leader>oi", function()
   end
   vim.lsp.buf.execute_command({
     command = "_typescript.organizeImports",
-    arguments = { vim.api.nvim_buf_get_name(0) }
+    arguments = { vim.api.nvim_buf_get_name(0) },
   })
 end)
 vim.keymap.set("n", "<leader>f", function()
-  local buf_ft = vim.api.nvim_buf_get_option(0, "filetype")
-  if not vim.tbl_contains(filetypes, buf_ft) then
-    vim.lsp.buf.format()
-    return
-  end
-
-  local rc = vim.tbl_count(vim.fn.glob(".prettierrc*", true, true))
-  if rc > 0 then
-    vim.cmd.Prettier()
-  else
+  local formatted = require("conform").format({ bufnr = vim.api.nvim_get_current_buf() })
+  if not formatted then
     vim.lsp.buf.format()
   end
 end)
@@ -101,5 +95,5 @@ require("lazy").setup("plugins", {
   dev = {
     path = "~/code/nvim-plugins",
     patterns = { "meeehdi-dev" },
-  }
+  },
 })

@@ -1,13 +1,4 @@
 local handler_opts = {
-  ["lua_ls"] = {
-    settings = {
-      Lua = {
-        diagnostics = {
-          globals = { "vim", "hs" },
-        },
-      }
-    }
-  },
   ["eslint"] = {
     filetypes = { "javascript", "javascriptreact", "typescript", "typescriptreact", "json" },
     on_attach = function(_, bufnr)
@@ -20,10 +11,6 @@ local handler_opts = {
         end
       })
     end
-  },
-  ["gdscript"] = {
-    cmd = vim.lsp.rpc.connect('172.31.224.1', 6005), -- wsl host ip
-    filetypes = { "gdscript" }
   },
   ["tailwindcss"] = {
     filetypes = { "html", "javascriptreact", "typescriptreact" },
@@ -81,7 +68,6 @@ return {
       mason_lspconfig.setup_handlers({
         setup_handler
       })
-      setup_handler("gdscript")
     end,
   },
 }

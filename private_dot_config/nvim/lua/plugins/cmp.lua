@@ -7,31 +7,22 @@ return {
       "hrsh7th/cmp-path",
       "hrsh7th/cmp-cmdline",
       "L3MON4D3/LuaSnip",
-      {
-        "windwp/nvim-autopairs",
-        config = true,
-      },
     },
     config = function()
       local cmp = require("cmp")
-      cmp.event:on(
-        'confirm_done',
-        require('nvim-autopairs.completion.cmp').on_confirm_done()
-      )
 
       cmp.setup({
         mapping = cmp.mapping.preset.insert({
           ["<Up>"] = cmp.mapping.select_prev_item({ behavior = cmp.SelectBehavior.Select }),
           ["<Down>"] = cmp.mapping.select_next_item({ behavior = cmp.SelectBehavior.Select }),
           ["<CR>"] = cmp.mapping.confirm({ behavior = cmp.ConfirmBehavior.Insert, select = false }),
-          ["<C-Down>"] = function()
+          ["<C-Space>"] = function()
             cmp.close()
             cmp.complete({
               config = {
                 sources = {
                   { name = "nvim_lsp" },
                   { name = "copilot" },
-                  { name = "buffer" },
                   { name = "luasnip" },
                 }
               }
@@ -41,7 +32,6 @@ return {
         sources = cmp.config.sources({
           { name = "path",     max_item_count = 5 },
           { name = "nvim_lsp", max_item_count = 5 },
-          { name = "copilot",  max_item_count = 5 },
           { name = "buffer",   max_item_count = 5 },
         }),
         snippet = {

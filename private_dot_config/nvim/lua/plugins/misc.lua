@@ -3,10 +3,7 @@ return {
   {
     "nvim-tree/nvim-tree.lua",
     dependencies = {
-      {
-        "meeehdi-dev/win-picker.nvim",
-        config = true,
-      },
+      "meeehdi-dev/win-picker.nvim",
     },
     opts = {
       actions = {
@@ -67,26 +64,19 @@ return {
   },
   {
     "zbirenbaum/copilot-cmp",
-    config = function()
-      require("copilot_cmp").setup()
-    end
+    config = true,
   },
   {
-    "folke/trouble.nvim",
-    dependencies = { "nvim-tree/nvim-web-devicons" },
+    'stevearc/conform.nvim',
     opts = {
-      auto_close = true,
-    },
-    keys = {
-      {
-        "<C-t>",
-        vim.cmd.TroubleToggle,
-      }
+      formatters_by_ft = {
+        lua = { "stylua" },
+        javascript = { "prettierd" },
+        javascriptreact = { "prettierd" },
+        typescript = { "prettierd" },
+        typescriptreact = { "prettierd" },
+      },
     }
-  },
-  {
-    "adnan007d/vim-prettier",
-    build = "yarn install --frozen-lockfile --production",
   },
   {
     "numToStr/Comment.nvim",
@@ -122,7 +112,6 @@ return {
     opts = {
       signs = false,
     },
-    config = true,
   },
   {
     "folke/flash.nvim",
