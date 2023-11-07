@@ -29,7 +29,7 @@ return {
     config = true,
     keys = {
       {
-        "<C-e>",
+        "<leader>e",
         function()
           require("nvim-tree.api").tree.toggle({
             find_file = true,
@@ -61,23 +61,26 @@ return {
         enabled = false,
       },
       suggestion = {
-        enabled = false,
+        enabled = true,
+        auto_trigger = true,
+        debounce = 500,
+        keymap = {
+          accept = "<Tab>",
+          accept_word = "<C-Right>",
+        }
       },
     },
-  },
-  {
-    "zbirenbaum/copilot-cmp",
-    config = true,
   },
   {
     "stevearc/conform.nvim",
     opts = {
       formatters_by_ft = {
         lua = { "stylua" },
-        javascript = { "prettierd" },
-        javascriptreact = { "prettierd" },
-        typescript = { "prettierd" },
-        typescriptreact = { "prettierd" },
+        css = { "prettier" },
+        javascript = { "prettier" },
+        javascriptreact = { "prettier" },
+        typescript = { "prettier" },
+        typescriptreact = { "prettier" },
       },
     },
   },

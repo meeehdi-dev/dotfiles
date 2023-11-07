@@ -53,46 +53,51 @@ return {
   {
     "neovim/nvim-lspconfig",
     dependencies = {
-      "williamboman/mason-lspconfig.nvim",
+      {
+        "williamboman/mason-lspconfig.nvim",
+        dependencies = {
+          {
+            "williamboman/mason.nvim",
+            build = ":MasonUpdate",
+            config = true,
+          },
+          {
+            "folke/neodev.nvim",
+            config = true,
+          },
+        },
+        opts = {
+          ensure_installed = { "lua_ls", "tsserver", "eslint" },
+          automatic_installation = true,
+          handlers = {
+            setup_handler,
+          },
+        },
+      },
       "hrsh7th/cmp-nvim-lsp",
       {
-        "williamboman/mason.nvim",
-        build = ":MasonUpdate",
-        config = true,
-      },
-      {
-        "folke/neodev.nvim",
-        config = true,
-      },
-      {
         "WhoIsSethDaniel/mason-tool-installer.nvim",
+        dependencies = {
+          {
+            "williamboman/mason.nvim",
+            build = ":MasonUpdate",
+            config = true,
+          },
+        },
         opts = {
           ensure_installed = {
-            "lua-language-server",
-            "typescript-language-server",
-            "eslint-lsp",
             "css-lsp",
             "json-lsp",
             "prisma-language-server",
             "tailwindcss-language-server",
             "yaml-language-server",
             "gopls",
-            "prettierd",
+            "prettier",
             "stylua",
           },
           auto_update = true,
         },
       },
     },
-    config = function()
-      local mason_lspconfig = require("mason-lspconfig")
-      mason_lspconfig.setup({
-        automatic_installation = true,
-      })
-      require("neodev").setup()
-      mason_lspconfig.setup_handlers({
-        setup_handler,
-      })
-    end,
   },
 }

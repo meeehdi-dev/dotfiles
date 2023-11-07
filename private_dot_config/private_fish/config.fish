@@ -35,7 +35,6 @@ abbr u "sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y"
 
 # node
 abbr yw "yarn workspace"
-abbr n "nvm"
 abbr p "pnpm"
 
 # prompt
