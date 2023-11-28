@@ -38,7 +38,7 @@ local handler_opts = {
     end,
   },
   ["tailwindcss"] = {
-    filetypes = { "html", "javascriptreact", "typescriptreact" },
+    filetypes = { "html", "javascriptreact", "typescriptreact", "css" },
   },
 }
 
