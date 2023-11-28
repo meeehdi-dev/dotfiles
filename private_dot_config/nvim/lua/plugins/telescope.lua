@@ -8,6 +8,9 @@ return {
         file_ignore_patterns = {
           "^%.git/",
           "^node_modules/",
+          "^package-lock.json$",
+          "^pnpm-lock.yaml$",
+          "^yarn.lock$",
         },
       },
       pickers = {
