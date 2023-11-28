@@ -5,7 +5,27 @@ local handler_opts = {
       "javascriptreact",
       "typescript",
       "typescriptreact",
+      "json",
     },
+    root_dir = function(filename, bufnr)
+      -- ignore json files that are not i18n
+      local bufft = vim.api.nvim_buf_get_option(bufnr, "filetype")
+      if bufft == "json" and vim.fn.matchstr(filename, "i18n") == "" then
+        return nil
+      end
+
+      -- https://github.com/neovim/nvim-lspconfig/blob/master/lua/lspconfig/server_configurations/eslint.lua
+      return require("lspconfig").util.root_pattern(
+        ".eslintrc",
+        ".eslintrc.js",
+        ".eslintrc.cjs",
+        ".eslintrc.yaml",
+        ".eslintrc.yml",
+        ".eslintrc.json",
+        "eslint.config.js",
+        "package.json"
+      )(filename)
+    end,
     on_attach = function(_, bufnr)
       vim.api.nvim_create_autocmd("BufWritePre", {
         buffer = bufnr,
