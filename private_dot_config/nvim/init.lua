@@ -100,12 +100,19 @@ vim.keymap.set("n", "<leader>f", function()
   local buf_nr = vim.api.nvim_get_current_buf()
   local buf_ft = vim.api.nvim_buf_get_option(buf_nr, "filetype")
   if buf_ft == "json" then
-    vim.cmd(":%!jq --sort-keys '.'")
+    vim.cmd(":%!jq '.'")
   else
     local formatted = require("conform").format({ bufnr = buf_nr })
     if not formatted then
       vim.lsp.buf.format()
     end
+  end
+end)
+vim.keymap.set("n", "<leader>fs", function()
+  local buf_nr = vim.api.nvim_get_current_buf()
+  local buf_ft = vim.api.nvim_buf_get_option(buf_nr, "filetype")
+  if buf_ft == "json" then
+    vim.cmd(":%!jq --sort-keys '.'")
   end
 end)
 
