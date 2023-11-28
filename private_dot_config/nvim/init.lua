@@ -67,9 +67,7 @@ if vim.fn.has("wsl") == 1 then
 end
 vim.keymap.set("v", "Y", '"*y')
 
-vim.keymap.set("n", "<leader>t", function()
-  vim.diagnostic.open_float(nil, { focus = false })
-end)
+vim.keymap.set("n", "<leader>t", vim.diagnostic.open_float)
 
 vim.keymap.set("n", "<leader>r", vim.lsp.buf.rename)
 vim.keymap.set("n", "<leader>h", vim.lsp.buf.hover)
