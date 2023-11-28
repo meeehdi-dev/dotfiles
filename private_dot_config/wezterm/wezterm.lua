@@ -54,7 +54,7 @@ config.background = {
     },
     width = "100%",
     height = "100%",
-    opacity = 0.9,
+    opacity = 0.95,
   },
   {
     source = {
@@ -69,7 +69,7 @@ config.background = {
     },
     width = "100%",
     height = "100%",
-    opacity = 0.1,
+    opacity = 0.15,
   },
 }
 
@@ -82,7 +82,7 @@ if bg ~= nil then
     height = "Cover",
     horizontal_align = "Center",
     vertical_align = "Middle",
-    opacity = 0.1,
+    opacity = 0.15,
   })
 end
 
