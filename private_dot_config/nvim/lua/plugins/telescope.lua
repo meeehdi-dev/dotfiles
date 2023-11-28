@@ -57,6 +57,12 @@ return {
       {
         "<S-f>",
         function()
+          require("telescope.builtin").grep_string()
+        end,
+      },
+      {
+        "<S-r>",
+        function()
           require("telescope.builtin").resume()
         end,
       },
