@@ -164,6 +164,10 @@ return {
     end,
   },
   {
+    "stevearc/dressing.nvim",
+    config = true,
+  },
+  {
     "meeehdi-dev/win-picker.nvim",
     opts = {
       hl_group = "lualine_a_normal",
