@@ -46,7 +46,11 @@ return {
   {
     "lukas-reineke/indent-blankline.nvim",
     main = "ibl",
-    config = true,
+    opts = {
+      scope = {
+        show_start = false,
+      },
+    },
   },
   {
     "chrisgrieser/nvim-early-retirement",
