@@ -71,7 +71,7 @@ return {
         keymap = {
           accept = "<Tab>",
           accept_word = "<C-Right>",
-        }
+        },
       },
     },
   },
