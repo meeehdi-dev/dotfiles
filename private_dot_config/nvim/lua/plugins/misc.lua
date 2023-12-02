@@ -168,6 +168,10 @@ return {
     config = true,
   },
   {
+    "nvim-focus/focus.nvim",
+    config = true,
+  },
+  {
     "meeehdi-dev/win-picker.nvim",
     opts = {
       hl_group = "lualine_a_normal",
