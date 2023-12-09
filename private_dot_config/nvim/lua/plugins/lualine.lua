@@ -34,7 +34,14 @@ return {
         {
           "mode",
           fmt = function(str)
-            return string.lower(str:sub(1, 1))
+            local mode = string.lower(str:sub(1, 1))
+            local rec = vim.fn.reg_recording()
+            if rec == "" then
+              return mode
+            else
+              return mode .. "@"
+            end
+            -- return string.lower(str:sub(1, 1))
           end,
           separator = { left = "", right = "" },
         },
