@@ -12,8 +12,8 @@ return {
             picker = function()
               return require("win-picker").pick_win({
                 filter = function(id)
-                  local bufid = vim.api.nvim_win_get_buf(id)
-                  local ft = vim.api.nvim_buf_get_option(bufid, "filetype")
+                  local buf_nr = vim.api.nvim_win_get_buf(id)
+                  local ft = vim.api.nvim_buf_get_option(buf_nr, "filetype")
                   return not vim.tbl_contains(
                     { "noice", "notify", "NvimTree" },
                     ft
@@ -148,6 +148,20 @@ return {
   {
     "lewis6991/gitsigns.nvim",
     config = true,
+    keys = {
+      {
+        "<leader><Up>",
+        function()
+          require("gitsigns.actions").prev_hunk()
+        end,
+      },
+      {
+        "<leader><Down>",
+        function()
+          require("gitsigns.actions").next_hunk()
+        end,
+      },
+    },
   },
   {
     "kylechui/nvim-surround",
@@ -172,8 +186,8 @@ return {
     opts = {
       hl_group = "lualine_a_normal",
       filter = function(id)
-        local bufid = vim.api.nvim_win_get_buf(id)
-        local ft = vim.api.nvim_buf_get_option(bufid, "filetype")
+        local buf_nr = vim.api.nvim_win_get_buf(id)
+        local ft = vim.api.nvim_buf_get_option(buf_nr, "filetype")
         return not vim.tbl_contains({ "noice", "notify" }, ft)
       end,
     },

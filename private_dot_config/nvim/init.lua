@@ -33,6 +33,7 @@ vim.opt.updatetime = 100
 -- Leader
 vim.g.mapleader = " "
 
+-- Diagnostics signs
 vim.fn.sign_define(
   "DiagnosticSignError",
   { text = "", texthl = "DiagnosticSignError" }
@@ -67,53 +68,59 @@ if vim.fn.has("wsl") == 1 then
 end
 vim.keymap.set("v", "Y", '"*y')
 
-vim.keymap.set("n", "<leader>t", vim.diagnostic.open_float)
+-- Macros
+vim.keymap.set("n", "Q", "@q")
+vim.keymap.set("x", "Q", ":norm @q<CR>")
 
+-- Code actions
 vim.keymap.set("n", "<leader>r", vim.lsp.buf.rename)
 vim.keymap.set("n", "<leader>h", vim.lsp.buf.hover)
 vim.keymap.set("n", "<leader>0", vim.lsp.buf.code_action)
-vim.keymap.set("n", "<leader><Right>", vim.diagnostic.goto_next)
-vim.keymap.set("n", "<leader><Down>", vim.diagnostic.goto_next)
-vim.keymap.set("n", "<leader><Left>", vim.diagnostic.goto_prev)
-vim.keymap.set("n", "<leader><Up>", vim.diagnostic.goto_prev)
+vim.keymap.set("n", "<leader>t", vim.diagnostic.open_float)
 
-local filetypes = {
-  "javascript",
-  "javascriptreact",
-  "typescript",
-  "typescriptreact",
-}
+-- Fast navigation (diagnostics & git hunks)
+vim.keymap.set("n", "<leader><Right>", vim.diagnostic.goto_next)
+vim.keymap.set("n", "<leader><Left>", vim.diagnostic.goto_prev)
+
+-- Focus
+vim.keymap.set("n", "<leader><CR>", function()
+  vim.api.nvim_win_set_width(0, math.floor(vim.o.columns * 0.6))
+  vim.api.nvim_win_set_height(0, math.floor(vim.o.lines * 0.6))
+end)
+
+-- Format
 vim.keymap.set("n", "<leader>oi", function()
   local buf_nr = vim.api.nvim_get_current_buf()
-  local buf_ft = vim.api.nvim_buf_get_option(buf_nr, "filetype")
-  if not vim.tbl_contains(filetypes, buf_ft) then
+  local clients =
+    vim.lsp.get_active_clients({ bufnr = buf_nr, name = "tsserver" })
+  if next(clients) == nil then
     return
   end
+
   vim.lsp.buf.execute_command({
     command = "_typescript.organizeImports",
     arguments = { vim.api.nvim_buf_get_name(0) },
   })
 end)
 vim.keymap.set("n", "<leader>f", function()
-  local buf_nr = vim.api.nvim_get_current_buf()
-  local buf_ft = vim.api.nvim_buf_get_option(buf_nr, "filetype")
+  local buf_ft = vim.api.nvim_buf_get_option(0, "filetype")
   if buf_ft == "json" then
     vim.cmd(":%!jq '.'")
   else
-    local formatted = require("conform").format({ bufnr = buf_nr })
+    local formatted = require("conform").format()
     if not formatted then
       vim.lsp.buf.format()
     end
   end
 end)
 vim.keymap.set("n", "<leader>fs", function()
-  local buf_nr = vim.api.nvim_get_current_buf()
-  local buf_ft = vim.api.nvim_buf_get_option(buf_nr, "filetype")
+  local buf_ft = vim.api.nvim_buf_get_option(0, "filetype")
   if buf_ft == "json" then
     vim.cmd(":%!jq --sort-keys '.'")
   end
 end)
 
+-- Lazy
 require("lazy").setup("plugins", {
   dev = {
     path = "~/code/nvim-plugins",
