@@ -4,6 +4,9 @@ return {
     opts = {
       transparent = true,
       on_highlights = function(hl, c)
+        hl.Comment = {
+          fg = c.dark5,
+        }
         hl.LineNr = {
           fg = c.dark3,
         }
