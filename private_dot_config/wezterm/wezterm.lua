@@ -14,11 +14,14 @@ if wezterm.target_triple == "x86_64-pc-windows-msvc" then
   local bgs_path = (os.getenv("userprofile") or "") .. "\\bgs"
 
   local _, stdout = wezterm.run_child_process({
-    "cmd.exe", "/c", "dir", bgs_path, "/b"
+    "cmd.exe",
+    "/c",
+    "dir",
+    bgs_path,
+    "/b",
   })
 
-  for dir in stdout:gmatch("[^\r\n]+")
-  do
+  for dir in stdout:gmatch("[^\r\n]+") do
     table.insert(bgs, bgs_path .. "\\" .. dir)
   end
 elseif wezterm.target_triple == "aarch64-apple-darwin" then
@@ -27,11 +30,12 @@ elseif wezterm.target_triple == "aarch64-apple-darwin" then
   local bgs_path = (os.getenv("HOME") or "") .. "/bgs"
 
   local _, stdout = wezterm.run_child_process({
-    "ls", "-pa", bgs_path
+    "ls",
+    "-pa",
+    bgs_path,
   })
 
-  for dir in stdout:gmatch("[^\n]+")
-  do
+  for dir in stdout:gmatch("[^\n]+") do
     if dir:sub(-1) ~= "/" then
       table.insert(bgs, bgs_path .. "/" .. dir)
     end
@@ -47,43 +51,38 @@ config.hide_tab_bar_if_only_one_tab = true
 
 config.color_scheme = "Tokyo Night"
 
-config.background = {
-  {
-    source = {
-      Color = "#1A1B26",
-    },
-    width = "100%",
-    height = "100%",
-    opacity = 0.95,
-  },
-  {
-    source = {
-      Gradient = {
-        preset = "Cividis",
-        orientation = {
-          Linear = {
-            angle = -30.0,
-          },
-        },
-      },
-    },
-    width = "100%",
-    height = "100%",
-    opacity = 0.15,
-  },
-}
-
 if bg ~= nil then
-  table.insert(config.background, {
-    source = {
-      File = bg
+  config.background = {
+    {
+      source = {
+        Color = "#1A1B2C",
+      },
+      width = "100%",
+      height = "100%",
+      opacity = 0.95,
     },
-    width = "Cover",
-    height = "Cover",
-    horizontal_align = "Center",
-    vertical_align = "Middle",
-    opacity = 0.15,
-  })
+    {
+      source = {
+        File = bg,
+      },
+      width = "Cover",
+      height = "Cover",
+      horizontal_align = "Center",
+      vertical_align = "Middle",
+      opacity = 0.15,
+    },
+  }
+else
+  config.background = {
+    {
+      source = {
+        Color = "#1A1B26",
+      },
+      width = "100%",
+      height = "100%",
+      opacity = 0.95,
+    },
+  }
 end
 
 config.font = wezterm.font("CaskaydiaCove Nerd Font")
