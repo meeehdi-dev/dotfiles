@@ -13,6 +13,9 @@ return {
         hl.CursorLineNr = {
           fg = c.dark5,
         }
+        hl.DiagnosticUnnecessary = {
+          fg = c.dark5,
+        }
       end,
     },
     config = function(_, opts)
