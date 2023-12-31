@@ -1,5 +1,4 @@
 return {
-  "tpope/vim-fugitive",
   {
     "nvim-tree/nvim-tree.lua",
     dependencies = {
@@ -26,7 +25,6 @@ return {
         },
       },
     },
-    config = true,
     keys = {
       {
         "<leader>e",
@@ -41,7 +39,9 @@ return {
   },
   {
     "rmagatti/auto-session",
-    config = true,
+    opts = {
+      auto_session_suppress_dirs = { "~/" },
+    },
   },
   {
     "lukas-reineke/indent-blankline.nvim",
@@ -55,25 +55,15 @@ return {
   {
     "chrisgrieser/nvim-early-retirement",
     opts = {
-      retirementAgeMins = 10,
+      retirementAgeMins = 5,
     },
   },
   {
-    "zbirenbaum/copilot.lua",
-    opts = {
-      panel = {
-        enabled = false,
-      },
-      suggestion = {
-        enabled = true,
-        auto_trigger = true,
-        debounce = 500,
-        keymap = {
-          accept = "<Tab>",
-          accept_word = "<C-Right>",
-        },
-      },
-    },
+    "github/copilot.vim",
+    config = function()
+      vim.keymap.set("i", "<C-Right>", "<Plug>(copilot-accept-word)")
+      vim.keymap.set("i", "<M-Right>", "<Plug>(copilot-accept-line)")
+    end,
   },
   {
     "stevearc/conform.nvim",
@@ -96,13 +86,6 @@ return {
     "folke/noice.nvim",
     dependencies = {
       "MunifTanjim/nui.nvim",
-      {
-        "rcarriga/nvim-notify",
-        opts = {
-          render = "wrapped-compact",
-          stages = "static",
-        },
-      },
     },
     opts = {
       lsp = {
@@ -161,6 +144,12 @@ return {
           require("gitsigns.actions").next_hunk()
         end,
       },
+      {
+        "<leader>b",
+        function()
+          require("gitsigns.actions").blame_line()
+        end,
+      },
     },
   },
   {
@@ -170,12 +159,6 @@ return {
   {
     "laytan/cloak.nvim",
     config = true,
-  },
-  {
-    "norcalli/nvim-colorizer.lua",
-    config = function()
-      require("colorizer").setup({ "*" }, { css = true })
-    end,
   },
   {
     "stevearc/dressing.nvim",
