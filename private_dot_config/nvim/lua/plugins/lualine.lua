@@ -41,7 +41,6 @@ return {
             else
               return mode .. "@"
             end
-            -- return string.lower(str:sub(1, 1))
           end,
           separator = { left = "", right = "" },
         },
