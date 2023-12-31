@@ -44,15 +44,6 @@ return {
     },
   },
   {
-    "lukas-reineke/indent-blankline.nvim",
-    main = "ibl",
-    opts = {
-      scope = {
-        show_start = false,
-      },
-    },
-  },
-  {
     "chrisgrieser/nvim-early-retirement",
     opts = {
       retirementAgeMins = 5,
@@ -130,7 +121,11 @@ return {
   },
   {
     "lewis6991/gitsigns.nvim",
-    config = true,
+    lazy = false,
+    opts = {
+      current_line_blame = true,
+      current_line_blame_formatter = "    [<abbrev_sha>] <author>, <author_time:%R> | <summary>",
+    },
     keys = {
       {
         "<leader><Up>",
@@ -142,12 +137,6 @@ return {
         "<leader><Down>",
         function()
           require("gitsigns.actions").next_hunk()
-        end,
-      },
-      {
-        "<leader>b",
-        function()
-          require("gitsigns.actions").blame_line()
         end,
       },
     },
