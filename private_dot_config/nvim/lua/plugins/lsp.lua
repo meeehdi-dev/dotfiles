@@ -7,10 +7,10 @@ local handler_opts = {
       "typescriptreact",
       "json",
     },
-    root_dir = function(filename, bufnr)
+    root_dir = function(filename, buf_nr)
       -- ignore json files that are not i18n
-      local bufft = vim.api.nvim_buf_get_option(bufnr, "filetype")
-      if bufft == "json" and vim.fn.matchstr(filename, "i18n") == "" then
+      local buf_ft = vim.api.nvim_get_option_value("filetype", { buf = buf_nr })
+      if buf_ft == "json" and vim.fn.matchstr(filename, "i18n") == "" then
         return nil
       end
 
@@ -121,6 +121,25 @@ return {
           auto_update = true,
           start_delay = 5000,
         },
+      },
+    },
+    keys = {
+      {
+
+        "<leader>oi",
+        function()
+          local buf_nr = vim.api.nvim_get_current_buf()
+          local clients =
+            vim.lsp.get_clients({ bufnr = buf_nr, name = "tsserver" })
+          if next(clients) == nil then
+            return
+          end
+
+          vim.lsp.buf.execute_command({
+            command = "_typescript.organizeImports",
+            arguments = { vim.api.nvim_buf_get_name(0) },
+          })
+        end,
       },
     },
   },

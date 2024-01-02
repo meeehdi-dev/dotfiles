@@ -1,104 +1,34 @@
 return {
   {
-    "nvim-tree/nvim-tree.lua",
-    dependencies = {
-      "meeehdi-dev/win-picker.nvim",
-    },
-    opts = {
-      actions = {
-        open_file = {
-          window_picker = {
-            picker = function()
-              return require("win-picker").pick_win({
-                filter = function(id)
-                  local buf_nr = vim.api.nvim_win_get_buf(id)
-                  local ft = vim.api.nvim_buf_get_option(buf_nr, "filetype")
-                  return not vim.tbl_contains(
-                    { "noice", "notify", "NvimTree" },
-                    ft
-                  )
-                end,
-              })
-            end,
-          },
-          quit_on_open = true,
-        },
-      },
-    },
-    keys = {
-      {
-        "<leader>e",
-        function()
-          require("nvim-tree.api").tree.toggle({
-            find_file = true,
-            focus = true,
-          })
-        end,
-      },
-    },
-  },
-  {
     "rmagatti/auto-session",
+    lazy = false,
     opts = {
       auto_session_suppress_dirs = { "~/" },
     },
   },
   {
     "chrisgrieser/nvim-early-retirement",
+    event = "BufRead",
     opts = {
       retirementAgeMins = 5,
     },
   },
   {
     "github/copilot.vim",
+    event = "InsertEnter",
     config = function()
       vim.keymap.set("i", "<C-Right>", "<Plug>(copilot-accept-word)")
       vim.keymap.set("i", "<M-Right>", "<Plug>(copilot-accept-line)")
     end,
   },
   {
-    "stevearc/conform.nvim",
-    opts = {
-      formatters_by_ft = {
-        lua = { "stylua" },
-        css = { "prettier" },
-        javascript = { "prettier" },
-        javascriptreact = { "prettier" },
-        typescript = { "prettier" },
-        typescriptreact = { "prettier" },
-      },
-    },
-  },
-  {
     "numToStr/Comment.nvim",
+    event = "BufRead",
     config = true,
   },
   {
-    "folke/noice.nvim",
-    dependencies = {
-      "MunifTanjim/nui.nvim",
-    },
-    opts = {
-      lsp = {
-        override = {
-          ["vim.lsp.util.convert_input_to_markdown_lines"] = true,
-          ["vim.lsp.util.stylize_markdown"] = true,
-          ["cmp.entry.get_documentation"] = true,
-        },
-      },
-    },
-  },
-  {
-    "folke/todo-comments.nvim",
-    dependencies = {
-      "nvim-lua/plenary.nvim",
-    },
-    opts = {
-      signs = false,
-    },
-  },
-  {
     "folke/flash.nvim",
+    event = "VeryLazy",
     opts = {
       search = {
         multi_window = false,
@@ -120,37 +50,8 @@ return {
     },
   },
   {
-    "lewis6991/gitsigns.nvim",
-    lazy = false,
-    opts = {
-      current_line_blame = true,
-      current_line_blame_formatter = "    [<abbrev_sha>] <author>, <author_time:%R> | <summary>",
-    },
-    keys = {
-      {
-        "<leader><Up>",
-        function()
-          require("gitsigns.actions").prev_hunk()
-        end,
-      },
-      {
-        "<leader><Down>",
-        function()
-          require("gitsigns.actions").next_hunk()
-        end,
-      },
-    },
-  },
-  {
     "kylechui/nvim-surround",
-    config = true,
-  },
-  {
-    "laytan/cloak.nvim",
-    config = true,
-  },
-  {
-    "stevearc/dressing.nvim",
+    event = "BufRead",
     config = true,
   },
   {
@@ -158,8 +59,8 @@ return {
     opts = {
       hl_group = "lualine_a_normal",
       filter = function(id)
-        local buf_nr = vim.api.nvim_win_get_buf(id)
-        local ft = vim.api.nvim_buf_get_option(buf_nr, "filetype")
+        local buf = vim.api.nvim_win_get_buf(id)
+        local ft = vim.api.nvim_get_option_value("filetype", { buf = buf })
         return not vim.tbl_contains({ "noice", "notify" }, ft)
       end,
     },
