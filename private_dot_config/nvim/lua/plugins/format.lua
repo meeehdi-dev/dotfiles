@@ -1,4 +1,4 @@
-local json_fts = { "json", "jsonc" }
+local json_ft = { "json", "jsonc" }
 local function format()
   local formatted = require("conform").format()
   if not formatted then
@@ -9,7 +9,6 @@ end
 return {
   {
     "stevearc/conform.nvim",
-    -- event = "BufRead",
     opts = {
       formatters_by_ft = {
         lua = { "stylua" },
@@ -36,8 +35,7 @@ return {
         "<leader>fs",
         function()
           local buf_ft = vim.api.nvim_get_option_value("filetype", {})
-          vim.notify(buf_ft)
-          if json_fts[buf_ft] then
+          if json_ft[buf_ft] then
             vim.cmd(":%!jq --sort-keys '.'")
           else
             format()
