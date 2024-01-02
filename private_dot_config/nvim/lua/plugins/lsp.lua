@@ -140,7 +140,6 @@ return {
     },
     keys = {
       {
-
         "<leader>oi",
         function()
           if vim.fn.exists(":OrganizeImports") > 0 then
