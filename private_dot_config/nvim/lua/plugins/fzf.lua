@@ -1,7 +1,9 @@
 return {
   {
     "ibhagwan/fzf-lua",
-    config = true,
+    opts = {
+      fzf_opts = { ["--layout"] = "default" },
+    },
     keys = {
       {
         "<C-p>",
