@@ -1,11 +1,11 @@
 local function lualine_lsp()
   local lsp = {}
-  local buf_nr = vim.api.nvim_get_current_buf()
-  local buf_ft = vim.api.nvim_buf_get_option(buf_nr, "filetype")
+  local buf = vim.api.nvim_get_current_buf()
+  local buf_ft = vim.api.nvim_get_option_value("filetype", { buf = buf })
   if buf_ft == "" then
     return "..."
   end
-  local clients = vim.lsp.get_active_clients({ bufnr = buf_nr })
+  local clients = vim.lsp.get_clients({ bufnr = buf })
   if next(clients) ~= nil then
     for _, client in pairs(clients) do
       local filetypes = client.config.filetypes
@@ -22,6 +22,7 @@ end
 
 return {
   "nvim-lualine/lualine.nvim",
+  event = "BufRead",
   dependencies = { "folke/tokyonight.nvim" },
   opts = {
     options = {
