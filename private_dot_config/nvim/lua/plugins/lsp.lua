@@ -71,6 +71,7 @@ end
 return {
   {
     "neovim/nvim-lspconfig",
+    event = "BufRead",
     dependencies = {
       {
         "williamboman/mason-lspconfig.nvim",
