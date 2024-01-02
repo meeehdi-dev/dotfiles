@@ -40,6 +40,19 @@ local handler_opts = {
   ["tailwindcss"] = {
     filetypes = { "html", "javascriptreact", "typescriptreact", "css" },
   },
+  ["tsserver"] = {
+    commands = {
+      OrganizeImports = {
+        function()
+          vim.lsp.buf.execute_command({
+            command = "_typescript.organizeImports",
+            arguments = { vim.api.nvim_buf_get_name(0) },
+          })
+        end,
+        description = "Organize Imports",
+      },
+    },
+  },
 }
 
 local function setup_handler(server_name)
@@ -130,17 +143,9 @@ return {
 
         "<leader>oi",
         function()
-          local buf_nr = vim.api.nvim_get_current_buf()
-          local clients =
-            vim.lsp.get_clients({ bufnr = buf_nr, name = "tsserver" })
-          if next(clients) == nil then
-            return
+          if vim.fn.exists(":OrganizeImports") > 0 then
+            vim.cmd.OrganizeImports()
           end
-
-          vim.lsp.buf.execute_command({
-            command = "_typescript.organizeImports",
-            arguments = { vim.api.nvim_buf_get_name(0) },
-          })
         end,
       },
     },
