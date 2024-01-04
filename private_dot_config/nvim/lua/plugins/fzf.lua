@@ -8,13 +8,7 @@ return {
       {
         "<C-p>",
         function()
-          vim.fn.system("git rev-parse --is-inside-work-tree")
-          local fzf = require("fzf-lua")
-          if vim.v.shell_error == 0 then
-            fzf.git_files()
-          else
-            fzf.files()
-          end
+          require("fzf-lua").files()
         end,
       },
       {
