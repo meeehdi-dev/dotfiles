@@ -40,6 +40,16 @@ local handler_opts = {
   ["tailwindcss"] = {
     filetypes = { "html", "javascriptreact", "typescriptreact", "css" },
   },
+  ["cssls"] = {
+    settings = {
+      css = {
+        validate = true,
+        lint = {
+          unknownAtRules = "ignore",
+        },
+      },
+    },
+  },
   ["tsserver"] = {
     commands = {
       OrganizeImports = {
