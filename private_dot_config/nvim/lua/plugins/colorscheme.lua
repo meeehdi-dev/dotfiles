@@ -1,27 +1,14 @@
 return {
   {
-    "folke/tokyonight.nvim",
+    "meeehdi-dev/sunset.nvim",
     lazy = false,
     opts = {
+      italic_comment = true,
       transparent = true,
-      on_highlights = function(hl, c)
-        hl.Comment = {
-          fg = c.dark5,
-        }
-        hl.LineNr = {
-          fg = c.dark3,
-        }
-        hl.CursorLineNr = {
-          fg = c.dark5,
-        }
-        hl.DiagnosticUnnecessary = {
-          fg = c.dark5,
-        }
-      end,
     },
     config = function(_, opts)
-      require("tokyonight").setup(opts)
-      vim.cmd("colorscheme tokyonight")
+      require("sunset").setup(opts)
+      vim.cmd("colorscheme sunset")
     end,
   },
 }
