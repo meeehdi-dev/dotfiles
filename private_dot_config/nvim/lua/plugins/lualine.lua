@@ -23,9 +23,12 @@ end
 return {
   "nvim-lualine/lualine.nvim",
   event = "BufRead",
-  dependencies = { "folke/tokyonight.nvim" },
+  dependencies = {
+    "meeehdi-dev/sunset.nvim",
+  },
   opts = {
     options = {
+      theme = require("sunset.lualine"),
       icons_enabled = false,
       section_separators = { left = "", right = "" },
       component_separators = { left = "", right = "" },
@@ -97,8 +100,4 @@ return {
       },
     },
   },
-  config = function(_, opts)
-    require("tokyonight.colors").setup()
-    require("lualine").setup(opts)
-  end,
 }
