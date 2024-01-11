@@ -4,22 +4,17 @@ $git_branch\
 $git_status """
 
 [directory]
-style = "fg:#1d202f bg:#769ff0 bold"
+style = "fg:#112330 bg:#ffe56e bold"
 format = "[ $path ]($style)"
 truncation_length = 3
 truncation_symbol = "…/"
 
 [git_branch]
 symbol = "󰘬"
-style = "bg:#394260"
-format = '[[ $symbol $branch ](fg:#769ff0 bg:#394260 bold)]($style)'
+style = "fg:#112330 bg:#f6aa6b bold"
+format = '[ $symbol $branch ]($style)'
 
 [git_status]
-style = "bg:#394260"
-format = '[[($all_status$ahead_behind )](fg:#769ff0 bg:#394260)]($style)'
-
-[nodejs]
-symbol = "󰎙"
-style = "bg:#212736"
-format = '[[ $symbol ($version) ](fg:#769ff0 bg:#212736)]($style)'
+style = "fg:#112330 bg:#ff6347 bold"
+format = '[( $all_status$ahead_behind )]($style)'
 
