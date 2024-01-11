@@ -57,7 +57,7 @@ return {
   {
     "meeehdi-dev/win-picker.nvim",
     opts = {
-      hl_group = "lualine_a_normal",
+      hl_group = "WinPicker",
       filter = function(id)
         local buf = vim.api.nvim_win_get_buf(id)
         local ft = vim.api.nvim_get_option_value("filetype", { buf = buf })
