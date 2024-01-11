@@ -47,43 +47,68 @@ if #bgs > 0 then
   bg = bgs[math.random(#bgs)]
 end
 
+config.background = {
+  {
+    source = {
+      Color = "#070e13",
+    },
+    width = "100%",
+    height = "100%",
+    opacity = 0.95,
+  },
+  {
+    source = {
+      File = bg,
+    },
+    width = "Cover",
+    height = "Cover",
+    horizontal_align = "Center",
+    vertical_align = "Middle",
+    opacity = 0.05,
+  },
+}
+
+config.color_schemes = {
+  ["Sunset"] = {
+    foreground = "#eef3f7", -- Light grayish blue
+    background = "#050e13", -- Dark blue
+
+    cursor_bg = "#e58e44", -- Warm dusky orange
+    cursor_fg = "#112330", -- Dark blue
+    cursor_border = "#e58e44", -- Warm dusky orange
+
+    selection_fg = "#e58e44", -- Warm dusky orange
+    selection_bg = "#112330", -- Light blue-gray
+
+    scrollbar_thumb = "#112330", -- The color of the scrollbar "thumb"
+
+    split = "#112330", -- The color of the split lines between panes
+
+    ansi = {
+      "#000000", -- Black
+      "#ff3d00", -- Red
+      "#e58e44", -- Green
+      "#e0b547", -- Yellow
+      "#7689d9", -- Blue
+      "#8f509d", -- Magenta
+      "#8fb9f4", -- Cyan
+      "#eef3f7", -- White
+    },
+    brights = {
+      "#112330", -- Black
+      "#ff6347", -- Red
+      "#f6aa6b", -- Green
+      "#ffe56e", -- Yellow
+      "#9eabe6", -- Blue
+      "#b78fc2", -- Magenta
+      "#a4c4ff", -- Cyan
+      "#ffffff", -- White
+    },
+  },
+}
+config.color_scheme = "Sunset"
+
 config.hide_tab_bar_if_only_one_tab = true
-
-config.color_scheme = "Tokyo Night"
-
-if bg ~= nil then
-  config.background = {
-    {
-      source = {
-        Color = "#1A1B2C",
-      },
-      width = "100%",
-      height = "100%",
-      opacity = 0.95,
-    },
-    {
-      source = {
-        File = bg,
-      },
-      width = "Cover",
-      height = "Cover",
-      horizontal_align = "Center",
-      vertical_align = "Middle",
-      opacity = 0.15,
-    },
-  }
-else
-  config.background = {
-    {
-      source = {
-        Color = "#1A1B26",
-      },
-      width = "100%",
-      height = "100%",
-      opacity = 0.95,
-    },
-  }
-end
 
 config.font = wezterm.font("CaskaydiaCove Nerd Font")
 config.font_size = 12.0
