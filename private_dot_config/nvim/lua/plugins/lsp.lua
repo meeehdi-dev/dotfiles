@@ -144,7 +144,6 @@ return {
             "yaml-language-server",
           },
           auto_update = true,
-          start_delay = 5000,
         },
       },
     },
