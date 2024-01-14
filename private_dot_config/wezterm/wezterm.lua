@@ -70,39 +70,39 @@ config.background = {
 
 config.color_schemes = {
   ["Sunset"] = {
-    foreground = "#eef3f7", -- Light grayish blue
-    background = "#050e13", -- Dark blue
+    foreground = "#eef3f7",
+    background = "#050e13",
 
-    cursor_bg = "#e58e44", -- Warm dusky orange
-    cursor_fg = "#112330", -- Dark blue
-    cursor_border = "#e58e44", -- Warm dusky orange
+    cursor_bg = "#e58e44",
+    cursor_fg = "#112330",
+    cursor_border = "#e58e44",
 
-    selection_fg = "#e58e44", -- Warm dusky orange
-    selection_bg = "#112330", -- Light blue-gray
+    selection_fg = "#e58e44",
+    selection_bg = "#112330",
 
-    scrollbar_thumb = "#112330", -- The color of the scrollbar "thumb"
+    scrollbar_thumb = "#112330",
 
-    split = "#112330", -- The color of the split lines between panes
+    split = "#112330",
 
     ansi = {
-      "#000000", -- Black
-      "#ff3d00", -- Red
-      "#e58e44", -- Green
-      "#e0b547", -- Yellow
-      "#7689d9", -- Blue
-      "#8f509d", -- Magenta
-      "#8fb9f4", -- Cyan
-      "#eef3f7", -- White
+      "#000000",
+      "#ff3d00",
+      "#77b886",
+      "#e0b547",
+      "#7689d9",
+      "#8f509d",
+      "#8fb9f4",
+      "#eef3f7",
     },
     brights = {
-      "#112330", -- Black
-      "#ff6347", -- Red
-      "#f6aa6b", -- Green
-      "#ffe56e", -- Yellow
-      "#9eabe6", -- Blue
-      "#b78fc2", -- Magenta
-      "#a4c4ff", -- Cyan
-      "#ffffff", -- White
+      "#213340",
+      "#ff6347",
+      "#a3d6a5",
+      "#ffe56e",
+      "#9eabe6",
+      "#b78fc2",
+      "#a4c4ff",
+      "#ffffff",
     },
   },
 }
