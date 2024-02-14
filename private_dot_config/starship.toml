@@ -13,6 +13,7 @@ truncation_symbol = "…/"
 symbol = "󰘬"
 style = "fg:#112330 bg:#f6aa6b bold"
 format = '[ $symbol $branch ]($style)'
+truncation_length = 8
 
 [git_status]
 style = "fg:#112330 bg:#ff6347 bold"
