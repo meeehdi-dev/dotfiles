@@ -55,6 +55,11 @@ return {
     config = true,
   },
   {
+    "j-hui/fidget.nvim",
+    lazy = false,
+    config = true,
+  },
+  {
     "meeehdi-dev/win-picker.nvim",
     opts = {
       hl_group = "WinPicker",
