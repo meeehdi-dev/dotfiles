@@ -13,21 +13,34 @@ end
 vim.opt.rtp:prepend(lazypath)
 
 -- Options
+vim.opt.completeopt = "menuone,noselect"
 vim.opt.cursorline = true
 vim.opt.cursorlineopt = "number"
 vim.opt.expandtab = true
+vim.opt.ignorecase = true
+vim.opt.mouse = "a"
 vim.opt.number = true
 vim.opt.relativenumber = true
 vim.opt.shiftwidth = 2
-vim.opt.signcolumn = "yes:1"
+vim.opt.signcolumn = "yes:2"
+vim.opt.smartcase = true
 vim.opt.splitbelow = true
 vim.opt.splitright = true
 vim.opt.tabstop = 2
 vim.opt.termguicolors = true
+vim.opt.timeoutlen = 500
 vim.opt.updatetime = 500
 
 -- Leader
 vim.g.mapleader = " "
+
+-- Keymaps
+vim.keymap.set("n", "<Space>", "<Nop>", { silent = true }) -- Unmap space
+vim.keymap.set('n', '<Up>', "v:count == 0 ? 'gk' : 'k'", { expr = true, silent = true }) -- Make j/k move visual line
+vim.keymap.set('n', '<Down>', "v:count == 0 ? 'gj' : 'j'", { expr = true, silent = true }) -- Make j/k move visual line
+vim.keymap.set("n", "<Esc>", "<Esc>:noh<CR>", { silent = true }) -- Clear highlights
+vim.keymap.set("v", "<", "<gv") -- Keep visual selection after indent
+vim.keymap.set("v", ">", ">gv") -- Keep visual selection after indent
 
 -- Diagnostics
 vim.diagnostic.config({
