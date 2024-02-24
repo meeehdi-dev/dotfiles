@@ -30,13 +30,13 @@ return {
         end,
       },
       {
-        "<S-f>",
+        "<leader><C-f>",
         function()
           require("fzf-lua").grep_cword()
         end,
       },
       {
-        "<S-r>",
+        "<leader><C-r>",
         function()
           require("fzf-lua").resume()
         end,
