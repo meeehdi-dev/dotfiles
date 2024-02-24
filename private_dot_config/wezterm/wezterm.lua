@@ -6,6 +6,18 @@ if wezterm.config_builder then
   config = wezterm.config_builder()
 end
 
+config.front_end = "OpenGL"
+
+config.disable_default_key_bindings = true
+
+config.keys = {
+  {
+    key = "V",
+    mods = "CTRL|SHIFT",
+    action = wezterm.action.PasteFrom("Clipboard"),
+  },
+}
+
 local bgs = {}
 
 if wezterm.target_triple == "x86_64-pc-windows-msvc" then
