@@ -8,6 +8,8 @@ alias vim="nvim"
 set -gx TERM "xterm-256color"
 set -gx EDITOR "nvim"
 set -gx GPG_TTY (tty)
+set -gx DISPLAY ":0"
+set -gx MESA_D3D12_DEFAULT_ADAPTER_NAME "NVIDIA"
 
 # chezmoi
 abbr c "chezmoi"
