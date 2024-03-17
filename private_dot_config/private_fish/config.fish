@@ -23,6 +23,7 @@ abbr gf "git fetch"
 abbr gl "git pull"
 abbr gp "git push"
 abbr gs "git status"
+abbr --set-cursor gcm 'git commit -m "%"'
 
 # tmux
 abbr t "tmux attach -t main || tmux new-session -s main"
