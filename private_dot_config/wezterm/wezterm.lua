@@ -9,28 +9,11 @@ end
 
 config.disable_default_key_bindings = true
 
-config.leader = { key = "w", mods = "CTRL", timeout_milliseconds = 1000 }
 config.keys = {
   {
     key = "V",
     mods = "CTRL|SHIFT",
     action = act.PasteFrom("Clipboard"),
-  },
-  {
-    key = "v",
-    mods = "LEADER",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "v" }),
-    }),
-  },
-  {
-    key = "s",
-    mods = "LEADER",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "s" }),
-    }),
   },
   {
     key = "&",

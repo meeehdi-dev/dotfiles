@@ -36,5 +36,28 @@ abbr u "sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y"
 abbr yw "yarn workspace"
 abbr p "pnpm"
 
+# functions
+function cdr
+  cd (git rev-parse --show-toplevel)
+end
+
+function tmux_switch_window
+  set target $argv[1]
+  if test "$target" = ""
+    echo "Usage: tmux-window.sh <window_number>"
+    exit 1
+  end
+
+  set win (tmux display-message -p "#{window_index}")
+  set pane_count (tmux display-message -p "#{window_panes}")
+  set cmd (tmux display-message -p "#{pane_current_command}")
+
+  tmux select-window -t :$target || tmux new-window -t :$target
+
+  if test "$win" != "$target"; and test "$pane_count" = "1"; and test "$cmd" = "fish"
+    tmux kill-window -t $win
+  end
+end
+
 # prompt
 starship init fish | source
