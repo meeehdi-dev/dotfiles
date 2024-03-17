@@ -1,4 +1,5 @@
 local wezterm = require("wezterm")
+local act = wezterm.action
 
 local config = {}
 
@@ -6,20 +7,116 @@ if wezterm.config_builder then
   config = wezterm.config_builder()
 end
 
-config.front_end = "OpenGL"
-
 config.disable_default_key_bindings = true
 
+config.leader = { key = "w", mods = "CTRL", timeout_milliseconds = 1000 }
 config.keys = {
   {
     key = "V",
     mods = "CTRL|SHIFT",
-    action = wezterm.action.PasteFrom("Clipboard"),
+    action = act.PasteFrom("Clipboard"),
+  },
+  {
+    key = "v",
+    mods = "LEADER",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "v" }),
+    }),
+  },
+  {
+    key = "s",
+    mods = "LEADER",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "s" }),
+    }),
+  },
+  {
+    key = "&",
+    mods = "ALT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "1" }),
+    }),
+  },
+  {
+    key = "é",
+    mods = "ALT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "2" }),
+    }),
+  },
+  {
+    key = '"',
+    mods = "ALT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "3" }),
+    }),
+  },
+  {
+    key = "'",
+    mods = "ALT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "4" }),
+    }),
+  },
+  {
+    key = "(",
+    mods = "ALT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "5" }),
+    }),
+  },
+  {
+    key = "-",
+    mods = "ALT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "6" }),
+    }),
+  },
+  {
+    key = "è",
+    mods = "ALT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "7" }),
+    }),
+  },
+  {
+    key = "_",
+    mods = "ALT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "8" }),
+    }),
+  },
+  {
+    key = "ç",
+    mods = "ALT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "9" }),
+    }),
+  },
+  {
+    key = "à",
+    mods = "ALT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "0" }),
+    }),
   },
 }
 
 local bgs = {}
 
+-- Windows
 if wezterm.target_triple == "x86_64-pc-windows-msvc" then
   config.default_prog = { "wsl.exe", "~", "-d", "Ubuntu" }
 
@@ -36,9 +133,25 @@ if wezterm.target_triple == "x86_64-pc-windows-msvc" then
   for dir in stdout:gmatch("[^\r\n]+") do
     table.insert(bgs, bgs_path .. "\\" .. dir)
   end
+-- macOS
 elseif wezterm.target_triple == "aarch64-apple-darwin" then
   config.send_composed_key_when_left_alt_is_pressed = true
 
+  local bgs_path = (os.getenv("HOME") or "") .. "/bgs"
+
+  local _, stdout = wezterm.run_child_process({
+    "ls",
+    "-pa",
+    bgs_path,
+  })
+
+  for dir in stdout:gmatch("[^\n]+") do
+    if dir:sub(-1) ~= "/" then
+      table.insert(bgs, bgs_path .. "/" .. dir)
+    end
+  end
+-- Linux
+else
   local bgs_path = (os.getenv("HOME") or "") .. "/bgs"
 
   local _, stdout = wezterm.run_child_process({
