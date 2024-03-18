@@ -16,6 +16,38 @@ config.keys = {
     action = act.PasteFrom("Clipboard"),
   },
   {
+    key = "RightArrow",
+    mods = "ALT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "RightArrow" }),
+    }),
+  },
+  {
+    key = "LeftArrow",
+    mods = "ALT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "LeftArrow" }),
+    }),
+  },
+  {
+    key = "UpArrow",
+    mods = "ALT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "UpArrow" }),
+    }),
+  },
+  {
+    key = "DownArrow",
+    mods = "ALT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "DownArrow" }),
+    }),
+  },
+  {
     key = "&",
     mods = "ALT",
     action = act.Multiple({
