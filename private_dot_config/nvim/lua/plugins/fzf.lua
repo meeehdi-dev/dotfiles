@@ -32,7 +32,7 @@ return {
       {
         "<leader><C-f>",
         function()
-          require("fzf-lua").grep_cword()
+          require("fzf-lua").grep_visual()
         end,
       },
       {
