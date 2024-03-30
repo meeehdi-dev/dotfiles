@@ -24,7 +24,6 @@ abbr gl "git pull"
 abbr gp "git push"
 abbr gs "git status"
 abbr gca "git commit --amend"
-abbr --set-cursor gcm 'git commit -m "%"'
 
 # tmux
 abbr t "tmux attach -t main || tmux new-session -s main"
