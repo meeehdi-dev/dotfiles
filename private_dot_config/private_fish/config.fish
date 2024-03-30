@@ -52,11 +52,12 @@ function tmux_switch_window
   set win (tmux display-message -p "#{window_index}")
   set pane_count (tmux display-message -p "#{window_panes}")
   set lines_count (tmux capture-pane -p | grep -Ev "^\$" | wc -l)
+  set cmd (tmux display-message -p "#{pane_current_command}")
   set path (tmux display-message -p "#{pane_current_path}")
 
   tmux select-window -t :$target || tmux new-window -t :$target -c $path
 
-  if test "$win" != "$target"; and test "$pane_count" = "1"; and test "$lines_count" = "1"
+  if test "$win" != "$target"; and test "$pane_count" = "1"; and test "$lines_count" = "1"; and test "$cmd" = "fish"
     tmux kill-window -t $win
   end
 end
