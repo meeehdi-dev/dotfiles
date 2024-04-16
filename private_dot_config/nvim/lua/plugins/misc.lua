@@ -23,31 +23,17 @@ return {
   },
   {
     "numToStr/Comment.nvim",
-    event = "BufRead",
-    config = true,
-  },
-  {
-    "folke/flash.nvim",
-    event = "VeryLazy",
-    opts = {
-      search = {
-        multi_window = false,
-        wrap = false,
-      },
-      jump = {
-        nohlsearch = true,
-      },
-      modes = {
-        char = {
-          search = {
-            wrap = false,
-          },
-          highlight = {
-            backdrop = false,
-          },
-        },
-      },
+    dependencies = {
+      "JoosepAlviste/nvim-ts-context-commentstring",
     },
+    event = "BufRead",
+    config = function()
+      require("Comment").setup({
+        pre_hook = require(
+          "ts_context_commentstring.integrations.comment_nvim"
+        ).create_pre_hook(),
+      })
+    end,
   },
   {
     "kylechui/nvim-surround",
