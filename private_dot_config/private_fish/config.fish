@@ -62,5 +62,13 @@ function tmux_switch_window
   end
 end
 
+set ignored_cmd "vim" "nvim" "tmux"
+function bell --on-event fish_postexec
+  set cmd (string split " " $argv)[1]
+  if test $CMD_DURATION -gt 5000; and not contains $cmd $ignored_cmd
+    echo -e \07
+  end
+end
+
 # prompt
 starship init fish | source
