@@ -23,18 +23,10 @@ local handler_opts = {
         ".eslintrc.yml",
         ".eslintrc.json",
         "eslint.config.js",
+        "eslint.config.mjs",
+        "eslint.config.cjs",
         "package.json"
       )(filename)
-    end,
-    on_attach = function(_, bufnr)
-      vim.api.nvim_create_autocmd("BufWritePre", {
-        buffer = bufnr,
-        callback = function()
-          if vim.fn.exists(":EslintFixAll") > 0 then
-            vim.cmd.EslintFixAll()
-          end
-        end,
-      })
     end,
   },
   ["tailwindcss"] = {
@@ -57,6 +49,7 @@ local handler_opts = {
           vim.lsp.buf.execute_command({
             command = "_typescript.organizeImports",
             arguments = { vim.api.nvim_buf_get_name(0) },
+            async = false,
           })
         end,
         description = "Organize Imports",
@@ -110,8 +103,6 @@ return {
           },
         },
         opts = {
-          ensure_installed = { "lua_ls", "tsserver", "eslint" },
-          automatic_installation = true,
           handlers = {
             setup_handler,
           },
@@ -145,16 +136,6 @@ return {
           },
           auto_update = true,
         },
-      },
-    },
-    keys = {
-      {
-        "<leader>oi",
-        function()
-          if vim.fn.exists(":OrganizeImports") > 0 then
-            vim.cmd.OrganizeImports()
-          end
-        end,
       },
     },
   },
