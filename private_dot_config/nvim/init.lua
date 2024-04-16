@@ -1,16 +1,5 @@
--- Lazy bootstrap
-local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
-if not vim.loop.fs_stat(lazypath) then
-  vim.fn.system({
-    "git",
-    "clone",
-    "--filter=blob:none",
-    "https://github.com/folke/lazy.nvim.git",
-    "--branch=stable", -- latest stable release
-    lazypath,
-  })
-end
-vim.opt.rtp:prepend(lazypath)
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
 
 -- Options
 vim.opt.completeopt = "menuone,noselect"
@@ -21,6 +10,7 @@ vim.opt.ignorecase = true
 vim.opt.mouse = "a"
 vim.opt.number = true
 vim.opt.relativenumber = true
+vim.opt.scrolloff = 8
 vim.opt.shiftwidth = 2
 vim.opt.signcolumn = "yes"
 vim.opt.smartcase = true
@@ -98,6 +88,33 @@ vim.diagnostic.config({
 vim.keymap.set("n", "<leader>d", vim.diagnostic.open_float)
 vim.keymap.set("n", "<leader><Right>", vim.diagnostic.goto_next)
 vim.keymap.set("n", "<leader><Left>", vim.diagnostic.goto_prev)
+
+-- Lint & format
+vim.keymap.set("n", "<leader>ff", function()
+  if vim.fn.exists(":OrganizeImports") > 0 then
+    vim.cmd.OrganizeImports()
+  end
+end)
+vim.keymap.set("n", "<leader>f", function()
+  if vim.fn.exists(":EslintFixAll") > 0 then
+    vim.cmd.EslintFixAll()
+  end
+  require("conform").format({ lsp_fallback = true })
+end)
+
+-- Lazy bootstrap
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not vim.loop.fs_stat(lazypath) then
+  vim.fn.system({
+    "git",
+    "clone",
+    "--filter=blob:none",
+    "https://github.com/folke/lazy.nvim.git",
+    "--branch=stable", -- latest stable release
+    lazypath,
+  })
+end
+vim.opt.rtp:prepend(lazypath)
 
 -- Lazy init
 require("lazy").setup("plugins", {
