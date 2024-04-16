@@ -7,7 +7,8 @@ return {
       "hrsh7th/cmp-buffer",
       "hrsh7th/cmp-path",
       "hrsh7th/cmp-cmdline",
-      "L3MON4D3/LuaSnip",
+      { "L3MON4D3/LuaSnip", build = "make install_jsregexp" },
+      "saadparwaiz1/cmp_luasnip",
     },
     config = function()
       local cmp = require("cmp")
@@ -38,6 +39,7 @@ return {
         sources = cmp.config.sources({
           { name = "path", max_item_count = 5 },
           { name = "nvim_lsp", max_item_count = 5 },
+          { name = "luasnip", max_item_count = 5 },
           { name = "buffer", max_item_count = 5 },
         }),
         snippet = {
