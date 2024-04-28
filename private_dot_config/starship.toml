@@ -4,18 +4,18 @@ $git_branch\
 $git_status """
 
 [directory]
-style = "fg:#112330 bg:#ffe56e bold"
+style = "fg:#0c1b2a bg:#e0b547 bold"
 format = "[ $path ]($style)"
 truncation_length = 3
 truncation_symbol = "…/"
 
 [git_branch]
 symbol = "󰘬"
-style = "fg:#112330 bg:#f6aa6b bold"
+style = "fg:#0c1b2a bg:#e58e44 bold"
 format = '[ $symbol $branch ]($style)'
 truncation_length = 8
 
 [git_status]
-style = "fg:#112330 bg:#ff6347 bold"
+style = "fg:#0c1b2a bg:#ff3d00 bold"
 format = '[( $all_status$ahead_behind )]($style)'
 
