@@ -44,7 +44,7 @@ end
 
 function tmux_switch_window
   set target $argv[1]
-  if test "$target" = ""
+  if test -z "$target"
     echo "Usage: tmux-window.sh <window_number>"
     exit 1
   end
@@ -62,11 +62,43 @@ function tmux_switch_window
   end
 end
 
-set ignored_cmd "vim" "nvim" "tmux"
+set ignored_cmd "vim" "nvim" "tmux" "bro"
 function bell --on-event fish_postexec
   set cmd (string split " " $argv)[1]
   if test $CMD_DURATION -gt 5000; and not contains $cmd $ignored_cmd
     echo -e \07
+  end
+end
+
+function bro_commit_msg --argument-names diff
+  ollama run llama3:8b "Here is the output of `git diff`:\
+```diff\
+$diff\
+```\
+Review the changes above and describe them in a commit message (conventional commit rules: type, scope in parenthesis, colon, short description).\
+Now, with no prefacing, no description, no breakdown, no additional notes, no backticks, just write the commit message, limited to 72 characters."
+end
+
+function bro --argument-names command
+  if test "$command" = "commit"
+    set diff (git diff --staged)
+    if test -z "$diff"
+      echo "No changes to commit."
+      return 1
+    end
+    set msg (bro_commit_msg $diff)
+    echo $msg
+    while read --nchars 1 -l response --prompt-str="Confirm? (y)" or return 1 # if the read was aborted with ctrl-c/ctrl-d
+      switch $response
+        case y Y
+          git commit -m "$msg"
+          break
+        case '*'
+          set msg (bro_commit_msg $diff)
+          echo $msg
+          continue
+      end
+    end
   end
 end
 
