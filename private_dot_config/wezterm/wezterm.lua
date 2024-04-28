@@ -127,6 +127,14 @@ config.keys = {
       act.SendKey({ key = "0" }),
     }),
   },
+  {
+    key = "=",
+    mods = "ALT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "1", mods = "ALT" }),
+    }),
+  },
 }
 
 local bgs = {}
