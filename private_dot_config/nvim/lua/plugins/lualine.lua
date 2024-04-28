@@ -22,7 +22,7 @@ end
 
 return {
   "nvim-lualine/lualine.nvim",
-  event = "BufRead",
+  event = { "BufRead", "BufWrite" },
   dependencies = {
     "meeehdi-dev/sunset.nvim",
   },
