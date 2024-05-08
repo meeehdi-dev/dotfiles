@@ -13,14 +13,14 @@ return {
       retirementAgeMins = 5,
     },
   },
-  {
-    "github/copilot.vim",
-    event = "InsertEnter",
-    config = function()
-      vim.keymap.set("i", "<C-Right>", "<Plug>(copilot-accept-word)")
-      vim.keymap.set("i", "<M-Right>", "<Plug>(copilot-accept-line)")
-    end,
-  },
+  -- {
+  --   "github/copilot.vim",
+  --   event = "InsertEnter",
+  --   config = function()
+  --     vim.keymap.set("i", "<C-Right>", "<Plug>(copilot-accept-word)")
+  --     vim.keymap.set("i", "<M-Right>", "<Plug>(copilot-accept-line)")
+  --   end,
+  -- },
   {
     "numToStr/Comment.nvim",
     dependencies = {
@@ -77,6 +77,38 @@ return {
             vim.api.nvim_set_current_win(win_id)
           end
         end,
+      },
+    },
+  },
+  {
+    "meeehdi-dev/bropilot.nvim",
+    event = "InsertEnter",
+    dependencies = {
+      "nvim-lua/plenary.nvim",
+      "j-hui/fidget.nvim",
+    },
+    config = true,
+    keys = {
+      {
+        "<C-Right>",
+        function()
+          require("bropilot").accept_word()
+        end,
+        mode = "i",
+      },
+      {
+        "<S-Right>",
+        function()
+          require("bropilot").accept_line()
+        end,
+        mode = "i",
+      },
+      {
+        "<Tab>",
+        function()
+          require("bropilot").accept_block()
+        end,
+        mode = "i",
       },
     },
   },
