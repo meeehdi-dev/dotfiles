@@ -71,15 +71,6 @@ function bell --on-event fish_postexec
   end
 end
 
-function bro_commit_msg --argument-names diff
-  ollama run llama3:8b "Here is the output of `git diff`:\
-```diff\
-$diff\
-```\
-Review the changes above and describe them in a commit message (conventional commit rules: type, scope in parenthesis, colon, short description).\
-Now, with no prefacing, no description, no breakdown, no additional notes, no backticks, just write the commit message, limited to 72 characters."
-end
-
 function bro --argument-names command
   if test "$command" = "commit"
     set diff (git diff --staged)
@@ -87,20 +78,25 @@ function bro --argument-names command
       echo "No changes to commit."
       return 1
     end
-    set msg (bro_commit_msg $diff)
+    ollama run bropilot "```diff\
+$diff\
+```" | read msg
     echo $msg
-    while read --nchars 1 -l response --prompt-str="Confirm? (y)" or return 1 # if the read was aborted with ctrl-c/ctrl-d
+    while read --nchars 1 -l response --prompt-str="Confirm? (y)" or return 1
       switch $response
         case y Y
           git commit -m "$msg"
           break
         case '*'
-          set msg (bro_commit_msg $diff)
+          ollama run bropilot "```diff\
+$diff\
+```" | read msg
           echo $msg
           continue
       end
     end
   end
+  return 0
 end
 
 # prompt
