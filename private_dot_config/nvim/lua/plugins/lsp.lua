@@ -42,20 +42,6 @@ local handler_opts = {
       },
     },
   },
-  ["tsserver"] = {
-    commands = {
-      OrganizeImports = {
-        function()
-          vim.lsp.buf.execute_command({
-            command = "_typescript.organizeImports",
-            arguments = { vim.api.nvim_buf_get_name(0) },
-            async = false,
-          })
-        end,
-        description = "Organize Imports",
-      },
-    },
-  },
 }
 
 local function setup_handler(server_name)

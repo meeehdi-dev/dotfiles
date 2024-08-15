@@ -1,5 +1,25 @@
 return {
   {
+    {
+      "rose-pine/neovim",
+      name = "rose-pine",
+      lazy = false,
+      opts = {
+        styles = {
+          transparency = true,
+        },
+      },
+      config = function(_, opts)
+        require("rose-pine").setup(opts)
+        vim.cmd("colorscheme rose-pine")
+      end,
+    },
+  },
+  {
+    "nvim-lualine/lualine.nvim",
+    event = { "BufRead", "BufWrite" },
+  },
+  {
     "folke/noice.nvim",
     event = "VeryLazy",
     dependencies = {
@@ -34,5 +54,10 @@ return {
     opts = {
       signs = false,
     },
+  },
+  {
+    "j-hui/fidget.nvim",
+    lazy = false,
+    config = true,
   },
 }
