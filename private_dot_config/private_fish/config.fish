@@ -58,7 +58,7 @@ function tmux_switch_window
 
   tmux select-window -t :$target || tmux new-window -t :$target -c $path
 
-  if test "$win" != "$target"; and test "$pane_count" = "1"; and test "$lines_count" = "1"; and test "$cmd" = "fish"
+  if test "$win" != "$target"; and test "$pane_count" = "1"; and test "$lines_count" = "2"; and test "$cmd" = "fish"
     tmux kill-window -t $win
   end
 end
