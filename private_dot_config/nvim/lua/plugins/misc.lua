@@ -15,15 +15,8 @@ return {
   },
   {
     "numToStr/Comment.nvim",
-    dependencies = {
-      "JoosepAlviste/nvim-ts-context-commentstring",
-    },
     event = "BufRead",
-    opts = {
-      pre_hook = function()
-        return require("ts_context_commentstring.integrations.comment_nvim").create_pre_hook()
-      end,
-    },
+    config = true,
   },
   {
     "kylechui/nvim-surround",
@@ -44,7 +37,6 @@ return {
   {
     "meeehdi-dev/win-picker.nvim",
     opts = {
-      hl_group = "WinPicker",
       filter = function(id)
         local buf = vim.api.nvim_win_get_buf(id)
         local ft = vim.api.nvim_get_option_value("filetype", { buf = buf })
