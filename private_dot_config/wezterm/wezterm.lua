@@ -9,6 +9,8 @@ end
 
 config.disable_default_key_bindings = true
 
+config.leader = { key = ' ', mods = 'CTRL', timeout_milliseconds = 1000 }
+
 config.keys = {
   {
     key = "V",
@@ -17,7 +19,7 @@ config.keys = {
   },
   {
     key = "RightArrow",
-    mods = "ALT",
+    mods = "LEADER",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
       act.SendKey({ key = "RightArrow" }),
@@ -25,7 +27,7 @@ config.keys = {
   },
   {
     key = "LeftArrow",
-    mods = "ALT",
+    mods = "LEADER",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
       act.SendKey({ key = "LeftArrow" }),
@@ -33,7 +35,7 @@ config.keys = {
   },
   {
     key = "UpArrow",
-    mods = "ALT",
+    mods = "LEADER",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
       act.SendKey({ key = "UpArrow" }),
@@ -41,7 +43,7 @@ config.keys = {
   },
   {
     key = "DownArrow",
-    mods = "ALT",
+    mods = "LEADER",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
       act.SendKey({ key = "DownArrow" }),
@@ -49,15 +51,7 @@ config.keys = {
   },
   {
     key = "1",
-    mods = "ALT",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "1" }),
-    }),
-  },
-  {
-    key = "1",
-    mods = "ALT|SHIFT",
+    mods = "LEADER",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
       act.SendKey({ key = "1" }),
@@ -65,15 +59,7 @@ config.keys = {
   },
   {
     key = "2",
-    mods = "ALT",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "2" }),
-    }),
-  },
-  {
-    key = "2",
-    mods = "ALT|SHIFT",
+    mods = "LEADER",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
       act.SendKey({ key = "2" }),
@@ -81,15 +67,7 @@ config.keys = {
   },
   {
     key = "3",
-    mods = "ALT",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "3" }),
-    }),
-  },
-  {
-    key = "3",
-    mods = "ALT|SHIFT",
+    mods = "LEADER",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
       act.SendKey({ key = "3" }),
@@ -97,15 +75,7 @@ config.keys = {
   },
   {
     key = "4",
-    mods = "ALT",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "4" }),
-    }),
-  },
-  {
-    key = "4",
-    mods = "ALT|SHIFT",
+    mods = "LEADER",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
       act.SendKey({ key = "4" }),
@@ -113,15 +83,7 @@ config.keys = {
   },
   {
     key = "5",
-    mods = "ALT",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "5" }),
-    }),
-  },
-  {
-    key = "5",
-    mods = "ALT|SHIFT",
+    mods = "LEADER",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
       act.SendKey({ key = "5" }),
@@ -129,15 +91,7 @@ config.keys = {
   },
   {
     key = "6",
-    mods = "ALT",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "6" }),
-    }),
-  },
-  {
-    key = "6",
-    mods = "ALT|SHIFT",
+    mods = "LEADER",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
       act.SendKey({ key = "6" }),
@@ -145,15 +99,7 @@ config.keys = {
   },
   {
     key = "7",
-    mods = "ALT",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "7" }),
-    }),
-  },
-  {
-    key = "7",
-    mods = "ALT|SHIFT",
+    mods = "LEADER",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
       act.SendKey({ key = "7" }),
@@ -161,15 +107,7 @@ config.keys = {
   },
   {
     key = "8",
-    mods = "ALT",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "8" }),
-    }),
-  },
-  {
-    key = "8",
-    mods = "ALT|SHIFT",
+    mods = "LEADER",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
       act.SendKey({ key = "8" }),
@@ -177,15 +115,7 @@ config.keys = {
   },
   {
     key = "9",
-    mods = "ALT",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "9" }),
-    }),
-  },
-  {
-    key = "9",
-    mods = "ALT|SHIFT",
+    mods = "LEADER",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
       act.SendKey({ key = "9" }),
