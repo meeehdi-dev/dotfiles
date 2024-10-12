@@ -10,7 +10,6 @@ vim.opt.ignorecase = true
 vim.opt.mouse = "a"
 vim.opt.number = true
 vim.opt.relativenumber = true
-vim.opt.scrolloff = 16
 vim.opt.shiftwidth = 2
 vim.opt.signcolumn = "yes"
 vim.opt.smartcase = true
@@ -21,25 +20,27 @@ vim.opt.termguicolors = true
 vim.opt.timeoutlen = 500
 vim.opt.updatetime = 500
 
-vim.o.sessionoptions="blank,buffers,curdir,folds,help,tabpages,winsize,winpos,terminal,localoptions"
+vim.o.sessionoptions =
+  "blank,buffers,curdir,folds,help,tabpages,winsize,winpos,terminal,localoptions"
 
 -- Leader
 vim.g.mapleader = " "
 
 -- Keymaps
 vim.keymap.set("n", "<Space>", "<Nop>", { silent = true }) -- Unmap space
-vim.keymap.set(
-  "n",
-  "<Up>",
-  "v:count == 0 ? 'gk' : 'k'",
-  { expr = true, silent = true }
-) -- Make j/k move visual line
-vim.keymap.set(
-  "n",
-  "<Down>",
-  "v:count == 0 ? 'gj' : 'j'",
-  { expr = true, silent = true }
-) -- Make j/k move visual line
+
+-- Remap number keys in normal mode
+vim.keymap.set("n", "&", "1", { silent = true })
+vim.keymap.set("n", "é", "2", { silent = true })
+vim.keymap.set("n", '"', "3", { silent = true })
+vim.keymap.set("n", "'", "4", { silent = true })
+vim.keymap.set("n", "(", "5", { silent = true })
+vim.keymap.set("n", "-", "6", { silent = true })
+vim.keymap.set("n", "è", "7", { silent = true })
+vim.keymap.set("n", "_", "8", { silent = true })
+vim.keymap.set("n", "ç", "9", { silent = true })
+vim.keymap.set("n", "à", "0", { silent = true })
+
 vim.keymap.set("n", "<Esc>", "<Esc>:noh<CR>", { silent = true }) -- Clear highlights
 vim.keymap.set("v", "<", "<gv") -- Keep visual selection after indent
 vim.keymap.set("v", ">", ">gv") -- Keep visual selection after indent
