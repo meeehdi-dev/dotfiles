@@ -52,7 +52,7 @@ function tmux_switch_window
 
   set win (tmux display-message -p "#{window_index}")
   set pane_count (tmux display-message -p "#{window_panes}")
-  set lines_count (tmux capture-pane -p | grep -Ev "^\$" | wc -l)
+  set lines_count (string trim (tmux capture-pane -p | grep -Ev "^\$" | wc -l))
   set cmd (tmux display-message -p "#{pane_current_command}")
   set path (tmux display-message -p "#{pane_current_path}")
 
