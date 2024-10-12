@@ -53,12 +53,52 @@ return {
     },
   },
   {
-    "meeehdi-dev/bropilot.nvim",
-    event = "VeryLazy",
-    dependencies = {
-      "nvim-lua/plenary.nvim",
-      "j-hui/fidget.nvim",
+    "hedyhli/outline.nvim",
+    event = "BufRead",
+    config = true,
+    keys = {
+      {
+        "<leader>o",
+        function()
+          require("outline").toggle()
+        end,
+      },
     },
+  },
+  {
+    "windwp/nvim-autopairs",
+    event = "InsertEnter",
     config = true,
   },
+  {
+    "windwp/nvim-ts-autotag",
+    event = "InsertEnter",
+    config = true,
+  },
+  {
+    "lukas-reineke/indent-blankline.nvim",
+    event = "BufRead",
+    main = "ibl",
+    config = true,
+  },
+  {
+    "folke/trouble.nvim",
+    config = true,
+    cmd = "Trouble",
+    keys = {
+      {
+        "<leader>t",
+        "<cmd>Trouble diagnostics toggle focus=false<cr>",
+      },
+    },
+  },
+  -- {
+  --   "meeehdi-dev/bropilot.nvim",
+  --   event = "VeryLazy",
+  --   dependencies = {
+  --     "nvim-lua/plenary.nvim",
+  --     "j-hui/fidget.nvim",
+  --   },
+  --   config = true,
+  -- },
 }

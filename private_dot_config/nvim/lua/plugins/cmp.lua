@@ -7,7 +7,13 @@ return {
       "hrsh7th/cmp-buffer",
       "hrsh7th/cmp-path",
       "hrsh7th/cmp-cmdline",
-      { "L3MON4D3/LuaSnip", build = "make install_jsregexp" },
+      {
+        "L3MON4D3/LuaSnip",
+        build = "make install_jsregexp",
+        dependencies = {
+          "rafamadriz/friendly-snippets",
+        },
+      },
       "saadparwaiz1/cmp_luasnip",
     },
     config = function()
@@ -30,6 +36,7 @@ return {
             cmp.complete({
               config = {
                 sources = {
+                  { name = "lazydev", group_index = 0 },
                   { name = "nvim_lsp" },
                 },
               },
@@ -37,6 +44,7 @@ return {
           end,
         }),
         sources = cmp.config.sources({
+          { name = "lazydev", max_item_count = 5, group_index = 0 },
           { name = "path", max_item_count = 5 },
           { name = "nvim_lsp", max_item_count = 5 },
           { name = "luasnip", max_item_count = 5 },
@@ -74,6 +82,9 @@ return {
           { name = "cmdline", max_item_count = 10 },
         }),
       })
+
+      local cmp_autopairs = require("nvim-autopairs.completion.cmp")
+      cmp.event:on("confirm_done", cmp_autopairs.on_confirm_done())
     end,
   },
 }

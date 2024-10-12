@@ -1,33 +1,25 @@
-vim.g.loaded_netrw = 1
-vim.g.loaded_netrwPlugin = 1
-
--- Options
-vim.opt.completeopt = "menuone,noselect"
 vim.opt.cursorline = true
-vim.opt.cursorlineopt = "both"
 vim.opt.expandtab = true
 vim.opt.ignorecase = true
-vim.opt.mouse = "a"
 vim.opt.number = true
 vim.opt.relativenumber = true
 vim.opt.shiftwidth = 2
-vim.opt.signcolumn = "yes"
 vim.opt.smartcase = true
 vim.opt.splitbelow = true
 vim.opt.splitright = true
 vim.opt.tabstop = 2
-vim.opt.termguicolors = true
-vim.opt.timeoutlen = 500
-vim.opt.updatetime = 500
-
-vim.o.sessionoptions =
-  "blank,buffers,curdir,folds,help,tabpages,winsize,winpos,terminal,localoptions"
+vim.opt.undofile = true
+vim.opt.updatetime = 1000
 
 -- Leader
 vim.g.mapleader = " "
 
 -- Keymaps
 vim.keymap.set("n", "<Space>", "<Nop>", { silent = true }) -- Unmap space
+-- vim.keymap.set("n", "<Up>", "<Nop>", { silent = true }) -- Unmap up
+-- vim.keymap.set("n", "<Down>", "<Nop>", { silent = true }) -- Unmap down
+-- vim.keymap.set("n", "<Left>", "<Nop>", { silent = true }) -- Unmap left
+-- vim.keymap.set("n", "<Right>", "<Nop>", { silent = true }) -- Unmap right
 
 -- Remap number keys in normal mode
 vim.keymap.set("n", "&", "1", { silent = true })
@@ -89,17 +81,22 @@ vim.diagnostic.config({
   },
 })
 vim.keymap.set("n", "<leader>d", vim.diagnostic.open_float)
-vim.keymap.set("n", "<leader><Right>", vim.diagnostic.goto_next)
 vim.keymap.set("n", "<leader><Left>", vim.diagnostic.goto_prev)
+vim.keymap.set("n", "<leader><Right>", vim.diagnostic.goto_next)
 
 -- Lint & format
 vim.keymap.set("n", "<leader>f", function()
-  -- TODO: fidget progress
+  local progress = require("fidget.progress")
+  local handle = progress.handle.create({
+    title = "Formatting",
+    lsp_client = { name = "format" },
+  })
   -- TODO: sync org imports
   if vim.fn.exists(":EslintFixAll") > 0 then
     vim.cmd.EslintFixAll()
   end
-  require("conform").format({ lsp_fallback = true })
+  require("conform").format({ timeout_ms = 1000, lsp_fallback = true })
+  handle:finish()
 end)
 
 -- Lazy bootstrap

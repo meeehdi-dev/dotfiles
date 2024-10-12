@@ -7,13 +7,13 @@ return {
       {
         "<leader><Up>",
         function()
-          require("gitsigns.actions").prev_hunk()
+          require("gitsigns.actions").nav_hunk("prev")
         end,
       },
       {
         "<leader><Down>",
         function()
-          require("gitsigns.actions").next_hunk()
+          require("gitsigns.actions").nav_hunk("next")
         end,
       },
       {
