@@ -38,11 +38,6 @@ abbr u "sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y"
 abbr yw "yarn workspace"
 abbr p "pnpm"
 
-# functions
-function cdr
-  cd (git rev-parse --show-toplevel)
-end
-
 function tmux_switch_window
   set target $argv[1]
   if test -z "$target"
@@ -63,7 +58,7 @@ function tmux_switch_window
   end
 end
 
-set ignored_cmd "vim" "nvim" "tmux" "bro"
+set ignored_cmd "vim" "nvim" "tmux"
 function bell --on-event fish_postexec
   set cmd (string split " " $argv)[1]
   if test $CMD_DURATION -gt 5000; and not contains $cmd $ignored_cmd
@@ -71,33 +66,8 @@ function bell --on-event fish_postexec
   end
 end
 
-function bro --argument-names command
-  if test "$command" = "commit"
-    set diff (git diff --staged)
-    if test -z "$diff"
-      echo "No changes to commit."
-      return 1
-    end
-    ollama run bropilot "```diff\
-$diff\
-```" | read msg
-    echo $msg
-    while read --nchars 1 -l response --prompt-str="Confirm? (y)" or return 1
-      switch $response
-        case y Y
-          git commit -m "$msg"
-          break
-        case '*'
-          ollama run bropilot "```diff\
-$diff\
-```" | read msg
-          echo $msg
-          continue
-      end
-    end
-  end
-  return 0
-end
-
 # prompt
 starship init fish | source
+
+# mise-en-place
+~/.local/bin/mise activate fish | source
