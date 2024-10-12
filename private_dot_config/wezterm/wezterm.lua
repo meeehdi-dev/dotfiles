@@ -9,117 +9,11 @@ end
 
 config.disable_default_key_bindings = true
 
-config.leader = { key = ' ', mods = 'CTRL', timeout_milliseconds = 1000 }
-
 config.keys = {
   {
     key = "V",
     mods = "CTRL|SHIFT",
     action = act.PasteFrom("Clipboard"),
-  },
-  {
-    key = "RightArrow",
-    mods = "LEADER",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "RightArrow" }),
-    }),
-  },
-  {
-    key = "LeftArrow",
-    mods = "LEADER",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "LeftArrow" }),
-    }),
-  },
-  {
-    key = "UpArrow",
-    mods = "LEADER",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "UpArrow" }),
-    }),
-  },
-  {
-    key = "DownArrow",
-    mods = "LEADER",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "DownArrow" }),
-    }),
-  },
-  {
-    key = "1",
-    mods = "LEADER",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "1" }),
-    }),
-  },
-  {
-    key = "2",
-    mods = "LEADER",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "2" }),
-    }),
-  },
-  {
-    key = "3",
-    mods = "LEADER",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "3" }),
-    }),
-  },
-  {
-    key = "4",
-    mods = "LEADER",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "4" }),
-    }),
-  },
-  {
-    key = "5",
-    mods = "LEADER",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "5" }),
-    }),
-  },
-  {
-    key = "6",
-    mods = "LEADER",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "6" }),
-    }),
-  },
-  {
-    key = "7",
-    mods = "LEADER",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "7" }),
-    }),
-  },
-  {
-    key = "8",
-    mods = "LEADER",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "8" }),
-    }),
-  },
-  {
-    key = "9",
-    mods = "LEADER",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "9" }),
-    }),
   },
 }
 
