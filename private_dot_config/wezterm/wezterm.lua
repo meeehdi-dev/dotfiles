@@ -48,7 +48,7 @@ config.keys = {
     }),
   },
   {
-    key = "&",
+    key = "1",
     mods = "ALT",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
@@ -56,7 +56,15 @@ config.keys = {
     }),
   },
   {
-    key = "é",
+    key = "1",
+    mods = "ALT|SHIFT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "1" }),
+    }),
+  },
+  {
+    key = "2",
     mods = "ALT",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
@@ -64,7 +72,15 @@ config.keys = {
     }),
   },
   {
-    key = '"',
+    key = "2",
+    mods = "ALT|SHIFT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "2" }),
+    }),
+  },
+  {
+    key = "3",
     mods = "ALT",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
@@ -72,7 +88,15 @@ config.keys = {
     }),
   },
   {
-    key = "'",
+    key = "3",
+    mods = "ALT|SHIFT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "3" }),
+    }),
+  },
+  {
+    key = "4",
     mods = "ALT",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
@@ -80,7 +104,15 @@ config.keys = {
     }),
   },
   {
-    key = "(",
+    key = "4",
+    mods = "ALT|SHIFT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "4" }),
+    }),
+  },
+  {
+    key = "5",
     mods = "ALT",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
@@ -88,7 +120,15 @@ config.keys = {
     }),
   },
   {
-    key = "-",
+    key = "5",
+    mods = "ALT|SHIFT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "5" }),
+    }),
+  },
+  {
+    key = "6",
     mods = "ALT",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
@@ -96,7 +136,15 @@ config.keys = {
     }),
   },
   {
-    key = "è",
+    key = "6",
+    mods = "ALT|SHIFT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "6" }),
+    }),
+  },
+  {
+    key = "7",
     mods = "ALT",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
@@ -104,7 +152,15 @@ config.keys = {
     }),
   },
   {
-    key = "_",
+    key = "7",
+    mods = "ALT|SHIFT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "7" }),
+    }),
+  },
+  {
+    key = "8",
     mods = "ALT",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
@@ -112,7 +168,15 @@ config.keys = {
     }),
   },
   {
-    key = "ç",
+    key = "8",
+    mods = "ALT|SHIFT",
+    action = act.Multiple({
+      act.SendKey({ key = "b", mods = "CTRL" }),
+      act.SendKey({ key = "8" }),
+    }),
+  },
+  {
+    key = "9",
     mods = "ALT",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
@@ -120,19 +184,11 @@ config.keys = {
     }),
   },
   {
-    key = "à",
-    mods = "ALT",
+    key = "9",
+    mods = "ALT|SHIFT",
     action = act.Multiple({
       act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "0" }),
-    }),
-  },
-  {
-    key = "=",
-    mods = "ALT",
-    action = act.Multiple({
-      act.SendKey({ key = "b", mods = "CTRL" }),
-      act.SendKey({ key = "1", mods = "ALT" }),
+      act.SendKey({ key = "9" }),
     }),
   },
 }
@@ -144,12 +200,7 @@ if wezterm.target_triple == "x86_64-pc-windows-msvc" then
   config.default_prog = { "wsl.exe", "~", "-d", "Ubuntu" }
 
   bg = os.getenv("userprofile") .. "\\bgs\\mayuri.jpg"
--- macOS
-elseif wezterm.target_triple == "aarch64-apple-darwin" then
-  config.send_composed_key_when_left_alt_is_pressed = true
-
-  bg = os.getenv("HOME") .. "/bgs/mayuri.jpg"
--- Linux
+-- Unix
 else
   bg = os.getenv("HOME") .. "/bgs/mayuri.jpg"
 end
