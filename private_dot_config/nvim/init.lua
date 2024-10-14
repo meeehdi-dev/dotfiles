@@ -91,11 +91,20 @@ vim.keymap.set("n", "<leader>f", function()
     title = "Formatting",
     lsp_client = { name = "format" },
   })
-  -- TODO: sync org imports
+
+  -- Organize imports
+  vim.lsp.buf.execute_command({
+    command = "_typescript.organizeImports",
+    arguments = { vim.api.nvim_buf_get_name(0) },
+    title = "",
+  })
+  -- Lint
   if vim.fn.exists(":EslintFixAll") > 0 then
     vim.cmd.EslintFixAll()
   end
+  -- Format
   require("conform").format({ timeout_ms = 1000, lsp_fallback = true })
+
   handle:finish()
 end)
 
