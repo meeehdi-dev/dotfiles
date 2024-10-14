@@ -82,9 +82,6 @@ return {
           { name = "cmdline", max_item_count = 10 },
         }),
       })
-
-      local cmp_autopairs = require("nvim-autopairs.completion.cmp")
-      cmp.event:on("confirm_done", cmp_autopairs.on_confirm_done())
     end,
   },
 }
