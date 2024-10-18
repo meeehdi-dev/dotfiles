@@ -84,20 +84,21 @@ vim.keymap.set("n", "<leader>d", vim.diagnostic.open_float)
 vim.keymap.set("n", "<leader><Left>", vim.diagnostic.goto_prev)
 vim.keymap.set("n", "<leader><Right>", vim.diagnostic.goto_next)
 
--- Lint & format
-vim.keymap.set("n", "<leader>f", function()
+local function format(with_imports)
   local progress = require("fidget.progress")
   local handle = progress.handle.create({
     title = "Formatting",
     lsp_client = { name = "format" },
   })
 
-  -- Organize imports
-  vim.lsp.buf.execute_command({
-    command = "_typescript.organizeImports",
-    arguments = { vim.api.nvim_buf_get_name(0) },
-    title = "",
-  })
+  if with_imports then
+    -- Organize imports
+    vim.lsp.buf.execute_command({
+      command = "_typescript.organizeImports",
+      arguments = { vim.api.nvim_buf_get_name(0) },
+      title = "",
+    })
+  end
   -- Lint
   if vim.fn.exists(":EslintFixAll") > 0 then
     vim.cmd.EslintFixAll()
@@ -106,6 +107,14 @@ vim.keymap.set("n", "<leader>f", function()
   require("conform").format({ timeout_ms = 1000, lsp_fallback = true })
 
   handle:finish()
+end
+
+-- Lint & format
+vim.keymap.set("n", "<leader>f", function()
+  format()
+end)
+vim.keymap.set("n", "<leader>ff", function()
+  format(true)
 end)
 
 -- Lazy bootstrap
