@@ -24,6 +24,19 @@ return {
     config = true,
   },
   {
+    "folke/flash.nvim",
+    event = "VeryLazy",
+    opts = {
+      modes = {
+        search = { enabled = true },
+        char = { enabled = false },
+      },
+      prompt = {
+        enabled = false,
+      },
+    },
+  },
+  {
     "meeehdi-dev/win-picker.nvim",
     opts = {
       filter = function(id)
