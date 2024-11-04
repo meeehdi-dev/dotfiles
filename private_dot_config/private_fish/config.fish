@@ -1,9 +1,6 @@
 # remove greeting
 set fish_greeting
 
-# neovim
-alias vim="nvim"
-
 # exports
 set -gx TERM "xterm-256color"
 set -gx EDITOR "nvim"
@@ -33,10 +30,6 @@ abbr tls "tmux list-sessions"
 
 # update
 abbr u "sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y"
-
-# node
-abbr yw "yarn workspace"
-abbr p "pnpm"
 
 function tmux_switch_window
   set target $argv[1]
@@ -71,3 +64,9 @@ starship init fish | source
 
 # mise-en-place
 ~/.local/bin/mise activate fish | source
+
+set -l os (uname)
+if test "$os" = Linux # WSL
+  # homebrew
+  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+end
