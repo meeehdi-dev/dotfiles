@@ -66,6 +66,9 @@ function bell --on-event fish_postexec
   end
 end
 
+# fzf
+fzf --fish | source
+
 # prompt
 starship init fish | source
 
