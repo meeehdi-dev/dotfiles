@@ -1,6 +1,7 @@
 return {
   {
     "rmagatti/auto-session",
+    cond = not vim.g.vscode,
     lazy = false,
     opts = {
       auto_session_suppress_dirs = { "~/" },
@@ -33,6 +34,17 @@ return {
       },
       prompt = {
         enabled = false,
+      },
+    },
+  },
+  {
+    "mbbill/undotree",
+    keys = {
+      {
+        "U",
+        function()
+          vim.cmd.UndotreeToggle()
+        end,
       },
     },
   },

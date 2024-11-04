@@ -19,24 +19,27 @@ config.keys = {
 
 local bg = nil
 
+local bg_files = {"rem.jpg", "mayuri.jpg", "violet.jpg"}
+local bg_file = bg_files[math.random(#bg_files)]
+
 -- Windows
 if wezterm.target_triple == "x86_64-pc-windows-msvc" then
   config.default_prog = { "wsl.exe", "~", "-d", "Ubuntu" }
 
-  bg = os.getenv("userprofile") .. "\\bgs\\mayuri.jpg"
+  bg = os.getenv("userprofile") .. "\\bgs\\" .. bg_file
 -- Unix
 else
-  bg = os.getenv("HOME") .. "/bgs/mayuri.jpg"
+  bg = os.getenv("HOME") .. "/bgs/" .. bg_file
 end
 
 config.background = {
   {
     source = {
-      Color = "#000000",
+      Color = "#191724",
     },
     width = "100%",
     height = "100%",
-    opacity = 0.98,
+    opacity = 0.99,
   },
   {
     source = {
@@ -46,7 +49,7 @@ config.background = {
     height = "Cover",
     horizontal_align = "Center",
     vertical_align = "Middle",
-    opacity = 0.1,
+    opacity = 0.05,
   },
 }
 

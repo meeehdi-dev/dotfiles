@@ -9,6 +9,7 @@ return {
         json = { "jq" },
         jsonls = { "jq" },
         lua = { "stylua" },
+        proto = { "buf" },
         typescript = { "prettier" },
         typescriptreact = { "prettier" },
       },
