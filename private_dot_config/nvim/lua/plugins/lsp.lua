@@ -30,7 +30,7 @@ local handler_opts = {
     end,
   },
   ["tailwindcss"] = {
-    filetypes = { "html", "javascriptreact", "typescriptreact", "css" },
+    filetypes = { "html", "javascriptreact", "typescriptreact", "css", "vue" },
   },
   ["cssls"] = {
     settings = {
@@ -38,6 +38,34 @@ local handler_opts = {
         validate = true,
         lint = {
           unknownAtRules = "ignore",
+        },
+      },
+    },
+  },
+  ["volar"] = {
+    filetypes = {
+      "typescript",
+      "vue",
+    },
+    init_options = {
+      typescript = {
+        -- TODO: better path handling + macos support
+        tsdk = "/home/mhdmhr/.local/share/mise/installs/node/22.9.0/lib/node_modules/typescript/lib",
+      },
+    },
+  },
+  ["ts_ls"] = {
+    filetypes = {
+      "typescript",
+      "vue",
+    },
+    init_options = {
+      plugins = {
+        {
+          name = "@vue/typescript-plugin",
+          -- TODO: better path handling + macos support
+          location = "/home/mhdmhr/.local/share/mise/installs/node/22.9.0/lib/node_modules/@vue/typescript-plugin",
+          languages = { "vue" },
         },
       },
     },
