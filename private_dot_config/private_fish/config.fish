@@ -8,6 +8,9 @@ set -gx GPG_TTY (tty)
 set -gx DISPLAY ":0"
 set -gx MESA_D3D12_DEFAULT_ADAPTER_NAME "NVIDIA"
 
+# nvim
+alias vim "nvim"
+
 # chezmoi
 abbr c "chezmoi"
 
