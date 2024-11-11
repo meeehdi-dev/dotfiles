@@ -1,25 +1,18 @@
 vim.opt.cursorline = true
-vim.opt.expandtab = true
 vim.opt.ignorecase = true
 vim.opt.number = true
 vim.opt.relativenumber = true
-vim.opt.shiftwidth = 2
 vim.opt.smartcase = true
 vim.opt.splitbelow = true
 vim.opt.splitright = true
-vim.opt.tabstop = 2
 vim.opt.undofile = true
-vim.opt.updatetime = 1000
+vim.opt.updatetime = 250
 
 -- Leader
 vim.g.mapleader = " "
 
 -- Keymaps
 vim.keymap.set("n", "<Space>", "<Nop>", { silent = true }) -- Unmap space
--- vim.keymap.set("n", "<Up>", "<Nop>", { silent = true }) -- Unmap up
--- vim.keymap.set("n", "<Down>", "<Nop>", { silent = true }) -- Unmap down
--- vim.keymap.set("n", "<Left>", "<Nop>", { silent = true }) -- Unmap left
--- vim.keymap.set("n", "<Right>", "<Nop>", { silent = true }) -- Unmap right
 
 -- Remap number keys in normal mode
 vim.keymap.set("n", "&", "1", { silent = true })
@@ -99,12 +92,16 @@ local function format(with_imports)
       title = "",
     })
   end
-  -- Lint
-  if vim.fn.exists(":EslintFixAll") > 0 then
-    vim.cmd.EslintFixAll()
-  end
   -- Format
-  require("conform").format({ timeout_ms = 1000, lsp_fallback = true })
+  require("conform").format(
+    { timeout_ms = 1000, lsp_fallback = true },
+    function()
+      -- Lint
+      if vim.fn.exists(":EslintFixAll") > 0 then
+        vim.cmd.EslintFixAll()
+      end
+    end
+  )
 
   handle:finish()
 end
