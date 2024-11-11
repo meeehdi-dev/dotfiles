@@ -16,6 +16,7 @@ return {
   {
     "nvim-lualine/lualine.nvim",
     event = { "BufRead", "BufWrite" },
+    config = true,
   },
   {
     "folke/noice.nvim",
