@@ -1,9 +1,6 @@
 return {
   {
     "nvim-tree/nvim-tree.lua",
-    dependencies = {
-      "meeehdi-dev/win-picker.nvim",
-    },
     opts = {
       actions = {
         open_file = {

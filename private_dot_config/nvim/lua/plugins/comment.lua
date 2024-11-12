@@ -1,6 +1,7 @@
 return {
   {
-    "tpope/vim-sleuth",
+    "numToStr/Comment.nvim",
     event = "VeryLazy",
+    opts = {},
   },
 }

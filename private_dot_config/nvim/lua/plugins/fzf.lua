@@ -1,7 +1,7 @@
 return {
   {
     "ibhagwan/fzf-lua",
-    config = true,
+    opts = {},
     keys = {
       {
         "<C-p>",

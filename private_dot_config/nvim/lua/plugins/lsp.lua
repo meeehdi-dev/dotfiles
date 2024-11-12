@@ -5,15 +5,8 @@ local handler_opts = {
       "javascriptreact",
       "typescript",
       "typescriptreact",
-      "json",
     },
-    root_dir = function(filename, buf_nr)
-      -- ignore json files that are not i18n
-      local buf_ft = vim.api.nvim_get_option_value("filetype", { buf = buf_nr })
-      if buf_ft == "json" and vim.fn.matchstr(filename, "i18n") == "" then
-        return nil
-      end
-
+    root_dir = function(filename)
       -- https://github.com/neovim/nvim-lspconfig/blob/master/lua/lspconfig/server_configurations/eslint.lua
       return require("lspconfig").util.root_pattern(
         ".eslintrc",
@@ -42,34 +35,34 @@ local handler_opts = {
       },
     },
   },
-  ["volar"] = {
-    filetypes = {
-      "typescript",
-      "vue",
-    },
-    init_options = {
-      typescript = {
-        -- TODO: better path handling + macos support
-        tsdk = "/home/mhdmhr/.local/share/mise/installs/node/22.9.0/lib/node_modules/typescript/lib",
-      },
-    },
-  },
-  ["ts_ls"] = {
-    filetypes = {
-      "typescript",
-      "vue",
-    },
-    init_options = {
-      plugins = {
-        {
-          name = "@vue/typescript-plugin",
-          -- TODO: better path handling + macos support
-          location = "/home/mhdmhr/.local/share/mise/installs/node/22.9.0/lib/node_modules/@vue/typescript-plugin",
-          languages = { "vue" },
-        },
-      },
-    },
-  },
+  -- ["volar"] = {
+  --   filetypes = {
+  --     "typescript",
+  --     "vue",
+  --   },
+  --   init_options = {
+  --     typescript = {
+  --       -- TODO: better path handling + macos support
+  --       tsdk = "/home/mhdmhr/.local/share/mise/installs/node/22.9.0/lib/node_modules/typescript/lib",
+  --     },
+  --   },
+  -- },
+  -- ["ts_ls"] = {
+  --   filetypes = {
+  --     "typescript",
+  --     "vue",
+  --   },
+  --   init_options = {
+  --     plugins = {
+  --       {
+  --         name = "@vue/typescript-plugin",
+  --         -- TODO: better path handling + macos support
+  --         location = "/home/mhdmhr/.local/share/mise/installs/node/22.9.0/lib/node_modules/@vue/typescript-plugin",
+  --         languages = { "vue" },
+  --       },
+  --     },
+  --   },
+  -- },
 }
 
 local function setup_handler(server_name)
@@ -113,7 +106,7 @@ return {
   { "Bilal2453/luvit-meta", lazy = true },
   {
     "neovim/nvim-lspconfig",
-    event = "BufRead",
+    event = "VeryLazy",
     dependencies = {
       {
         "williamboman/mason-lspconfig.nvim",
@@ -121,7 +114,7 @@ return {
           {
             "williamboman/mason.nvim",
             build = ":MasonUpdate",
-            config = true,
+            opts = {},
           },
         },
         opts = {
@@ -137,7 +130,7 @@ return {
           {
             "williamboman/mason.nvim",
             build = ":MasonUpdate",
-            config = true,
+            opts = {},
           },
         },
         opts = {

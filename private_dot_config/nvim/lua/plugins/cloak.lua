@@ -1,6 +1,7 @@
 return {
   {
-    "tpope/vim-sleuth",
+    "laytan/cloak.nvim",
     event = "VeryLazy",
+    opts = {},
   },
 }

@@ -1,7 +1,7 @@
 return {
   {
     "nvim-treesitter/nvim-treesitter",
-    event = "BufRead",
+    event = "VeryLazy",
     build = ":TSUpdate",
     dependencies = {
       {
@@ -18,8 +18,6 @@ return {
         "vim",
         "vimdoc",
         "query",
-        "bash",
-        "regex",
         "markdown",
         "markdown_inline",
       },
@@ -28,9 +26,6 @@ return {
       highlight = {
         enable = true,
         additional_vim_regex_highlighting = false,
-      },
-      indent = {
-        enable = true,
       },
     },
     main = "nvim-treesitter.configs",
