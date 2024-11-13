@@ -11,6 +11,12 @@ return {
           },
         },
       },
+      extensions = {
+        "fzf",
+        "lazy",
+        "mason",
+        "nvim-tree",
+      },
     },
   },
 }
