@@ -2,6 +2,15 @@ return {
   {
     "nvim-lualine/lualine.nvim",
     event = "VeryLazy",
-    opts = {},
+    opts = {
+      sections = {
+        lualine_c = {
+          {
+            "filename",
+            path = 1,
+          },
+        },
+      },
+    },
   },
 }
