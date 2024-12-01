@@ -11,6 +11,9 @@ set -gx MESA_D3D12_DEFAULT_ADAPTER_NAME "NVIDIA"
 # nvim
 alias vim "nvim"
 
+# bat
+alias cat "bat"
+
 # chezmoi
 abbr c "chezmoi"
 
@@ -34,6 +37,7 @@ abbr tls "tmux list-sessions"
 # update
 abbr u "sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y"
 
+# i3-like window switching
 function tmux_switch_window
   set target $argv[1]
   if test -z "$target"
@@ -54,12 +58,19 @@ function tmux_switch_window
   end
 end
 
+# bell if cmd > 5sec
 set ignored_cmd "vim" "nvim" "tmux"
 function bell --on-event fish_postexec
   set cmd (string split " " $argv)[1]
   if test $CMD_DURATION -gt 5000; and not contains $cmd $ignored_cmd
     echo -e \07
   end
+end
+
+set -l os (uname)
+if test "$os" = Linux # WSL
+  # homebrew
+  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 end
 
 # fzf
@@ -70,9 +81,3 @@ starship init fish | source
 
 # mise-en-place
 ~/.local/bin/mise activate fish | source
-
-set -l os (uname)
-if test "$os" = Linux # WSL
-  # homebrew
-  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-end
