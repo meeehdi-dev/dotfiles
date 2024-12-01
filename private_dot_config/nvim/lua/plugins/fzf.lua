@@ -1,6 +1,7 @@
 return {
   {
     "ibhagwan/fzf-lua",
+    event = "VeryLazy",
     opts = {},
     keys = {
       {
@@ -38,6 +39,12 @@ return {
         "<leader><C-r>",
         function()
           require("fzf-lua").resume()
+        end,
+      },
+      {
+        "<leader>o",
+        function()
+          require("fzf-lua").lsp_document_symbols()
         end,
       },
     },
