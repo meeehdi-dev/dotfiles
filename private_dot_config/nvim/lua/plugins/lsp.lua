@@ -20,7 +20,7 @@ local handler_opts = {
             checkThirdParty = false,
             library = {
               vim.env.VIMRUNTIME,
-              "${3rd}/luv/library"
+              "${3rd}/luv/library",
             },
             -- or pull in all of 'runtimepath'. NOTE: this is a lot slower and will cause issues when working on your own configuration (see https://github.com/neovim/nvim-lspconfig/issues/3189)
             -- library = vim.api.nvim_get_runtime_file("", true)
@@ -34,10 +34,8 @@ local handler_opts = {
   ["eslint"] = {
     filetypes = {
       "javascript",
-      "javascript.jsx",
       "javascriptreact",
       "typescript",
-      "typescript.jsx",
       "typescriptreact",
       "vue",
     },
@@ -62,10 +60,8 @@ local handler_opts = {
       "html",
       "css",
       "javascript",
-      "javascript.jsx",
       "javascriptreact",
       "typescript",
-      "typescript.jsx",
       "typescriptreact",
       "vue",
     },
@@ -80,37 +76,26 @@ local handler_opts = {
       },
     },
   },
-  -- ["volar"] = {
-  --   filetypes = {
-  --     "javascript",
-  --     "javascript.jsx",
-  --     "javascriptreact",
-  --     "typescript",
-  --     "typescript.jsx",
-  --     "typescriptreact",
-  --     "vue",
-  --   },
-  -- },
-  -- ["ts_ls"] = {
-  --   filetypes = {
-  --     "javascript",
-  --     "javascript.jsx",
-  --     "javascriptreact",
-  --     "typescript",
-  --     "typescript.jsx",
-  --     "typescriptreact",
-  --     "vue",
-  --   },
-  --   init_options = {
-  --     plugins = {
-  --       {
-  --         name = "@vue/typescript-plugin",
-  --         location = "/home/mhdmhr/.local/share/mise/installs/node/lts/lib/node_modules/@vue/typescript-plugin",
-  --         languages = { "javascript", "typescript", "vue" },
-  --       },
-  --     },
-  --   },
-  -- },
+  ["ts_ls"] = {
+    filetypes = {
+      "javascript",
+      "javascriptreact",
+      "typescript",
+      "typescriptreact",
+      "vue",
+    },
+    init_options = {
+      plugins = {
+        {
+          name = "@vue/typescript-plugin",
+          location = vim.fn.expand(
+            "$HOME/.local/share/nvim/mason/packages/vue-language-server/node_modules/@vue/language-server"
+          ),
+          languages = { "vue" },
+        },
+      },
+    },
+  },
 }
 
 local function setup_handler(server_name)
@@ -143,26 +128,21 @@ return {
   {
     "neovim/nvim-lspconfig",
     dependencies = {
-      {
-        "WhoIsSethDaniel/mason-tool-installer.nvim",
-        dependencies = {
-          "williamboman/mason-lspconfig.nvim",
-          dependencies = {
-            {
-              "williamboman/mason.nvim",
-              build = ":MasonUpdate",
-              opts = {},
-            },
-          },
-          opts = {
-            automatic_installation = true,
-            handlers = { setup_handler },
-          },
-        },
-        opts = {
-          auto_update = true,
-        },
-      },
+      "williamboman/mason.nvim",
+      "williamboman/mason-lspconfig.nvim",
     },
+    config = function()
+      local mason = require("mason")
+      local mason_lspconfig = require("mason-lspconfig")
+
+      mason.setup()
+      mason_lspconfig.setup({
+        handlers = {
+          function(server_name)
+            setup_handler(server_name)
+          end,
+        },
+      })
+    end,
   },
 }
