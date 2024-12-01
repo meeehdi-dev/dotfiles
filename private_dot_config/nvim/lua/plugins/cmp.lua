@@ -44,7 +44,6 @@ return {
           end,
         }),
         sources = cmp.config.sources({
-          { name = "lazydev", max_item_count = 5, group_index = 0 },
           { name = "path", max_item_count = 5 },
           { name = "nvim_lsp", max_item_count = 5 },
           { name = "luasnip", max_item_count = 5 },
