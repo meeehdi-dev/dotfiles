@@ -1,7 +1,7 @@
-vim.opt.cursorline = true
-vim.opt.ignorecase = true
+-- vim options
 vim.opt.number = true
 vim.opt.relativenumber = true
+vim.opt.ignorecase = true
 vim.opt.smartcase = true
 vim.opt.splitbelow = true
 vim.opt.splitright = true
@@ -11,13 +11,13 @@ vim.opt.updatetime = 250
 -- auto-session
 vim.o.sessionoptions="blank,buffers,curdir,folds,help,tabpages,winsize,winpos,terminal,localoptions"
 
--- Leader
+-- leader
 vim.g.mapleader = " "
 
--- Keymaps
+-- keymaps
 vim.keymap.set("n", "<Space>", "<Nop>", { silent = true }) -- Unmap space
 
--- Remap number keys in normal mode
+-- remap number keys in normal mode (azerty)
 vim.keymap.set("n", "&", "1", { silent = true })
 vim.keymap.set("n", "é", "2", { silent = true })
 vim.keymap.set("n", '"', "3", { silent = true })
@@ -29,11 +29,12 @@ vim.keymap.set("n", "_", "8", { silent = true })
 vim.keymap.set("n", "ç", "9", { silent = true })
 vim.keymap.set("n", "à", "0", { silent = true })
 
+-- qol
 vim.keymap.set("n", "<Esc>", "<Esc>:noh<CR>", { silent = true }) -- Clear highlights
 vim.keymap.set("v", "<", "<gv") -- Keep visual selection after indent
 vim.keymap.set("v", ">", ">gv") -- Keep visual selection after indent
 
--- Clipboard (WSL)
+-- clipboard (wsl)
 if vim.fn.has("wsl") == 1 then
   vim.g.clipboard = {
     name = "WslClipboard",
@@ -49,19 +50,19 @@ if vim.fn.has("wsl") == 1 then
   }
 end
 
--- System clipboard
+-- copy to system clipboard
 vim.keymap.set("v", "Y", '"*y')
 
--- Macros
+-- macros
 vim.keymap.set("n", "Q", "@q")
 vim.keymap.set("x", "Q", ":norm @q<CR>")
 
--- LSP
+-- lsp
 vim.keymap.set("n", "<leader>r", vim.lsp.buf.rename)
 vim.keymap.set("n", "<leader>h", vim.lsp.buf.hover)
 vim.keymap.set("n", "<leader>a", vim.lsp.buf.code_action)
 
--- Diagnostics
+-- diagnostics
 vim.diagnostic.config({
   virtual_text = {
     prefix = "-",
@@ -88,18 +89,18 @@ local function format(with_imports)
   })
 
   if with_imports then
-    -- Organize imports
+    -- organize imports
     vim.lsp.buf.execute_command({
       command = "_typescript.organizeImports",
       arguments = { vim.api.nvim_buf_get_name(0) },
       title = "",
     })
   end
-  -- Format
+  -- format
   require("conform").format(
     { timeout_ms = 1000, lsp_fallback = true },
     function()
-      -- Lint
+      -- lint
       if vim.fn.exists(":EslintFixAll") > 0 then
         vim.cmd.EslintFixAll()
       end
@@ -109,7 +110,7 @@ local function format(with_imports)
   handle:finish()
 end
 
--- Lint & format
+-- lint & format
 vim.keymap.set("n", "<leader>f", function()
   format()
 end)
@@ -117,7 +118,7 @@ vim.keymap.set("n", "<leader>ff", function()
   format(true)
 end)
 
--- Lazy bootstrap
+-- lazy bootstrap
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not (vim.uv or vim.loop).fs_stat(lazypath) then
   local lazyrepo = "https://github.com/folke/lazy.nvim.git"
