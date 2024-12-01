@@ -1,7 +1,7 @@
 return {
   {
     "laytan/cloak.nvim",
-    event = "VeryLazy",
+    lazy = false,
     opts = {},
   },
 }
