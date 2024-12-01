@@ -1,10 +1,45 @@
 local handler_opts = {
+  ["lua_ls"] = {
+    on_init = function(client)
+      if client.workspace_folders then
+        local path = client.workspace_folders[1].name
+        if
+          vim.uv.fs_stat(path .. "/.luarc.json")
+          or vim.uv.fs_stat(path .. "/.luarc.jsonc")
+        then
+          return
+        end
+      end
+
+      client.config.settings.Lua =
+        vim.tbl_deep_extend("force", client.config.settings.Lua, {
+          runtime = {
+            version = "LuaJIT",
+          },
+          workspace = {
+            checkThirdParty = false,
+            library = {
+              vim.env.VIMRUNTIME,
+              "${3rd}/luv/library"
+            },
+            -- or pull in all of 'runtimepath'. NOTE: this is a lot slower and will cause issues when working on your own configuration (see https://github.com/neovim/nvim-lspconfig/issues/3189)
+            -- library = vim.api.nvim_get_runtime_file("", true)
+          },
+        })
+    end,
+    settings = {
+      Lua = {},
+    },
+  },
   ["eslint"] = {
     filetypes = {
       "javascript",
+      "javascript.jsx",
       "javascriptreact",
       "typescript",
+      "typescript.jsx",
       "typescriptreact",
+      "vue",
     },
     root_dir = function(filename)
       -- https://github.com/neovim/nvim-lspconfig/blob/master/lua/lspconfig/server_configurations/eslint.lua
@@ -23,7 +58,17 @@ local handler_opts = {
     end,
   },
   ["tailwindcss"] = {
-    filetypes = { "html", "javascriptreact", "typescriptreact", "css", "vue" },
+    filetypes = {
+      "html",
+      "css",
+      "javascript",
+      "javascript.jsx",
+      "javascriptreact",
+      "typescript",
+      "typescript.jsx",
+      "typescriptreact",
+      "vue",
+    },
   },
   ["cssls"] = {
     settings = {
@@ -37,28 +82,31 @@ local handler_opts = {
   },
   -- ["volar"] = {
   --   filetypes = {
+  --     "javascript",
+  --     "javascript.jsx",
+  --     "javascriptreact",
   --     "typescript",
+  --     "typescript.jsx",
+  --     "typescriptreact",
   --     "vue",
-  --   },
-  --   init_options = {
-  --     typescript = {
-  --       -- TODO: better path handling + macos support
-  --       tsdk = "/home/mhdmhr/.local/share/mise/installs/node/22.9.0/lib/node_modules/typescript/lib",
-  --     },
   --   },
   -- },
   -- ["ts_ls"] = {
   --   filetypes = {
+  --     "javascript",
+  --     "javascript.jsx",
+  --     "javascriptreact",
   --     "typescript",
+  --     "typescript.jsx",
+  --     "typescriptreact",
   --     "vue",
   --   },
   --   init_options = {
   --     plugins = {
   --       {
   --         name = "@vue/typescript-plugin",
-  --         -- TODO: better path handling + macos support
-  --         location = "/home/mhdmhr/.local/share/mise/installs/node/22.9.0/lib/node_modules/@vue/typescript-plugin",
-  --         languages = { "vue" },
+  --         location = "/home/mhdmhr/.local/share/mise/installs/node/lts/lib/node_modules/@vue/typescript-plugin",
+  --         languages = { "javascript", "typescript", "vue" },
   --       },
   --     },
   --   },
@@ -93,62 +141,25 @@ end
 
 return {
   {
-    "folke/lazydev.nvim",
-    ft = "lua",
-    opts = {
-      library = {
-        -- See the configuration section for more details
-        -- Load luvit types when the `vim.uv` word is found
-        { path = "luvit-meta/library", words = { "vim%.uv" } },
-      },
-    },
-  },
-  { "Bilal2453/luvit-meta", lazy = true },
-  {
     "neovim/nvim-lspconfig",
-    event = "VeryLazy",
     dependencies = {
-      {
-        "williamboman/mason-lspconfig.nvim",
-        dependencies = {
-          {
-            "williamboman/mason.nvim",
-            build = ":MasonUpdate",
-            opts = {},
-          },
-        },
-        opts = {
-          handlers = {
-            setup_handler,
-          },
-        },
-      },
-      "hrsh7th/cmp-nvim-lsp",
       {
         "WhoIsSethDaniel/mason-tool-installer.nvim",
         dependencies = {
-          {
-            "williamboman/mason.nvim",
-            build = ":MasonUpdate",
-            opts = {},
+          "williamboman/mason-lspconfig.nvim",
+          dependencies = {
+            {
+              "williamboman/mason.nvim",
+              build = ":MasonUpdate",
+              opts = {},
+            },
+          },
+          opts = {
+            automatic_installation = true,
+            handlers = { setup_handler },
           },
         },
         opts = {
-          ensure_installed = {
-            "css-lsp",
-            "eslint-lsp",
-            "gopls",
-            "html-lsp",
-            "json-lsp",
-            "lua-language-server",
-            "prettier",
-            "prisma-language-server",
-            "rust-analyzer",
-            "stylua",
-            "tailwindcss-language-server",
-            "typescript-language-server",
-            "yaml-language-server",
-          },
           auto_update = true,
         },
       },
