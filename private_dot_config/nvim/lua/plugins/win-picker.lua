@@ -1,7 +1,6 @@
 return {
   {
     "meeehdi-dev/win-picker.nvim",
-    event = "VeryLazy",
     opts = {
       filter = function(id)
         local buf = vim.api.nvim_win_get_buf(id)

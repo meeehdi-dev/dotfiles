@@ -1,4 +1,5 @@
 -- vim options
+vim.opt.cursorline = true
 vim.opt.number = true
 vim.opt.relativenumber = true
 vim.opt.ignorecase = true
@@ -82,12 +83,6 @@ vim.keymap.set("n", "<leader><Left>", vim.diagnostic.goto_prev)
 vim.keymap.set("n", "<leader><Right>", vim.diagnostic.goto_next)
 
 local function format(with_imports)
-  local progress = require("fidget.progress")
-  local handle = progress.handle.create({
-    title = "Formatting",
-    lsp_client = { name = "format" },
-  })
-
   if with_imports then
     -- organize imports
     vim.lsp.buf.execute_command({
@@ -106,8 +101,6 @@ local function format(with_imports)
       end
     end
   )
-
-  handle:finish()
 end
 
 -- lint & format

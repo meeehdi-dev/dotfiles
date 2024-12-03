@@ -100,7 +100,6 @@ local handler_opts = {
 
 local function setup_handler(server_name)
   local opts = handler_opts[server_name] or {}
-  opts.capabilities = require("cmp_nvim_lsp").default_capabilities()
   local handler_on_attach = opts.on_attach
   opts.on_attach = function(client, bufnr)
     if handler_on_attach then

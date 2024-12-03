@@ -1,7 +1,6 @@
 return {
   {
     "hrsh7th/nvim-cmp",
-    event = "VeryLazy",
     dependencies = {
       "hrsh7th/cmp-nvim-lsp",
       "hrsh7th/cmp-buffer",
@@ -10,9 +9,6 @@ return {
       {
         "L3MON4D3/LuaSnip",
         build = "make install_jsregexp",
-        dependencies = {
-          "rafamadriz/friendly-snippets",
-        },
       },
       "saadparwaiz1/cmp_luasnip",
     },
@@ -36,7 +32,6 @@ return {
             cmp.complete({
               config = {
                 sources = {
-                  { name = "lazydev", group_index = 0 },
                   { name = "nvim_lsp" },
                 },
               },

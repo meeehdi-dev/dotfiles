@@ -1,7 +1,6 @@
 return {
   {
     "stevearc/conform.nvim",
-    event = "VeryLazy",
     opts = {
       formatters_by_ft = {
         css = { "prettier" },
@@ -13,6 +12,7 @@ return {
         proto = { "buf" },
         typescript = { "prettier" },
         typescriptreact = { "prettier" },
+        vue = { "prettier" },
       },
     },
   },
