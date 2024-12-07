@@ -59,9 +59,8 @@ vim.keymap.set("n", "Q", "@q")
 vim.keymap.set("x", "Q", ":norm @q<CR>")
 
 -- lsp
-vim.keymap.set("n", "<leader>r", vim.lsp.buf.rename)
-vim.keymap.set("n", "<leader>h", vim.lsp.buf.hover)
-vim.keymap.set("n", "<leader>a", vim.lsp.buf.code_action)
+vim.keymap.set("n", "grn", vim.lsp.buf.rename)
+vim.keymap.set("n", "<C-s>", vim.lsp.buf.signature_help)
 
 -- diagnostics
 vim.diagnostic.config({

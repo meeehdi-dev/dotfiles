@@ -10,15 +10,33 @@ return {
         end,
       },
       {
-        "gd",
+        "gra",
+        function()
+          require("fzf-lua").lsp_code_actions()
+        end,
+      },
+      {
+        "grd",
         function()
           require("fzf-lua").lsp_definitions()
         end,
       },
       {
-        "gr",
+        "grr",
         function()
           require("fzf-lua").lsp_references()
+        end,
+      },
+      {
+        "gri",
+        function()
+          require("fzf-lua").lsp_implementations()
+        end,
+      },
+      {
+        "gO",
+        function()
+          require("fzf-lua").lsp_document_symbols()
         end,
       },
       {
@@ -38,12 +56,6 @@ return {
         "<leader><C-r>",
         function()
           require("fzf-lua").resume()
-        end,
-      },
-      {
-        "<leader>o",
-        function()
-          require("fzf-lua").lsp_document_symbols()
         end,
       },
     },
