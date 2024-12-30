@@ -8,6 +8,7 @@ vim.opt.splitbelow = true
 vim.opt.splitright = true
 vim.opt.undofile = true
 vim.opt.updatetime = 250
+vim.go.lazyredraw = true
 
 -- auto-session
 vim.o.sessionoptions="blank,buffers,curdir,folds,help,tabpages,winsize,winpos,terminal,localoptions"

@@ -2,11 +2,11 @@
 set fish_greeting
 
 # exports
-set -gx TERM "xterm-256color"
+# set -gx TERM "xterm-256color"
 set -gx EDITOR "nvim"
-set -gx GPG_TTY (tty)
-set -gx DISPLAY ":0"
-set -gx MESA_D3D12_DEFAULT_ADAPTER_NAME "NVIDIA"
+# set -gx GPG_TTY (tty)
+# set -gx DISPLAY ":0"
+# set -gx MESA_D3D12_DEFAULT_ADAPTER_NAME "NVIDIA"
 
 # nvim
 alias vim "nvim"
@@ -33,9 +33,6 @@ abbr gca "git commit --amend"
 abbr t "tmux attach -t main || tmux new-session -s main"
 abbr ta "tmux attach -t"
 abbr tls "tmux list-sessions"
-
-# update
-abbr u "sudo apt update && sudo apt upgrade -y && sudo apt autoremove -y"
 
 # i3-like window switching
 function tmux_switch_window
@@ -71,6 +68,9 @@ set -l os (uname)
 if test "$os" = Linux # WSL
   # homebrew
   eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+else
+  # homebrew
+  eval "$(/opt/homebrew/bin/brew shellenv)"
 end
 
 # fzf
@@ -78,6 +78,3 @@ fzf --fish | source
 
 # prompt
 starship init fish | source
-
-# mise-en-place
-~/.local/bin/mise activate fish | source
