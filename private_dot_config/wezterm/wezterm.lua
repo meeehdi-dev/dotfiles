@@ -13,7 +13,7 @@ config.color_scheme = "rose-pine"
 
 config.hide_tab_bar_if_only_one_tab = true
 
-config.font = wezterm.font("CaskaydiaCove Nerd Font")
+config.font = wezterm.font("Roboto Mono")
 config.font_size = 12.0
 
 config.window_padding = {
