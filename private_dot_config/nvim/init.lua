@@ -1,55 +1,70 @@
--- vim options
+-- options
 vim.opt.cursorline = true
+vim.opt.expandtab = true
+vim.opt.ignorecase = true
 vim.opt.number = true
 vim.opt.relativenumber = true
-vim.opt.ignorecase = true
+vim.opt.shiftwidth = 2
 vim.opt.smartcase = true
 vim.opt.splitbelow = true
 vim.opt.splitright = true
+vim.opt.tabstop = 2
 vim.opt.undofile = true
 vim.opt.updatetime = 250
-
--- auto-session
-vim.o.sessionoptions="blank,buffers,curdir,folds,help,tabpages,winsize,winpos,terminal,localoptions"
 
 -- leader
 vim.g.mapleader = " "
 
 -- keymaps
-vim.keymap.set("n", "<Space>", "<Nop>", { silent = true }) -- Unmap space
+vim.keymap.set("n", "<Space>", "<Nop>") -- Unmap space
 
 -- remap number keys in normal mode (azerty)
-vim.keymap.set("n", "&", "1", { silent = true })
-vim.keymap.set("n", "é", "2", { silent = true })
-vim.keymap.set("n", '"', "3", { silent = true })
-vim.keymap.set("n", "'", "4", { silent = true })
-vim.keymap.set("n", "(", "5", { silent = true })
-vim.keymap.set("n", "-", "6", { silent = true })
-vim.keymap.set("n", "è", "7", { silent = true })
-vim.keymap.set("n", "_", "8", { silent = true })
-vim.keymap.set("n", "ç", "9", { silent = true })
-vim.keymap.set("n", "à", "0", { silent = true })
+vim.keymap.set({ "n", "x" }, "&", "1")
+vim.keymap.set({ "n", "x" }, "é", "2")
+vim.keymap.set({ "n", "x" }, '"', "3")
+vim.keymap.set({ "n", "x" }, "'", "4")
+vim.keymap.set({ "n", "x" }, "(", "5")
+vim.keymap.set({ "n", "x" }, "§", "6")
+vim.keymap.set({ "n", "x" }, "è", "7")
+vim.keymap.set({ "n", "x" }, "!", "8")
+vim.keymap.set({ "n", "x" }, "ç", "9")
+vim.keymap.set({ "n", "x" }, "à", "0")
+
+-- Add undo break-points
+vim.keymap.set("i", ",", ",<C-g>u")
+vim.keymap.set("i", ".", ".<C-g>u")
+vim.keymap.set("i", ";", ";<C-g>u")
+vim.keymap.set("i", "<Space>", " <C-g>u")
 
 -- qol
-vim.keymap.set("n", "<Esc>", "<Esc>:noh<CR>", { silent = true }) -- Clear highlights
+vim.keymap.set("n", "<Esc>", "<Esc>:noh<CR>") -- Clear highlights
 vim.keymap.set("v", "<", "<gv") -- Keep visual selection after indent
 vim.keymap.set("v", ">", ">gv") -- Keep visual selection after indent
-
--- clipboard (wsl)
-if vim.fn.has("wsl") == 1 then
-  vim.g.clipboard = {
-    name = "WslClipboard",
-    copy = {
-      ["+"] = "win32yank.exe -i --crlf",
-      ["*"] = "win32yank.exe -i --crlf",
-    },
-    paste = {
-      ["+"] = "win32yank.exe -o --lf",
-      ["*"] = "win32yank.exe -o --lf",
-    },
-    cache_enabled = 0,
-  }
-end
+-- better up/down
+vim.keymap.set(
+  { "n", "x" },
+  "j",
+  "v:count == 0 ? 'gj' : 'j'",
+  { expr = true, silent = true }
+)
+vim.keymap.set(
+  { "n", "x" },
+  "<Down>",
+  "v:count == 0 ? 'gj' : 'j'",
+  { expr = true, silent = true }
+)
+vim.keymap.set(
+  { "n", "x" },
+  "k",
+  "v:count == 0 ? 'gk' : 'k'",
+  { expr = true, silent = true }
+)
+vim.keymap.set(
+  { "n", "x" },
+  "<Up>",
+  "v:count == 0 ? 'gk' : 'k'",
+  { expr = true, silent = true }
+)
 
 -- copy to system clipboard
 vim.keymap.set("v", "Y", '"*y')
@@ -60,54 +75,37 @@ vim.keymap.set("x", "Q", ":norm @q<CR>")
 
 -- lsp
 vim.keymap.set("n", "grn", vim.lsp.buf.rename)
-vim.keymap.set("n", "<C-s>", vim.lsp.buf.signature_help)
+vim.keymap.set("n", "gra", vim.lsp.buf.code_action)
 
 -- diagnostics
 vim.diagnostic.config({
-  virtual_text = {
-    prefix = "-",
-  },
-  severity_sort = true,
   signs = {
     text = {
-      [vim.diagnostic.severity.ERROR] = "",
-      [vim.diagnostic.severity.WARN] = "",
-      [vim.diagnostic.severity.INFO] = "",
-      [vim.diagnostic.severity.HINT] = "",
+      [vim.diagnostic.severity.ERROR] = "󰅙",
+      [vim.diagnostic.severity.WARN] = "",
+      [vim.diagnostic.severity.INFO] = "󰋼",
+      [vim.diagnostic.severity.HINT] = "󰌵",
     },
   },
 })
 vim.keymap.set("n", "<leader>d", vim.diagnostic.open_float)
-vim.keymap.set("n", "<leader><Left>", vim.diagnostic.goto_prev)
-vim.keymap.set("n", "<leader><Right>", vim.diagnostic.goto_next)
+vim.keymap.set("n", "<leader>h", function()
+  vim.diagnostic.jump({ count = -1 })
+end)
+vim.keymap.set("n", "<leader>l", function()
+  vim.diagnostic.jump({ count = 1 })
+end)
 
-local function format(with_imports)
-  if with_imports then
-    -- organize imports
-    vim.lsp.buf.execute_command({
-      command = "_typescript.organizeImports",
-      arguments = { vim.api.nvim_buf_get_name(0) },
-      title = "",
-    })
-  end
-  -- format
+-- lint & format
+vim.keymap.set("n", "<leader>f", function()
   require("conform").format(
     { timeout_ms = 1000, lsp_fallback = true },
     function()
-      -- lint
       if vim.fn.exists(":EslintFixAll") > 0 then
         vim.cmd.EslintFixAll()
       end
     end
   )
-end
-
--- lint & format
-vim.keymap.set("n", "<leader>f", function()
-  format()
-end)
-vim.keymap.set("n", "<leader>ff", function()
-  format(true)
 end)
 
 -- lazy bootstrap
@@ -134,10 +132,33 @@ if not (vim.uv or vim.loop).fs_stat(lazypath) then
 end
 vim.opt.rtp:prepend(lazypath)
 
--- Lazy init
-require("lazy").setup("plugins", {
+require("lazy").setup({
+  spec = {
+    { import = "plugins" },
+  },
   dev = {
     path = "~/code/nvim-plugins",
     patterns = { "meeehdi-dev" },
+  },
+  defaults = {
+    lazy = false,
+    version = false,
+  },
+  change_detection = { notify = false },
+  install = { colorscheme = { "rose-pine" } },
+  checker = {
+    enabled = true,
+    notify = false,
+  },
+  performance = {
+    rtp = {
+      disabled_plugins = {
+        "gzip",
+        "tarPlugin",
+        "tohtml",
+        "tutor",
+        "zipPlugin",
+      },
+    },
   },
 })
