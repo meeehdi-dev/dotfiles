@@ -15,6 +15,7 @@ return {
         typescript = { "prettier" },
         typescriptreact = { "prettier" },
         vue = { "prettier" },
+        yaml = { "yamlfmt" },
       },
     },
     keys = {

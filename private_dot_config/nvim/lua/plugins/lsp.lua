@@ -99,12 +99,12 @@ local handler_opts = {
 local function setup_handler(server_name)
   local opts = handler_opts[server_name] or {}
   opts.capabilities = require("cmp_nvim_lsp").default_capabilities()
-  local handler_on_attach = opts.on_attach
   opts.on_attach = function(client, bufnr)
-    if handler_on_attach then
-      handler_on_attach(client, bufnr)
+    if client.supports_method("textDocument/completion") then
+      vim.lsp.completion.enable(true, client.id, bufnr, { autotrigger = true })
     end
-
+  end
+  --[[ opts.on_attach = function(client, bufnr)
     if client.server_capabilities.documentHighlightProvider then
       vim.api.nvim_create_autocmd("CursorHold", {
         buffer = bufnr,
@@ -117,7 +117,7 @@ local function setup_handler(server_name)
         callback = vim.lsp.buf.clear_references,
       })
     end
-  end
+  end ]]
 
   require("lspconfig")[server_name].setup(opts)
 end

@@ -1,5 +1,4 @@
 -- options
-vim.opt.cursorline = true
 vim.opt.expandtab = true
 vim.opt.ignorecase = true
 vim.opt.number = true
@@ -41,29 +40,19 @@ vim.keymap.set("n", "<Esc>", "<Esc>:noh<CR>") -- Clear highlights
 vim.keymap.set("v", "<", "<gv") -- Keep visual selection after indent
 vim.keymap.set("v", ">", ">gv") -- Keep visual selection after indent
 -- better up/down
-vim.keymap.set(
-  { "n", "x" },
-  "j",
-  "v:count == 0 ? 'gj' : 'j'",
-  { expr = true, silent = true }
-)
+vim.keymap.set({ "n", "x" }, "j", "v:count == 0 ? 'gj' : 'j'", { expr = true })
 vim.keymap.set(
   { "n", "x" },
   "<Down>",
   "v:count == 0 ? 'gj' : 'j'",
-  { expr = true, silent = true }
+  { expr = true }
 )
-vim.keymap.set(
-  { "n", "x" },
-  "k",
-  "v:count == 0 ? 'gk' : 'k'",
-  { expr = true, silent = true }
-)
+vim.keymap.set({ "n", "x" }, "k", "v:count == 0 ? 'gk' : 'k'", { expr = true })
 vim.keymap.set(
   { "n", "x" },
   "<Up>",
   "v:count == 0 ? 'gk' : 'k'",
-  { expr = true, silent = true }
+  { expr = true }
 )
 
 -- copy to system clipboard
@@ -72,10 +61,6 @@ vim.keymap.set("v", "Y", '"*y')
 -- macros
 vim.keymap.set("n", "Q", "@q")
 vim.keymap.set("x", "Q", ":norm @q<CR>")
-
--- lsp
-vim.keymap.set("n", "grn", vim.lsp.buf.rename)
-vim.keymap.set("n", "gra", vim.lsp.buf.code_action)
 
 -- diagnostics
 vim.diagnostic.config({
@@ -87,6 +72,7 @@ vim.diagnostic.config({
       [vim.diagnostic.severity.HINT] = "󰌵",
     },
   },
+  virtual_text = { current_line = true },
 })
 vim.keymap.set("n", "<leader>d", vim.diagnostic.open_float)
 vim.keymap.set("n", "<leader>h", function()
@@ -94,18 +80,6 @@ vim.keymap.set("n", "<leader>h", function()
 end)
 vim.keymap.set("n", "<leader>l", function()
   vim.diagnostic.jump({ count = 1 })
-end)
-
--- lint & format
-vim.keymap.set("n", "<leader>f", function()
-  require("conform").format(
-    { timeout_ms = 1000, lsp_fallback = true },
-    function()
-      if vim.fn.exists(":EslintFixAll") > 0 then
-        vim.cmd.EslintFixAll()
-      end
-    end
-  )
 end)
 
 -- lazy bootstrap

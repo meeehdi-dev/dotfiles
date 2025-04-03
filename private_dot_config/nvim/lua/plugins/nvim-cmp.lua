@@ -8,7 +8,6 @@ return {
       "hrsh7th/cmp-buffer",
       "hrsh7th/cmp-path",
       "hrsh7th/cmp-cmdline",
-      "hrsh7th/nvim-cmp",
       "SirVer/ultisnips",
       "quangnguyen30192/cmp-nvim-ultisnips",
     },
@@ -27,7 +26,11 @@ return {
         { name = "buffer", max_item_count = 10 },
       })
 
-      opts.mapping = cmp.mapping.preset.insert()
+      opts.mapping = cmp.mapping.preset.insert({
+        ["<CR>"] = {
+          i = cmp.mapping.confirm({ select = false }),
+        },
+      })
 
       cmp.setup(opts)
 
