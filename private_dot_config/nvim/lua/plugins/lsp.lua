@@ -29,41 +29,6 @@ local handler_opts = {
       Lua = {},
     },
   },
-  ["eslint"] = {
-    filetypes = {
-      "javascript",
-      "javascriptreact",
-      "typescript",
-      "typescriptreact",
-      "vue",
-    },
-    root_dir = function(filename)
-      -- https://github.com/neovim/nvim-lspconfig/blob/master/lua/lspconfig/server_configurations/eslint.lua
-      return require("lspconfig").util.root_pattern(
-        ".eslintrc",
-        ".eslintrc.js",
-        ".eslintrc.cjs",
-        ".eslintrc.yaml",
-        ".eslintrc.yml",
-        ".eslintrc.json",
-        "eslint.config.js",
-        "eslint.config.mjs",
-        "eslint.config.cjs",
-        "package.json"
-      )(filename)
-    end,
-  },
-  ["tailwindcss"] = {
-    filetypes = {
-      "html",
-      "css",
-      "javascript",
-      "javascriptreact",
-      "typescript",
-      "typescriptreact",
-      "vue",
-    },
-  },
   ["cssls"] = {
     settings = {
       css = {
@@ -78,8 +43,10 @@ local handler_opts = {
     filetypes = {
       "javascript",
       "javascriptreact",
+      "javascript.jsx",
       "typescript",
       "typescriptreact",
+      "typescript.jsx",
       "vue",
     },
     init_options = {
@@ -99,26 +66,10 @@ local handler_opts = {
 local function setup_handler(server_name)
   local opts = handler_opts[server_name] or {}
   opts.capabilities = require("cmp_nvim_lsp").default_capabilities()
-  opts.on_attach = function(client, bufnr)
-    if client.supports_method("textDocument/completion") then
-      vim.lsp.completion.enable(true, client.id, bufnr, { autotrigger = true })
-    end
-  end
-  --[[ opts.on_attach = function(client, bufnr)
-    if client.server_capabilities.documentHighlightProvider then
-      vim.api.nvim_create_autocmd("CursorHold", {
-        buffer = bufnr,
-        callback = function()
-          vim.lsp.buf.document_highlight()
-        end,
-      })
-      vim.api.nvim_create_autocmd("CursorMoved", {
-        buffer = bufnr,
-        callback = vim.lsp.buf.clear_references,
-      })
-    end
-  end ]]
 
+  if server_name == "ts_ls" then
+    require("lspconfig")["volar"].setup()
+  end
   require("lspconfig")[server_name].setup(opts)
 end
 
