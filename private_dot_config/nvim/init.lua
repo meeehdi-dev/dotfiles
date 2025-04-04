@@ -9,7 +9,6 @@ vim.opt.splitbelow = true
 vim.opt.splitright = true
 vim.opt.tabstop = 2
 vim.opt.undofile = true
-vim.opt.updatetime = 250
 
 -- leader
 vim.g.mapleader = " "
