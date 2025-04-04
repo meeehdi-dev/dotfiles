@@ -18,10 +18,18 @@ return {
 
       opts.sources = cmp.config.sources({
         { name = "nvim_lsp", max_item_count = 10 },
-        { name = "buffer", max_item_count = 10 },
+        { name = "path", max_item_count = 5 },
+        { name = "buffer", max_item_count = 5 },
       })
 
       opts.mapping = cmp.mapping.preset.insert({
+        ["<C-Space>"] = cmp.mapping.complete({
+          config = {
+            sources = {
+              { name = "nvim_lsp", max_item_count = 20 },
+            },
+          },
+        }),
         ["<CR>"] = {
           i = cmp.mapping.confirm({ select = false }),
         },
@@ -39,7 +47,6 @@ return {
       cmp.setup.cmdline(":", {
         mapping = cmp.mapping.preset.cmdline(),
         sources = cmp.config.sources({
-          { name = "path", max_item_count = 10 },
           { name = "cmdline", max_item_count = 10 },
         }),
         matching = { disallow_symbol_nonprefix_matching = false },
