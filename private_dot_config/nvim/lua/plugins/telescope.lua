@@ -5,25 +5,17 @@ return {
     dependencies = {
       "nvim-lua/plenary.nvim",
       "nvim-treesitter/nvim-treesitter",
+      "nvim-tree/nvim-web-devicons",
       {
         "nvim-telescope/telescope-fzf-native.nvim",
         build = "make",
       },
     },
-    opts = {
-      defaults = {
-        preview = {
-          filesize_limit = 0.1, -- MB
-        },
-      },
-      extensions = {
-        fzf = {
-          fuzzy = true,
-          override_generic_sorter = true,
-          override_file_sorter = true,
-        },
-      },
-    },
+    config = function()
+      local telescope = require("telescope")
+      telescope.setup()
+      telescope.load_extension("fzf")
+    end,
     keys = {
       {
         "<C-p>",
@@ -65,13 +57,13 @@ return {
       {
         "<C-f>",
         function()
-          require("telescope.builtin").live_grep()
+          require("telescope.builtin").live_grep() -- requires ripgrep
         end,
       },
       {
         "<C-f>",
         function()
-          require("telescope.builtin").grep_string()
+          require("telescope.builtin").grep_string() -- requires ripgrep
         end,
         mode = "v",
       },

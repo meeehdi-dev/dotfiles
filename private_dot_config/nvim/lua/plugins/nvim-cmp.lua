@@ -3,17 +3,14 @@ return {
     "hrsh7th/nvim-cmp",
     event = "VeryLazy",
     dependencies = {
-      "neovim/nvim-lspconfig",
       "hrsh7th/cmp-nvim-lsp",
       "hrsh7th/cmp-buffer",
       "hrsh7th/cmp-path",
       "hrsh7th/cmp-cmdline",
-      "SirVer/ultisnips",
-      "quangnguyen30192/cmp-nvim-ultisnips",
     },
     opts = {
       expand = function(args)
-        vim.fn["UltiSnips#Anon"](args.body)
+        vim.snippet.expand(args.body)
       end,
     },
     config = function(_, opts)
@@ -21,8 +18,6 @@ return {
 
       opts.sources = cmp.config.sources({
         { name = "nvim_lsp", max_item_count = 10 },
-        { name = "ultisnips", max_item_count = 10 },
-      }, {
         { name = "buffer", max_item_count = 10 },
       })
 
@@ -45,7 +40,6 @@ return {
         mapping = cmp.mapping.preset.cmdline(),
         sources = cmp.config.sources({
           { name = "path", max_item_count = 10 },
-        }, {
           { name = "cmdline", max_item_count = 10 },
         }),
         matching = { disallow_symbol_nonprefix_matching = false },
