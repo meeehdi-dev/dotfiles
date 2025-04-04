@@ -12,10 +12,10 @@ return {
       auto_suggest = false,
       debounce = 1,
       keymap = {
-        accept_word = "<Tab>",
+        accept_word = "<C-l>",
         accept_line = "<S-Tab>",
-        accept_block = false,
-        suggest = "<C-l>",
+        accept_block = "<Tab>",
+        suggest = "<C-j>",
       },
     },
   },
