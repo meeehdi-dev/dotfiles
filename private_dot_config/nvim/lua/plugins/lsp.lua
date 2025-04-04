@@ -68,7 +68,7 @@ local function setup_handler(server_name)
   opts.capabilities = require("cmp_nvim_lsp").default_capabilities()
 
   if server_name == "ts_ls" then
-    require("lspconfig")["volar"].setup()
+    require("lspconfig")["volar"].setup({})
   end
   require("lspconfig")[server_name].setup(opts)
 end
