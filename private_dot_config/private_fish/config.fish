@@ -8,6 +8,7 @@ set -gx GPG_TTY (tty)
 # nvim
 alias vi "nvim"
 alias vim "nvim"
+alias rm "rm -I"
 
 # bat
 alias cat "bat"
