@@ -17,69 +17,69 @@ return {
         ["fzf"] = {},
         ["ui-select"] = { require("telescope.themes").get_dropdown({}) },
       },
+      pickers = {
+        find_files = {
+          find_command = {
+            "rg",
+            "--files",
+            "--color",
+            "--hidden",
+            "--glob",
+            "!**/.git/*",
+          },
+        },
+      },
     },
     config = function(_, opts)
       local telescope = require("telescope")
+      local telescope_config = require("telescope.config")
+      local vimgrep_arguments =
+        { unpack(telescope_config.values.vimgrep_arguments) }
+
+      table.insert(vimgrep_arguments, "--hidden")
+      table.insert(vimgrep_arguments, "--glob")
+      table.insert(vimgrep_arguments, "!**/.git/*")
+      opts.defaults = {
+        vimgrep_arguments = vimgrep_arguments,
+      }
       telescope.setup(opts)
+
       telescope.load_extension("fzf")
       telescope.load_extension("ui-select")
     end,
     keys = {
       {
         "<C-p>",
-        function()
-          vim.fn.system("git rev-parse --is-inside-work-tree")
-          local is_inside_work_tree = vim.v.shell_error == 0
-
-          if is_inside_work_tree then
-            require("telescope.builtin").git_files({ show_untracked = true })
-          else
-            require("telescope.builtin").find_files()
-          end
-        end,
+        require("telescope.builtin").find_files,
       },
       {
         "grd",
-        function()
-          require("telescope.builtin").lsp_definitions()
-        end,
+        require("telescope.builtin").lsp_definitions,
       },
       {
         "grr",
-        function()
-          require("telescope.builtin").lsp_references()
-        end,
+        require("telescope.builtin").lsp_references,
       },
       {
         "gri",
-        function()
-          require("telescope.builtin").lsp_implementations()
-        end,
+        require("telescope.builtin").lsp_implementations,
       },
       {
         "gO",
-        function()
-          require("telescope.builtin").lsp_document_symbols()
-        end,
+        require("telescope.builtin").lsp_document_symbols,
       },
       {
         "<C-f>",
-        function()
-          require("telescope.builtin").live_grep() -- requires ripgrep
-        end,
+        require("telescope.builtin").live_grep,
       },
       {
         "<C-f>",
-        function()
-          require("telescope.builtin").grep_string() -- requires ripgrep
-        end,
+        require("telescope.builtin").grep_string,
         mode = "v",
       },
       {
         "<leader><C-r>",
-        function()
-          require("telescope.builtin").resume()
-        end,
+        require("telescope.builtin").resume,
       },
     },
   },
