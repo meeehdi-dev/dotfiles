@@ -109,29 +109,10 @@ require("lazy").setup({
   spec = {
     { import = "plugins" },
   },
+  change_detection = { notify = false },
   dev = {
     path = "~/code/nvim-plugins",
     patterns = { "meeehdi-dev" },
-  },
-  defaults = {
-    lazy = false,
-    version = false,
-  },
-  change_detection = { notify = false },
-  install = { colorscheme = { "rose-pine" } },
-  checker = {
-    enabled = true,
-    notify = false,
-  },
-  performance = {
-    rtp = {
-      disabled_plugins = {
-        "gzip",
-        "tarPlugin",
-        "tohtml",
-        "tutor",
-        "zipPlugin",
-      },
-    },
+    fallback = true,
   },
 })
