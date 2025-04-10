@@ -32,17 +32,16 @@ return {
     config = function(_, opts)
       local telescope = require("telescope")
       local telescope_config = require("telescope.config")
+
       local vimgrep_arguments =
         { unpack(telescope_config.values.vimgrep_arguments) }
-
       table.insert(vimgrep_arguments, "--hidden")
-      table.insert(vimgrep_arguments, "--glob")
-      table.insert(vimgrep_arguments, "!**/.git/*")
+      table.insert(vimgrep_arguments, "--glob=!**/.git/*")
       opts.defaults = {
         vimgrep_arguments = vimgrep_arguments,
       }
-      telescope.setup(opts)
 
+      telescope.setup(opts)
       telescope.load_extension("fzf")
       telescope.load_extension("ui-select")
     end,
