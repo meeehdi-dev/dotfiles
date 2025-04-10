@@ -22,10 +22,9 @@ return {
           find_command = {
             "rg",
             "--files",
-            "--color",
+            "--color=never",
             "--hidden",
-            "--glob",
-            "!**/.git/*",
+            "--glob=!**/.git/*",
           },
         },
       },
