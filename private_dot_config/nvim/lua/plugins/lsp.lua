@@ -35,10 +35,17 @@ local handler_opts = {
 
 local function setup_handler(server_name)
   local opts = handler_opts[server_name] or {}
-  opts.capabilities = require("cmp_nvim_lsp").default_capabilities()
+  local capabilities = vim.tbl_deep_extend(
+    "force",
+    {},
+    vim.lsp.protocol.make_client_capabilities(),
+    require("cmp_nvim_lsp").default_capabilities() or {},
+    opts.capabilities or {}
+  )
+  opts.capabilities = capabilities
 
   if server_name == "ts_ls" then
-    require("lspconfig")["volar"].setup({})
+    require("lspconfig")["volar"].setup({ capabilities = capabilities })
   end
   require("lspconfig")[server_name].setup(opts)
 end
