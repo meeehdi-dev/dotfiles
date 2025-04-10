@@ -58,6 +58,8 @@ return {
 
       mason.setup()
       mason_lspconfig.setup({
+        ensure_installed = {},
+        automatic_installation = false,
         handlers = {
           function(server_name)
             setup_handler(server_name)
