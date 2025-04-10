@@ -2,6 +2,10 @@ return {
   {
     "stevearc/conform.nvim",
     opts = {
+      default_format_opts = {
+        lsp_format = "fallback",
+        timeout_ms = 1000,
+      },
       formatters_by_ft = {
         css = { "prettier" },
         fish = { "fish_indent" },
@@ -22,14 +26,11 @@ return {
       {
         "<leader>f",
         function()
-          require("conform").format(
-            { timeout_ms = 1000, lsp_fallback = true },
-            function()
-              if vim.fn.exists(":EslintFixAll") > 0 then
-                vim.cmd.EslintFixAll()
-              end
+          require("conform").format(nil, function()
+            if vim.fn.exists(":EslintFixAll") > 0 then
+              vim.cmd.EslintFixAll()
             end
-          )
+          end)
         end,
       },
     },
