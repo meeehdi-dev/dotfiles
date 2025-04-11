@@ -10,7 +10,6 @@ return {
       provider = "codestral",
       api_key = os.getenv("CODESTRAL_API_KEY"),
       auto_suggest = false,
-      debounce = 1,
       keymap = {
         accept_word = "<C-l>",
         accept_line = "<S-Tab>",
