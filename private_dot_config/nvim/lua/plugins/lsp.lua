@@ -1,5 +1,5 @@
 local handler_opts = {
-  ["cssls"] = {
+  cssls = {
     settings = {
       css = {
         validate = true,
@@ -9,17 +9,16 @@ local handler_opts = {
       },
     },
   },
-  ["volar"] = {
+  volar = {
     settings = {
       html = {
         format = {
           enable = false,
-          -- wrapLineLength = 0,
         },
       },
     },
   },
-  ["ts_ls"] = {
+  ts_ls = {
     filetypes = {
       "javascript",
       "javascriptreact",
@@ -79,9 +78,7 @@ return {
         ensure_installed = {},
         automatic_installation = false,
         handlers = {
-          function(server_name)
-            setup_handler(server_name)
-          end,
+          setup_handler,
         },
       })
     end,
