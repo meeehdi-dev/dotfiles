@@ -79,6 +79,10 @@ return {
         "<leader><C-r>",
         require("telescope.builtin").resume,
       },
+      {
+        "<leader>gg",
+        require("telescope.builtin").git_status,
+      },
     },
   },
 }
