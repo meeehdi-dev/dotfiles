@@ -9,6 +9,16 @@ local handler_opts = {
       },
     },
   },
+  ["volar"] = {
+    settings = {
+      html = {
+        format = {
+          enable = false,
+          -- wrapLineLength = 0,
+        },
+      },
+    },
+  },
   ["ts_ls"] = {
     filetypes = {
       "javascript",
@@ -44,9 +54,6 @@ local function setup_handler(server_name)
   )
   opts.capabilities = capabilities
 
-  if server_name == "ts_ls" then
-    require("lspconfig")["volar"].setup({ capabilities = capabilities })
-  end
   require("lspconfig")[server_name].setup(opts)
 end
 
