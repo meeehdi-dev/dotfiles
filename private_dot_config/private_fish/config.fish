@@ -2,22 +2,19 @@
 set fish_greeting
 
 # exports
-set -gx EDITOR "nvim"
+set -gx EDITOR nvim
 set -gx GPG_TTY (tty)
 
 # nvim
-alias vi "nvim"
-alias vim "nvim"
+alias vi nvim
+alias vim nvim
 alias rm "rm -I"
 
 # bat
-alias cat "bat"
+alias cat bat
 
 # chezmoi
-abbr c "chezmoi"
-
-# tmux
-abbr t "tmux"
+abbr c chezmoi
 
 # git
 abbr ga "git add"
@@ -32,7 +29,7 @@ abbr gs "git status"
 abbr gca "git commit --amend"
 
 # tmux
-# abbr t "tmux attach -t main || tmux new-session -s main"
+abbr t 'tmux new-session -s "$(hostname | tr . _)" 2>/dev/null || tmux attach -t "$(hostname | tr . _)"'
 # abbr ta "tmux attach -t"
 # abbr tls "tmux list-sessions"
 
@@ -78,6 +75,9 @@ starship init fish | source
 # bun
 set --export BUN_INSTALL "$HOME/.bun"
 set --export PATH $BUN_INSTALL/bin $PATH
+
+# vi mode
+# fish_vi_key_bindings
 
 # Added by OrbStack: command-line tools and integration
 # This won't be added again if you remove it.
