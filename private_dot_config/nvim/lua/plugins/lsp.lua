@@ -48,7 +48,7 @@ local function setup_handler(server_name)
     "force",
     {},
     vim.lsp.protocol.make_client_capabilities(),
-    require("cmp_nvim_lsp").default_capabilities() or {},
+    require("blink.cmp").get_lsp_capabilities() or {},
     opts.capabilities or {}
   )
   opts.capabilities = capabilities
@@ -59,9 +59,8 @@ end
 return {
   {
     "neovim/nvim-lspconfig",
-    event = { "BufReadPost", "BufNewFile", "BufWritePre" },
     dependencies = {
-      "hrsh7th/cmp-nvim-lsp",
+      "saghen/blink.cmp",
       {
         "williamboman/mason.nvim",
         cmd = { "Mason" },
@@ -75,8 +74,9 @@ return {
 
       mason.setup()
       mason_lspconfig.setup({
-        ensure_installed = {},
+        automatic_enable = true,
         automatic_installation = false,
+        ensure_installed = {},
         handlers = {
           setup_handler,
         },

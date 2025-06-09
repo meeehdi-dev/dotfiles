@@ -1,6 +1,6 @@
 return {
   {
-    "numToStr/Comment.nvim",
+    "folke/ts-comments.nvim",
     event = { "BufReadPost", "BufNewFile", "BufWritePre" },
     opts = {},
   },
