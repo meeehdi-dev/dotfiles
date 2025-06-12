@@ -8,9 +8,10 @@ return {
     opts = {
       -- provider = "copilot",
       provider = "ollama",
+      ls_cmd = { "/Users/mehdi/code/llm-language-server/llm-language-server" },
       -- provider = "codestral",
       -- api_key = os.getenv("CODESTRAL_API_KEY"),
-      -- auto_suggest = false,
+      auto_suggest = false,
       keymap = {
         accept_word = "<C-l>",
         accept_line = "<S-Tab>",
