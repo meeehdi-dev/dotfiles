@@ -21,13 +21,12 @@ config.background = {
 		},
 		width = "100%",
 		height = "100%",
-		opacity = 0.95,
+		opacity = 0.9,
 	},
 	{
 		source = {
 			File = "/Users/mehdi/rem.jpg",
 		},
-		hsb = { brightness = 0.1 },
 		width = "Cover",
 		height = "Cover",
 		horizontal_align = "Center",

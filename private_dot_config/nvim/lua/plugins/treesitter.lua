@@ -1,41 +1,31 @@
 return {
   {
     "nvim-treesitter/nvim-treesitter",
+    lazy = false,
     build = ":TSUpdate",
-    event = { "BufReadPost", "BufNewFile", "BufWritePre" },
     dependencies = {
       "nvim-treesitter/nvim-treesitter-textobjects",
       {
         "nvim-treesitter/nvim-treesitter-context",
         opts = {
-          mode = "cursor",
+          -- mode = "cursor",
           max_lines = 3,
-          multiline_threshold = 1,
+          -- multiline_threshold = 1,
         },
       },
     },
-    opts = {
-      ensure_installed = {
-        "c",
-        "css",
-        "elixir",
-        "heex",
-        "html",
-        "javascript",
-        "lua",
-        "query",
-        "typescript",
-        "vim",
-        "vimdoc",
-        "vue",
-      },
-      sync_install = false,
-      auto_install = true,
-      highlight = {
-        enable = true,
-      },
-      indent = { enable = true },
-    },
-    main = "nvim-treesitter.configs",
+    config = function()
+      local configs = require("nvim-treesitter.configs")
+
+      configs.setup({
+        modules = {},
+        ignore_install = {},
+        auto_install = true,
+        sync_install = false,
+        ensure_installed = {},
+        highlight = { enable = true },
+        indent = { enable = true },
+      })
+    end,
   },
 }

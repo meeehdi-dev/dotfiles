@@ -3,10 +3,14 @@ return {
     "saghen/blink.cmp",
     version = "1.*",
     opts = {
-      keymap = { preset = "enter" },
       completion = {
         list = { selection = { auto_insert = false } },
       },
+      fuzzy = {
+        implementation = "rust",
+        sorts = { "exact", "score", "sort_text" },
+      },
+      keymap = { preset = "enter" },
     },
   },
 }

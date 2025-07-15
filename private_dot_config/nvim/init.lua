@@ -116,3 +116,6 @@ require("lazy").setup({
     fallback = true,
   },
 })
+
+-- fzf
+vim.opt.rtp:append("/opt/homebrew/opt/fzf")

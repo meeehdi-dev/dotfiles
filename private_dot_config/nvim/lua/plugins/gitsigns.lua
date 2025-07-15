@@ -1,7 +1,6 @@
 return {
   {
     "lewis6991/gitsigns.nvim",
-    event = { "BufReadPost", "BufNewFile", "BufWritePre" },
     opts = {},
     keys = {
       {
@@ -31,7 +30,7 @@ return {
       {
         "<leader>gr",
         function()
-          require("gitsigns.actions").undo_stage_hunk()
+          require("gitsigns.actions").stage_hunk()
         end,
       },
       {

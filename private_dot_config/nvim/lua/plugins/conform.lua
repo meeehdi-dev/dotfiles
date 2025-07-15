@@ -27,8 +27,8 @@ return {
         "<leader>f",
         function()
           require("conform").format(nil, function()
-            if vim.fn.exists(":EslintFixAll") > 0 then
-              vim.cmd.EslintFixAll()
+            if vim.fn.exists(":LspEslintFixAll") > 0 then
+              vim.cmd.LspEslintFixAll()
             end
           end)
         end,

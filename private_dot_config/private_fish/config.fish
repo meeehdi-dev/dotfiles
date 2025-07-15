@@ -43,11 +43,13 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 # fzf
 fzf --fish | source
 
-# prompt
-starship init fish | source
-
 # bun
 set -x BUN_INSTALL "$HOME/.bun"
 set -x PATH $BUN_INSTALL/bin $PATH
 
+# cargo
+set -x CARGO_INSTALL "$HOME/.cargo"
+set -x PATH $CARGO_INSTALL/bin $PATH
+
+# orbstack
 source ~/.orbstack/shell/init2.fish 2>/dev/null || :
