@@ -1,0 +1,51 @@
+return {
+  {
+    "lewis6991/gitsigns.nvim",
+    event = "BufReadPost",
+    opts = {},
+    keys = {
+      {
+        "<leader>k",
+        function()
+          require("gitsigns.actions").nav_hunk("prev")
+        end,
+      },
+      {
+        "<leader>j",
+        function()
+          require("gitsigns.actions").nav_hunk("next")
+        end,
+      },
+      {
+        "<leader>gs",
+        function()
+          require("gitsigns.actions").blame_line()
+        end,
+      },
+      {
+        "<leader>ga",
+        function()
+          require("gitsigns.actions").stage_hunk()
+        end,
+      },
+      {
+        "<leader>gr",
+        function()
+          require("gitsigns.actions").stage_hunk()
+        end,
+      },
+      {
+        "<leader>gR",
+        function()
+          require("gitsigns.actions").reset_hunk()
+        end,
+      },
+      {
+        "<leader>gd",
+        function()
+          require("gitsigns.actions").preview_hunk()
+        end,
+      },
+    },
+  },
+}

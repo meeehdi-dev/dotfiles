@@ -1,0 +1,6 @@
+vim.lsp.enable("cssls")
+vim.lsp.enable("vue_ls")
+vim.lsp.enable("oxlint")
+vim.lsp.enable("ts_ls")
+vim.lsp.enable("eslint")
+vim.lsp.enable("gdscript")

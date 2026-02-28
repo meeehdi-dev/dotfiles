@@ -1,0 +1,19 @@
+macos-titlebar-proxy-icon = "hidden"
+font-family = "Roboto Mono"
+font-size = 14
+maximize = true
+shell-integration = "fish"
+theme = "Catppuccin Mocha"
+title = "Ghostty"
+window-padding-x = 0
+window-padding-y = 0
+window-show-tab-bar = "never"
+
+background = "#191724"
+background-opacity = 0.9
+background-image-opacity = 0.1
+background-image-fit = "cover"
+background-image-position = "center"
+#background-image = "/Users/mehdi/rem.jpg"
+#background-image = "/Users/mehdi/violet.jpg"
+background-image = "/Users/mehdi/mayuri.jpg"
