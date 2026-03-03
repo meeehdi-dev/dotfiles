@@ -31,8 +31,14 @@ abbr gca "git commit --amend"
 # homebrew
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
+# bun
+fish_add_path $BUN_INSTALL/bin
+
 # fzf
 fzf --fish | source
 
-# bun
-fish_add_path $BUN_INSTALL/bin
+# zoxide
+zoxide init fish | source
+
+ # fnm
+fnm env --use-on-cd --version-file-strategy=recursive --corepack-enabled --resolve-engines --shell fish | source
