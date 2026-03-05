@@ -9,7 +9,7 @@ window-padding-x = 0
 window-padding-y = 0
 window-show-tab-bar = "never"
 
-background = "#191724"
+background = "#11111b"
 background-opacity = 0.9
 background-image-opacity = 0.1
 background-image-fit = "cover"
