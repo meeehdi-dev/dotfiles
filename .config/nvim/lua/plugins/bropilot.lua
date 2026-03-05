@@ -23,7 +23,7 @@ return {
     opts = {
       provider = "gemini",
       auto_suggest = false,
-      debounce = 1,
+      -- debounce = 100,
       ls_cmd = {
         "/Users/mehdi/code/llm-language-server/llm-language-server",
         "--debug",
@@ -33,7 +33,6 @@ return {
         accept_line = "<S-Tab>",
         accept_block = "<Tab>",
         suggest = "<C-j>",
-        suggest_next = "<C-k>",
       },
     },
   },
