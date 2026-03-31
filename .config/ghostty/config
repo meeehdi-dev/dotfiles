@@ -1,6 +1,8 @@
 macos-titlebar-proxy-icon = "hidden"
 font-family = "Roboto Mono"
 font-size = 14
+font-thicken = true
+font-thicken-strength = 0
 maximize = true
 shell-integration = "fish"
 theme = "Catppuccin Mocha"
