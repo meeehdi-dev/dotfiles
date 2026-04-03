@@ -25,6 +25,10 @@
       "rev": "41a2125b064025628944292c6ddcf5f2dbf6a928",
       "src": "https://github.com/Leonardo-Luz/dotenv.nvim"
     },
+    "fidget.nvim": {
+      "rev": "889e2e96edef4e144965571d46f7a77bcc4d0ddf",
+      "src": "https://github.com/j-hui/fidget.nvim"
+    },
     "gitsigns.nvim": {
       "rev": "50c205548d8b037b7ff6378fca6d21146f0b6161",
       "src": "https://github.com/lewis6991/gitsigns.nvim"
@@ -48,10 +52,6 @@
     "nui.nvim": {
       "rev": "de740991c12411b663994b2860f1a4fd0937c130",
       "src": "https://github.com/MunifTanjim/nui.nvim"
-    },
-    "nvim": {
-      "rev": "a7788416689dbefea659d9e9415c87926b0ba5d8",
-      "src": "https://github.com/catppuccin/nvim"
     },
     "nvim-lspconfig": {
       "rev": "16812abf0e8d8175155f26143a8504e8253e92b0",
@@ -108,10 +108,6 @@
     "ts-comments.nvim": {
       "rev": "123a9fb12e7229342f807ec9e6de478b1102b041",
       "src": "https://github.com/folke/ts-comments.nvim"
-    },
-    "ts-install.nvim": {
-      "rev": "7c5569256212d17041d5f3057e5fcbaf646f6643",
-      "src": "https://github.com/lewis6991/ts-install.nvim"
     },
     "undotree": {
       "rev": "6fa6b57cda8459e1e4b2ca34df702f55242f4e4d",

@@ -4,6 +4,7 @@ vim.pack.add({
   util.gh("meeehdi-dev/bropilot.nvim"),
   util.gh("nvim-lua/plenary.nvim"),
   util.gh("Leonardo-Luz/dotenv.nvim"),
+  util.gh("j-hui/fidget.nvim"),
 })
 
 require("dotenv").load()
