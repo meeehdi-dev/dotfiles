@@ -14,24 +14,24 @@ require("mason-tool-installer").setup({
     -- lsp
     "css-lsp", -- cssls
     "eslint-lsp", -- eslint
-    "eslint_d", -- eslint
+    "eslint_d", -- eslint (daemon)
     "lua-language-server", -- lua_ls
     "prisma-language-server", -- prismals
-    "typescript-language-server", -- ts_la
+    "typescript-language-server", -- ts_ls
     "vue-language-server", -- vue_ls
 
     -- formatter
-    "prettier",
-    "prettierd",
-    "shfmt",
-    "stylua",
-    "yamlfmt",
+    "prettier", -- *
+    "prettierd", -- * (daemon)
+    "shfmt", -- shell
+    "stylua", -- lua
+    "yamlfmt", -- yaml
   },
   auto_update = true,
 })
 
 vim.lsp.enable("cssls") -- css-lsp
-vim.lsp.enable("eslint") -- eslint_d
+vim.lsp.enable("eslint") -- eslint-lsp
 vim.lsp.enable("lua_ls") -- lua-language-server
 vim.lsp.enable("prismals") -- prisma-language-server
 vim.lsp.enable("ts_ls") -- typescript-language-server
