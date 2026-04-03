@@ -23,11 +23,15 @@ require("blink.cmp").setup({
       },
     },
   },
+  cmdline = {
+    keymap = { preset = "none" },
+    completion = { menu = { auto_show = true } },
+  },
   sources = {
     default = { "lsp", "path", "snippets", "buffer" },
   },
   fuzzy = {
-    implementation = "prefer_rust_with_warning",
+    implementation = "rust",
     prebuilt_binaries = { force_version = "v1.10.1" },
   },
 })
