@@ -38,15 +38,19 @@ local opts = {
       find_command = {
         "rg",
         "--files",
-        "--color=never",
         "--hidden",
         "--glob=!**/.git/*",
-        "--glob=!**/*.uid", -- ignore godot uid files
       },
     },
   },
   defaults = {
     vimgrep_arguments = vimgrep_arguments,
+    layout_config = {
+      horizontal = {
+        width = 0.999,
+        height = 0.999,
+      },
+    },
   },
 }
 
