@@ -29,6 +29,9 @@ abbr gp "git push"
 abbr gs "git status"
 abbr gca "git commit --amend"
 
+# grep
+abbr grep --set-cursor "rg --json % | delta"
+
 # homebrew
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
