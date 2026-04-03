@@ -4,19 +4,23 @@ vim.pack.add({
   util.gh("nvim-treesitter/nvim-treesitter"),
   util.gh("nvim-treesitter/nvim-treesitter-textobjects"),
   util.gh("nvim-treesitter/nvim-treesitter-context"),
-  util.gh("lewis6991/ts-install.nvim"),
 })
 
-require("ts-install").setup({
-  auto_install = true,
-  ensure_install = {
-    "vim",
-    "regex",
-    "lua",
-    "bash",
-    "markdown",
-    "markdown_inline",
-  },
+require("nvim-treesitter").update()
+require("nvim-treesitter").install({
+  "vim",
+  "regex",
+  "lua",
+  "bash",
+  "markdown",
+  "markdown_inline",
+
+  "css",
+  "lua",
+  "prisma",
+  "tsx",
+  "typescript",
+  "vue",
 })
 require("nvim-treesitter-textobjects").setup()
 require("treesitter-context").setup()
