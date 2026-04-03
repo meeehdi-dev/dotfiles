@@ -3,10 +3,7 @@ local util = require("util")
 vim.pack.add({
   util.gh("folke/noice.nvim"),
   util.gh("MunifTanjim/nui.nvim"),
-  util.gh("folke/snacks.nvim"),
 })
-
-require("snacks").setup()
 
 require("noice").setup({
   lsp = {
