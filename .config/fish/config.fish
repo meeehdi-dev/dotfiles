@@ -2,7 +2,7 @@
 set fish_greeting
 
 # theme
-fish_config theme choose "Catppuccin Mocha"
+fish_config theme choose "catppuccin-mocha"
 
 # exports
 set -gx EDITOR nvim
