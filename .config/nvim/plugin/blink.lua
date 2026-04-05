@@ -1,9 +1,7 @@
-local util = require("util")
-
 vim.pack.add({
   {
-    src = util.gh("saghen/blink.cmp"),
-    version = "v1",
+    src = "https://github.com/saghen/blink.cmp",
+    version = vim.version.range("^1"),
   },
 })
 
@@ -27,11 +25,7 @@ require("blink.cmp").setup({
     keymap = { preset = "none" },
     completion = { menu = { auto_show = true } },
   },
-  sources = {
-    default = { "lsp", "path", "snippets", "buffer" },
-  },
   fuzzy = {
     implementation = "rust",
-    prebuilt_binaries = { force_version = "v1.10.1" },
   },
 })

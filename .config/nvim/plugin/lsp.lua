@@ -1,9 +1,7 @@
-local util = require("util")
-
 vim.pack.add({
-  util.gh("neovim/nvim-lspconfig"),
-  util.gh("mason-org/mason.nvim"),
-  util.gh("WhoIsSethDaniel/mason-tool-installer.nvim"),
+  "https://github.com/neovim/nvim-lspconfig",
+  "https://github.com/mason-org/mason.nvim",
+  "https://github.com/WhoIsSethDaniel/mason-tool-installer.nvim",
 })
 
 require("mason").setup()
@@ -15,6 +13,7 @@ require("mason-tool-installer").setup({
     "css-lsp", -- cssls
     "eslint-lsp", -- eslint
     "eslint_d", -- eslint (daemon)
+    "fish-lsp", -- fish_lsp
     "lua-language-server", -- lua_ls
     "prisma-language-server", -- prismals
     "typescript-language-server", -- ts_ls
@@ -32,6 +31,7 @@ require("mason-tool-installer").setup({
 
 vim.lsp.enable("cssls") -- css-lsp
 vim.lsp.enable("eslint") -- eslint-lsp
+vim.lsp.enable("fish_lsp") -- fish-lsp
 vim.lsp.enable("lua_ls") -- lua-language-server
 vim.lsp.enable("prismals") -- prisma-language-server
 vim.lsp.enable("ts_ls") -- typescript-language-server

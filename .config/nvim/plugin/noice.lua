@@ -1,8 +1,6 @@
-local util = require("util")
-
 vim.pack.add({
-  util.gh("folke/noice.nvim"),
-  util.gh("MunifTanjim/nui.nvim"),
+  "https://github.com/folke/noice.nvim",
+  "https://github.com/MunifTanjim/nui.nvim",
 })
 
 require("noice").setup({

@@ -1,5 +1,3 @@
-local util = require("util")
-
-vim.pack.add({ util.gh("kylechui/nvim-surround") })
+vim.pack.add({ "https://github.com/kylechui/nvim-surround" })
 
 require("nvim-surround").setup()

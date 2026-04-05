@@ -1,9 +1,9 @@
 {
   "plugins": {
     "blink.cmp": {
-      "rev": "dcde5e7e32b6bae5a7ddf343c1587a8490dbd263",
+      "rev": "78336bc89ee5365633bcf754d93df01678b5c08f",
       "src": "https://github.com/saghen/blink.cmp",
-      "version": "'v1'"
+      "version": "1.0.0 - 2.0.0"
     },
     "bropilot.nvim": {
       "rev": "04d740a23ec89bc75f018025370031cdc778faa2",

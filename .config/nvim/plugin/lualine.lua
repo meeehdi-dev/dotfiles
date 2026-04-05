@@ -1,8 +1,6 @@
-local util = require("util")
-
 vim.pack.add({
-  util.gh("nvim-lualine/lualine.nvim"),
-  util.gh("nvim-tree/nvim-web-devicons"),
+  "https://github.com/nvim-lualine/lualine.nvim",
+  "https://github.com/nvim-tree/nvim-web-devicons",
 })
 
 require("lualine").setup({

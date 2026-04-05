@@ -1,6 +1,4 @@
-local util = require("util")
-
-vim.pack.add({ util.gh("stevearc/conform.nvim") })
+vim.pack.add({ "https://github.com/stevearc/conform.nvim" })
 
 require("conform").setup({
   default_format_opts = {

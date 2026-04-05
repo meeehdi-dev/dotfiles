@@ -1,5 +1,3 @@
-local util = require("util")
-
-vim.pack.add({ util.gh("folke/ts-comments.nvim") })
+vim.pack.add({ "https://github.com/folke/ts-comments.nvim" })
 
 require("ts-comments").setup()

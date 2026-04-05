@@ -1,5 +1,3 @@
-local util = require("util")
-
 vim.api.nvim_create_autocmd("PackChanged", {
   callback = function(ev)
     local name, kind = ev.data.spec.name, ev.data.kind
@@ -13,12 +11,12 @@ vim.api.nvim_create_autocmd("PackChanged", {
 })
 
 vim.pack.add({
-  util.gh("nvim-telescope/telescope.nvim"),
-  util.gh("nvim-lua/plenary.nvim"),
-  util.gh("nvim-treesitter/nvim-treesitter"),
-  util.gh("nvim-tree/nvim-web-devicons"),
-  util.gh("nvim-telescope/telescope-fzf-native.nvim"),
-  util.gh("nvim-telescope/telescope-ui-select.nvim"),
+  "https://github.com/nvim-telescope/telescope.nvim",
+  "https://github.com/nvim-lua/plenary.nvim",
+  "https://github.com/nvim-treesitter/nvim-treesitter",
+  "https://github.com/nvim-tree/nvim-web-devicons",
+  "https://github.com/nvim-telescope/telescope-fzf-native.nvim",
+  "https://github.com/nvim-telescope/telescope-ui-select.nvim",
 })
 
 local telescope = require("telescope")

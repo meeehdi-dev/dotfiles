@@ -1,9 +1,7 @@
-local util = require("util")
-
 vim.pack.add({
-  util.gh("nvim-treesitter/nvim-treesitter"),
-  util.gh("nvim-treesitter/nvim-treesitter-textobjects"),
-  util.gh("nvim-treesitter/nvim-treesitter-context"),
+  "https://github.com/nvim-treesitter/nvim-treesitter",
+  "https://github.com/nvim-treesitter/nvim-treesitter-textobjects",
+  "https://github.com/nvim-treesitter/nvim-treesitter-context",
 })
 
 require("nvim-treesitter").update()

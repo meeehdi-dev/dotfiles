@@ -1,10 +1,8 @@
-local util = require("util")
-
 vim.pack.add({
-  util.gh("meeehdi-dev/bropilot.nvim"),
-  util.gh("nvim-lua/plenary.nvim"),
-  util.gh("Leonardo-Luz/dotenv.nvim"),
-  util.gh("j-hui/fidget.nvim"),
+  "https://github.com/meeehdi-dev/bropilot.nvim",
+  "https://github.com/nvim-lua/plenary.nvim",
+  "https://github.com/Leonardo-Luz/dotenv.nvim",
+  "https://github.com/j-hui/fidget.nvim",
 })
 
 require("dotenv").load()
