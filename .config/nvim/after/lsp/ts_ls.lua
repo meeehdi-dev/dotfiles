@@ -1,5 +1,6 @@
-local npm_root = vim.fn.system("npm root -g")
-npm_root = vim.trim(npm_root)
+local vue_language_server_path = vim.fn.expand("$MASON/packages")
+  .. "/vue-language-server"
+  .. "/node_modules/@vue/language-server"
 
 return {
   filetypes = {
@@ -13,7 +14,7 @@ return {
     plugins = {
       {
         name = "@vue/typescript-plugin",
-        location = npm_root .. "/@vue/language-server",
+        location = vue_language_server_path,
         languages = { "vue" },
       },
     },
