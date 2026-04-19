@@ -9,6 +9,7 @@ set -gx EDITOR nvim
 set -gx GPG_TTY (tty)
 set -x nvm_default_version latest
 set -x BUN_INSTALL "$HOME/.bun"
+set -x PNPM_INSTALL "$HOME/Library/pnpm"
 set -x LOCAL_INSTALL "$HOME/.local"
 
 # interactive rm for folders
@@ -38,6 +39,9 @@ eval "$(/opt/homebrew/bin/brew shellenv)"
 # bun
 fish_add_path $BUN_INSTALL/bin
 fish_add_path $LOCAL_INSTALL/bin
+
+# pnpm
+fish_add_path $PNPM_INSTALL
 
 # fzf
 fzf --fish | source
