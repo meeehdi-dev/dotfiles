@@ -21,9 +21,24 @@ require("blink.cmp").setup({
       },
     },
   },
+
   cmdline = {
-    keymap = { preset = "none" },
-    completion = { menu = { auto_show = true } },
+    keymap = {
+      ["<Tab>"] = { "select_next" },
+      ["<Down>"] = { "select_next" },
+      ["<S-Tab>"] = { "select_prev" },
+      ["<Up>"] = { "select_prev" },
+      ["<CR>"] = { "accept_and_enter", "fallback" },
+    },
+    completion = {
+      menu = { auto_show = true },
+      list = {
+        selection = {
+          preselect = false,
+          auto_insert = true,
+        },
+      },
+    },
   },
   fuzzy = {
     implementation = "rust",
