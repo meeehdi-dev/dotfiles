@@ -1,13 +1,17 @@
+# set vi mode
+fish_vi_key_bindings
+
 # remove greeting
 set fish_greeting
 
 # theme
-fish_config theme choose "catppuccin-mocha"
+fish_config theme choose catppuccin-mocha --color-theme=dark
 
-# exports
+# global exports
 set -gx EDITOR nvim
 set -gx GPG_TTY (tty)
-set -x nvm_default_version latest
+
+# exports
 set -x BUN_INSTALL "$HOME/.bun"
 set -x PNPM_INSTALL "$HOME/Library/pnpm"
 set -x LOCAL_INSTALL "$HOME/.local"
@@ -15,8 +19,11 @@ set -x LOCAL_INSTALL "$HOME/.local"
 # interactive rm for folders
 alias rm "rm -I"
 
-# tmux
-alias t 'tmux new-session -s "$(hostname | tr . _)" 2>/dev/null || tmux attach -t "$(hostname | tr . _)"'
+# bat
+alias cat bat
+
+# aseprite
+alias aseprite "$HOME/code/gamedev/aseprite/build/bin/aseprite"
 
 # git
 abbr ga "git add"
@@ -29,9 +36,6 @@ abbr gl "git pull"
 abbr gp "git push"
 abbr gs "git status"
 abbr gca "git commit --amend"
-
-# grep
-abbr grep --set-cursor "rg --json % | delta"
 
 # homebrew
 eval "$(/opt/homebrew/bin/brew shellenv)"
@@ -49,5 +53,26 @@ fzf --fish | source
 # zoxide
 zoxide init fish | source
 
- # fnm
-fnm env --use-on-cd --version-file-strategy=recursive --corepack-enabled --resolve-engines --shell fish | source
+# fnm
+if command -v fnm >/dev/null
+    fnm env --use-on-cd --version-file-strategy=recursive --corepack-enabled --resolve-engines --shell fish | source
+end
+
+# claude
+function claude
+    set -l profile (printf '%s\n' None Personal VO2 LVMH | fzf --prompt='Claude account> ')
+    if test -z "$profile"
+        return
+    end
+
+    switch $profile
+        case None
+            return
+        case Personal
+            env CLAUDE_CONFIG_DIR="$HOME/.claude" claude $argv
+        case VO2
+            env CLAUDE_CONFIG_DIR="$HOME/.claude-vo2" claude $argv
+        case LVMH
+            env CLAUDE_CONFIG_DIR="$HOME/.claude-lvmh" maison $argv
+    end
+end
