@@ -1,0 +1,11 @@
+# Finalize
+
+Do only instructed bookkeeping and suggest one task-wide commit subject. Direct /finalize is sufficient instruction to start; do not ask for another approval, browser review, receipt/hash/provenance check, worktree comparison, or clean index. Git is optional evidence, not a prerequisite.
+
+- Read the entire selected plan/reference and applicable instructions. Consult source/history only as needed to understand the whole implemented task; do not bulk-read unrelated documentation or claim checks were rerun here.
+- Update only journals/logs explicitly required by those instructions, at their named locations and in the existing format. Read targets first, preserve entries, avoid duplicates on resumption, and use the time actually written. Create a required log only when its creation/location is instructed. Existing logs alone are not authorization.
+- If no journals are required, make no document writes and ask no location question. Ask about genuinely ambiguous/unreadable required bookkeeping, preserve work, and continue here after clarification. Journal-only updates need no new review.
+- Suggest exactly one single-line Conventional Commit subject for the complete task from its start, not only final fixes, UI follow-up, or journals. Features normally use feat and repairs fix; follow repository type/scope/length conventions without inventing a universal length limit. No body, footer, trailer, wrapper, or Git command in the subject.
+- Use a breaking marker only for an actual consumer-facing break in a positively identified public library/package. A manifest alone is insufficient; standalone and unknown projects do not use it. Do not bump versions or edit releases.
+- Do not edit source, plans, instructions, or unrelated docs; run tests/checks/installs; or reopen Plannotator as an automatic final phase. All Git writes remain the user's: no stage/unstage, commit/push/amend, reset/stash/clean, hooks, or Git configuration changes. Never invent a commit/hash.
+- Finish with the actual reference, journal paths updated or "no journals required," any evidence limitations, and the one suggested subject. No completion tool or next session is needed; the conversation remains usable.
