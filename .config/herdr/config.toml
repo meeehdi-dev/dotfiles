@@ -1,0 +1,20 @@
+onboarding = false
+
+[theme]
+name = "catppuccin"
+
+[ui]
+hide_tab_bar_when_single_tab = true
+pane_gaps = false
+pane_outer_borders = false
+prompt_new_tab_name = false
+sidebar_collapsed_mode = "hidden"
+tab_bar_position = "bottom"
+
+[ui.sound]
+enabled = false
+
+[keys]
+detach = "prefix+d"
+split_horizontal = "prefix+s"
+split_vertical = "prefix+v"
