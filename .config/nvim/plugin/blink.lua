@@ -24,10 +24,9 @@ require("blink.cmp").setup({
 
   cmdline = {
     keymap = {
-      ["<Tab>"] = { "select_next" },
       ["<Down>"] = { "select_next" },
-      ["<S-Tab>"] = { "select_prev" },
       ["<Up>"] = { "select_prev" },
+      ["<Tab>"] = { "accept", "select_next" },
       ["<CR>"] = { "accept_and_enter", "fallback" },
     },
     completion = {

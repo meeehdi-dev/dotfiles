@@ -11,20 +11,26 @@ require("mason-tool-installer").setup({
 
     -- lsp
     "css-lsp", -- cssls
-    "eslint-lsp", -- eslint
-    "eslint_d", -- eslint (daemon)
     "fish-lsp", -- fish_lsp
     "gh-actions-language-server", -- gh_actions_ls
     "json-lsp", -- jsonls
     "lua-language-server", -- lua_ls
     "prisma-language-server", -- prismals
+    "tailwindcss-language-server", -- tailwindcss
     "typescript-language-server", -- ts_ls
     "vue-language-server", -- vue_ls
     "yaml-language-server", -- yamlls
+    "pyright", -- pyright
+
+    -- linter
+    "eslint-lsp", -- eslint
+    "eslint_d", -- eslint (daemon)
+    "ruff", -- ruff (also formatter)
 
     -- formatter
     "prettier", -- *
     "prettierd", -- * (daemon)
+    "gdscript-formatter", -- gdscript
     "shfmt", -- shell
     "stylua", -- lua
     "yamlfmt", -- yaml
@@ -39,6 +45,11 @@ vim.lsp.enable("gh_actions_ls") -- gh-actions-language-server
 vim.lsp.enable("jsonls") -- json-lsp
 vim.lsp.enable("lua_ls") -- lua-language-server
 vim.lsp.enable("prismals") -- prisma-language-server
+vim.lsp.enable("tailwindcss") -- tailwindcss-language-server
 vim.lsp.enable("ts_ls") -- typescript-language-server
 vim.lsp.enable("vue_ls") -- vue-language-server
 vim.lsp.enable("yamlls") -- yaml-language-server
+vim.lsp.enable("pyright") -- pyright
+vim.lsp.enable("ruff") -- ruff
+
+vim.lsp.enable("godot")

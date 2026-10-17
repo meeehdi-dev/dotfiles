@@ -19,9 +19,13 @@ require("nvim-treesitter").install({
   "tsx",
   "typescript",
   "vue",
+  "python",
+  "gdscript",
+  "godot_resource",
+  "gdshader",
 })
 require("nvim-treesitter-textobjects").setup()
-require("treesitter-context").setup()
+require("treesitter-context").setup({ multiline_threshold = 1 })
 
 vim.api.nvim_create_autocmd("FileType", {
   pattern = { "*" },

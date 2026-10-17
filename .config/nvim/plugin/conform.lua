@@ -8,6 +8,7 @@ require("conform").setup({
   formatters_by_ft = {
     css = { "prettierd" },
     fish = { "fish_indent" },
+    gdscript = { "gdscript-formatter" },
     javascript = { "prettierd" },
     javascriptreact = { "prettierd" },
     json = { "prettierd" },
@@ -15,6 +16,7 @@ require("conform").setup({
     jsonls = { "prettierd" },
     lua = { "stylua" },
     markdown = { "prettierd" },
+    python = { "ruff_organize_imports", "ruff_format" },
     sh = { "shfmt" },
     typescript = { "prettierd" },
     typescriptreact = { "prettierd" },
