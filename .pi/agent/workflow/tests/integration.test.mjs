@@ -334,6 +334,38 @@ test("phase prompts are reread; missing prompt files warn and leave normal Pi us
   assert.ok(h.current.active.includes("write"));
 });
 
+test("artifact defaults are grouped home guidance with per-type project overrides, not file writers", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  // Local directories/history must not become an implicit output override.
+  for (const type of ["plans", "reviews"]) {
+    mkdirSync(join(cwd, ".pi", type), { recursive: true });
+    writeFileSync(join(cwd, ".pi", type, "historical.md"), "Existing artifact");
+  }
+  for (const mode of modes) {
+    await h.command(mode, "task");
+    const prompt = h.current.prompts[0].workflow;
+    assert.ok(prompt.includes("~/.pi/plans/<project-key>/<task>.md"));
+    assert.ok(prompt.includes("~/.pi/reviews/<project-key>/<task>-<UTC timestamp>.md"));
+    assert.match(prompt, /user\/task paths or applicable project-owned workflow\/agent instructions take precedence per artifact type/);
+    assert.match(prompt, /a path for one type does not redirect another/);
+    assert.match(prompt, /project\/repository root directory name/);
+    assert.match(prompt, /parent path to disambiguate same-named projects/);
+    assert.match(prompt, /ask if identity remains unclear/);
+    assert.match(prompt, /Existing directories or historical files alone are not overrides/);
+    assert.match(prompt, /instruction-only defaults, not enforced locations/);
+    assert.match(prompt, /Expand ~ before calling filesystem tools/);
+    assert.doesNotMatch(prompt, /(?<!~\/)\.pi\/(?:plans|reviews)\//);
+  }
+  for (const [mode, path] of [["plan", "~/.pi/plans/<project-key>/<task>.md"], ["review", "~/.pi/reviews/<project-key>/<task>-<UTC timestamp>.md"]]) {
+    const prompt = readFileSync(join(workflow, `${mode}.md`), "utf8");
+    assert.ok(prompt.includes(path));
+    assert.match(prompt, /explicit user\/task or applicable project-instructed location for that artifact type/);
+    assert.match(prompt, /instruction-only, not enforced/);
+  }
+  assert.equal(existsSync(join(cwd, ".pi/plans/task.md")), false);
+  assert.deepEqual([...h.current.extension.tools.keys()], ["workflow_handoff"]);
+});
+
 test("short prompts retain selected role policies, with no deleted helper references", () => {
   const read = (mode) => readFileSync(join(workflow, `${mode}.md`), "utf8");
   assert.match(read("plan"), /independently classify every issue/i);
