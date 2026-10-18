@@ -9,6 +9,8 @@ type Mode = typeof MODES[number];
 type Phase = { mode: Mode; input: string; notes?: string };
 const STATE = "workflow-phase";
 const TOOL = "workflow_handoff";
+const QUESTION = "workflow_question";
+const TOOLS = [TOOL, QUESTION];
 const BADGES: Record<Mode, "accent" | "success" | "warning" | "muted"> = {
   plan: "accent",
   build: "warning",
@@ -30,8 +32,9 @@ const command = ({ mode, input }: Phase) => `/${mode}${input ? ` ${input}` : ""}
 const guidance = `The workflow guides; it never restricts Pi or overrides the user's changes of direction.
 Use ordinary Pi tools for files, Git inspection, research, and checks. Preserve existing user work. Read the complete selected reference and relevant code; open other project docs only when named or needed to resolve missing context or a concrete contradiction/safety issue.
 Explicit user/task paths or applicable project-owned workflow/agent instructions take precedence per artifact type; a path for one type does not redirect another. Otherwise save Plans and Plan feedback reports to ~/.pi/plans/<project-key>/<task>.md, and standalone Review and workflow UI/feedback reports to ~/.pi/reviews/<project-key>/<task>-<UTC timestamp>.md. Derive <project-key> from the project/repository root directory name; add enough parent path to disambiguate same-named projects, and ask if identity remains unclear rather than mix or overwrite artifacts. Existing directories or historical files alone are not overrides. These are instruction-only defaults, not enforced locations; ordinary Pi tools write the files. Expand ~ before calling filesystem tools unless they support tilde expansion. Read before revising; preserve input reports and earlier review reports. Handoff documents must stand alone without this conversation.
-Use the installed plannotator tool for reviews/questions, not native plan mode or a private integration. Before opening, explain the next step and ask the user to reply in chat if they close without deciding (a plain close may send no message). End the turn after opening. If unavailable, dismissed, or unclear, ask in chat whether to approve, retry, stop, or change direction. Never infer approval from silence or failure. Approval notes are guidance, not new scope.
-When the next phase is known and authorized, call workflow_handoff once with its mode, the absolute plan/report path, and any short handoff notes. Otherwise ask the user. The helper creates the fresh session; do not create it yourself or continue into another phase here. No receipts, mandatory phase order, or completed-session locks. Leave Git writes to the user.`;
+Use workflow_question for finite workflow decisions, with context and explicit action labels; use chat for free-form tasks, references, URLs, and substantive feedback. A selected action authorizes only what the question clearly describes. Do not add a question gate to already-authorized transitions. On cancellation or abort, wait for chat without dispatching, choosing a default, or reopening the picker; without UI, ask the returned question/options in chat.
+Use the installed plannotator tool for artifact and live-app reviews, not native plan mode or a private integration. Before opening, explain the next step and ask the user to reply in chat if they close without deciding (a plain close may send no message). End the turn after opening. If unavailable, dismissed, or unclear, use workflow_question for finite choices such as approve, retry, stop, or change direction once the conversation resumes; use chat for open-ended clarification. Never infer approval from silence or failure. Approval notes are guidance, not new scope.
+When the next phase is known and authorized, call workflow_handoff once with its mode, the absolute plan/report path, and any short handoff notes. Otherwise use workflow_question for finite choices or chat for free-form clarification. The helper creates the fresh session; do not create it yourself or continue into another phase here. No receipts, mandatory phase order, or completed-session locks. Leave Git writes to the user.`;
 
 function phase(value: unknown): Phase | undefined {
   const data = value as Phase | undefined;
@@ -57,8 +60,8 @@ export default function workflowModes(pi: ExtensionAPI) {
       : ctx.ui.theme.style(" auto ", { fg: "text", bg: "selectedBg" });
     ctx.ui.setStatus("workflow", status);
     if (Boolean(state) !== selected) {
-      const others = pi.getActiveTools().filter((name) => name !== TOOL);
-      pi.setActiveTools(state ? [...others, TOOL] : others);
+      const others = pi.getActiveTools().filter((name) => !TOOLS.includes(name));
+      pi.setActiveTools(state ? [...others, ...TOOLS] : others);
     }
     selected = Boolean(state);
   }
@@ -112,13 +115,13 @@ export default function workflowModes(pi: ExtensionAPI) {
     handler: async (_args, ctx) => {
       const state = restore(ctx);
       pi.sendMessage({ customType: "workflow-notice", display: true, content:
-        `Phase: ${state?.mode ?? "not selected"}\nInput: ${state?.input || "ask in chat"}\n\nPlan → Build → Review → optional UI → Finalize.\n/plan [task/report]; /build [plan]; /review [reference]; /ui [reference]; /finalize [reference].\nEach command starts a fresh session. Any phase can be selected or repeated. Ask in chat when the next step is unclear; use workflow_handoff when it is known.\nPi owns models, thinking, tools, and permissions. Prompts: ${directory}`,
+        `Phase: ${state?.mode ?? "not selected"}\nInput: ${state?.input || "ask in chat"}\n\nPlan → Build → Review → optional UI → Finalize.\n/plan [task/report]; /build [plan]; /review [reference]; /ui [reference]; /finalize [reference].\nEach command starts a fresh session. Any phase can be selected or repeated. Use workflow_question for finite next-step choices, chat for free-form clarification, and workflow_handoff when the destination is known and authorized.\nPi owns models, thinking, tools, and permissions. Prompts: ${directory}`,
       }, { triggerTurn: false });
     },
   });
   pi.registerTool({
     name: TOOL, label: "Start the next workflow phase", defaultActive: false, executionMode: "sequential",
-    description: "Start a chosen workflow phase in a fresh session. Use once the next step is authorized; ask the user if it is unclear. Input is the absolute saved plan/report path (or a new Plan task). Notes carry concise context/guidance, never the previous transcript. Does not save files, review, approve, or enforce phase ordering.",
+    description: "Start a chosen workflow phase in a fresh session. Use once the next step is authorized; use workflow_question for finite unknown choices or chat for free-form clarification. Input is the absolute saved plan/report path (or a new Plan task). Notes carry concise context/guidance, never the previous transcript. Does not save files, review, approve, or enforce phase ordering.",
     parameters: Type.Object({
       mode: Type.Union(MODES.map((mode) => Type.Literal(mode))),
       input: Type.String({ description: "Absolute plan/report reference, or a new task for Plan." }),
@@ -134,6 +137,36 @@ export default function workflowModes(pi: ExtensionAPI) {
         return { content: [{ type: "text", text: `Handoff request failed: ${String(error)}\n${fallback}` }], details: undefined, isError: true };
       }
       return { content: [{ type: "text", text: `Requested a fresh ${params.mode} session. ${fallback}` }], details: undefined, terminate: true };
+    },
+  });
+
+  pi.registerTool({
+    name: QUESTION, label: "Choose a workflow action", defaultActive: false,
+    exposure: "model-only", executionMode: "sequential",
+    description: "Ask a finite workflow decision using native selection. Supply context and explicit action labels. Returns a choice, never dispatches a phase. Cancellation means wait for chat without reopening; unavailable UI means ask in chat. Do not re-confirm already-authorized transitions or replace artifact review.",
+    parameters: Type.Object({
+      question: Type.String({ minLength: 1, pattern: "\\S", description: "Question with context and consequences." }),
+      options: Type.Array(Type.String({ minLength: 1, pattern: "\\S" }), { minItems: 2, uniqueItems: true }),
+    }),
+    async execute(_id, { question, options }, signal, _update, ctx) {
+      const abort = signal && ctx.signal ? AbortSignal.any([signal, ctx.signal]) : signal ?? ctx.signal;
+      if (abort?.aborted) throw new Error("Workflow question cancelled.");
+      if (typeof question !== "string" || !question.trim() || !Array.isArray(options) || options.length < 2 ||
+          options.some((option) => typeof option !== "string" || !option.trim()) || new Set(options).size !== options.length) {
+        throw new Error("Expected a nonblank question and at least two distinct nonblank options.");
+      }
+      if (!ctx.hasUI) return {
+        content: [{ type: "text", text: `No UI available. Ask in chat; no action is authorized.\n${question}\n${options.map((option) => `- ${option}`).join("\n")}` }],
+        details: { status: "unavailable", question, options },
+      };
+      const choice = await ctx.ui.select(question, options, { signal: abort });
+      if (abort?.aborted) throw new Error("Workflow question cancelled.");
+      if (choice === undefined) return {
+        content: [{ type: "text", text: "Question cancelled; no action is authorized. Wait for chat; do not reopen the picker." }],
+        details: { status: "cancelled", question, options }, terminate: true,
+      };
+      if (!options.includes(choice)) throw new Error("Unexpected workflow choice; no action is authorized.");
+      return { content: [{ type: "text", text: `Selected: ${choice}` }], details: { status: "selected", choice } };
     },
   });
 

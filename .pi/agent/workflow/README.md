@@ -21,7 +21,9 @@ Phase and input follow the active session branch and restore on reload/resume/tr
 
 ## Handoffs
 
-The agent has one helper, **`workflow_handoff`**, taking `mode`, `input`, and optional short `notes`. Use an absolute saved plan/report reference, not the previous transcript. The helper dispatches `/workflow-handoff` internally to reach Pi's command-only session API, creates the fresh session, and starts the selected phase. It performs no approvals, file writes, checks, or Git operations.
+The agent has two phase-scoped helpers, inactive in ordinary Pi. **`workflow_handoff`** takes `mode`, `input`, and optional short `notes`. Use an absolute saved plan/report reference, not the previous transcript. The helper dispatches `/workflow-handoff` internally to reach Pi's command-only session API, creates the fresh session, and starts the selected phase. It performs no approvals, file writes, checks, or Git operations.
+
+**`workflow_question`** takes a question and at least two distinct nonblank option labels. It uses Pi's native selection: arrows to navigate, Enter to select, Escape to cancel. Supported RPC clients receive the standard select dialog. Print/JSON modes return the question/options for a chat answer instead. Selection returns the exact label; it never dispatches a phase or chooses a default. Escape/abort authorizes nothing: wait for chat without immediately reopening. Explicit chat answers remain valid. Free-form tasks, references, URLs, and substantive feedback stay in chat or the review surface.
 
 - **Plan approval → Build:** normally review the saved plan with Plannotator's ordinary annotate tool (`gate: true`). Annotations stay in Plan for revision. Explicit browser or chat approval starts Build, carrying any guidance notes.
 - **Completed Build → Review:** automatic helper handoff with the same plan. Missing decisions are questions, not terminal states; continue in Build after clarification.
@@ -30,7 +32,7 @@ The agent has one helper, **`workflow_handoff`**, taking `mode`, `input`, and op
 - **UI:** ask for the app URL/port; the user manages the server. Human requests get a report and a **Plan or proceed** choice. Explicit live approval or an explicit choice to skip/proceed starts Finalize. Interactions can change real application data.
 - **Finalize:** update only instructed bookkeeping, or nothing when none is required, then suggest one commit subject for the whole task. No completion helper or Git writes.
 
-If the next step is unclear, the agent asks. If Plannotator is unavailable/dismissed or its result is unclear, ask in chat whether to approve, retry, stop, skip, or change direction—never infer approval. **Closing a normal Plannotator tab without sending feedback can send no message:** continue in chat when ready; there is no watcher/polling layer. Opening a review should explain that fallback beforehand.
+If the next step is unclear, the agent uses `workflow_question` for finite choices with context and explicit consequences, or chat for free-form clarification. Plannotator remains the artifact/live-app review surface, not a bare approval picker. If it is unavailable/dismissed or its result is unclear, offer finite approve/retry/stop/skip/change-direction choices once the conversation resumes—never infer approval. A selection authorizes only its clearly described action. Already-authorized commands, Plan approval → Build, completed Build → Review, and live UI approval → Finalize get no extra picker gate. **Closing a normal Plannotator tab without sending feedback can send no message:** continue in chat when ready; there is no watcher/polling layer, and a silent browser close cannot wake a picker. Opening a review should explain that fallback beforehand.
 
 Session creation/dispatch failures show the manual phase command. The helper also prints that command when requesting a handoff, since it does not track dispatch acknowledgements. Cancellation does not imply success; ordinary chat remains available. Concise notes travel with the handoff and are repeated in failure notices.
 
@@ -50,6 +52,6 @@ Existing flat home-level and dotfiles-local plans/reports are grouped under `~/.
 
 No dependencies added. Requires installed Pi and Node 22.19+.
 
-Run `npm test` in this directory (or `~/.pi/agent/workflow`). Tests load the actual extension through Pi's installed loader with disposable projects and fresh extension runtimes. They check session/branch restoration, commands/handoffs, notes, tool neutrality, failures/cancellation, and prompt contracts—not live providers or browsers. `PI_TEST_PACKAGE_ROOT` selects another installed Pi package.
+Run `npm test` in this directory (or `~/.pi/agent/workflow`). Tests load the actual extension through Pi's installed loader with disposable projects and fresh extension runtimes. They check native selection/validation, cancellation/abort, no-UI fallback, session/branch restoration, commands/handoffs, notes, tool neutrality, failures/cancellation, and prompt contracts—not live providers or browsers. `PI_TEST_PACKAGE_ROOT` selects another installed Pi package.
 
 Real model adherence, TUI/RPC rendering, browser/annotation behavior, live-app forwarding, and long human conversations still need a human smoke test. The workflow does not enforce that the model read a file, ran a check, preserved a report, or interpreted approval correctly.

@@ -23,6 +23,8 @@ const install = join(homedir(), ".pi/agent/install");
 const piRoot = process.env.PI_TEST_PACKAGE_ROOT ?? join(install, "releases", readFileSync(join(install, "current-version"), "utf8").trim(), "node_modules/@earendil-works/pi-coding-agent");
 const { loadExtensions, createExtensionRuntime } = await import(pathToFileURL(join(piRoot, "dist/core/extensions/loader.js")));
 const { createEventBus } = await import(pathToFileURL(join(piRoot, "dist/core/event-bus.js")));
+const { validateToolArguments } = await import(pathToFileURL(resolve(piRoot, "../pi-ai/dist/utils/validation.js")));
+const workflowTools = ["workflow_handoff", "workflow_question"];
 const normalTools = ["read", "bash", "edit", "write", "web_search", "codemode", "tool_search", "mcp__research"];
 const phaseEntry = (data) => ({ type: "custom", customType: "workflow-phase", data });
 const rgb = (r, g, b) => ({ kind: "rgb", r, g, b });
@@ -38,7 +40,7 @@ const badgeStatus = (mode, foreground, colors = configuredThemeColors) => ({
   key: "workflow", text: `[${foreground}:${colorHex(colors[modeColors[mode]])}] ${mode} `,
 });
 
-async function harness({ entries = [], skills = ["ponytail", "ponytail-review"], tools = normalTools, failure, mode = "tui", themeColors = configuredThemeColors } = {}) {
+async function harness({ entries = [], skills = ["ponytail", "ponytail-review"], tools = normalTools, failure, select = () => undefined, mode = "tui", themeColors = configuredThemeColors } = {}) {
   const sessions = [], pending = new Set(), errors = [];
   let current;
   async function event(session, name, fields = {}) {
@@ -67,7 +69,7 @@ async function harness({ entries = [], skills = ["ponytail", "ponytail-review"],
     const runtime = createExtensionRuntime(), bus = createEventBus();
     const loaded = await loadExtensions([extensionPath], cwd, bus, runtime);
     assert.deepEqual(loaded.errors, [], "the installed Pi loader must accept the extension");
-    const session = { runtime, bus, extension: loaded.extensions[0], records: structuredClone(records), active: [...tools], sent: [], prompts: [], notices: [], notifications: [], statuses: [], busy: 0, idle: [] };
+    const session = { runtime, bus, extension: loaded.extensions[0], records: structuredClone(records), active: [...tools], sent: [], prompts: [], notices: [], notifications: [], statuses: [], selections: [], busy: 0, idle: [] };
     session.ctx = {
       cwd, hasUI: mode === "tui" || mode === "rpc", mode, signal: undefined,
       sessionManager: { getBranch: () => session.records, getSessionId: () => String(sessions.indexOf(session)) },
@@ -76,6 +78,11 @@ async function harness({ entries = [], skills = ["ponytail", "ponytail-review"],
         setStatus: (key, text) => session.statuses.push({ key, text }),
         theme: { colors: themeColors, style: (text, { fg, bg }) => `[${colorHex(fg)}:${colorHex(bg)}]${text}` },
         confirm: () => assert.fail("No workflow permission dialog"),
+        select: async (title, options, opts) => {
+          assert.ok(session.ctx.hasUI, "never open a dialog without UI");
+          session.selections.push({ title, options, signal: opts?.signal });
+          return select(title, options, opts);
+        },
       },
       waitForIdle: async () => { if (session.busy) await new Promise((done) => session.idle.push(done)); },
       newSession: async (options) => {
@@ -120,11 +127,11 @@ async function harness({ entries = [], skills = ["ponytail", "ponytail-review"],
   return {
     sessions, get current() { return current; },
     command: async (name, input = "") => { await current.extension.commands.get(name).handler(input, current.ctx); await flush(); },
-    async call(input, signal) {
+    async call(input, signal, tool = "workflow_handoff") {
       const session = current;
       session.busy++;
       let result;
-      try { result = await session.extension.tools.get("workflow_handoff").definition.execute("call", input, signal, undefined, session.ctx); }
+      try { result = await session.extension.tools.get(tool).definition.execute("call", input, signal, undefined, session.ctx); }
       finally { session.busy--; for (const done of session.idle.splice(0)) done(); }
       await flush();
       return result;
@@ -145,7 +152,8 @@ test("idle Pi shows auto without a workflow prompt, helper, permission hooks, or
   assert.deepEqual(await h.task("An ordinary task"), { existing: "untouched" });
   assert.deepEqual(h.current.statuses.at(-1), { key: "workflow", text: "[text:selectedBg] auto " });
   assert.deepEqual(h.current.notifications, []);
-  assert.deepEqual([...h.current.extension.tools.keys()], ["workflow_handoff"]);
+  assert.deepEqual([...h.current.extension.tools.keys()], workflowTools);
+  for (const name of workflowTools) assert.equal(h.current.extension.tools.get(name).definition.defaultActive, false);
   assert.ok(!h.current.extension.handlers.has("tool_call"));
   await h.command("workflow");
   assert.match(h.current.notices.at(-1).content, /Phase: not selected/);
@@ -162,7 +170,7 @@ test("every phase command immediately starts a fresh extension runtime, and may 
     assert.deepEqual(h.current.statuses.at(-1), badgeStatus(mode, "#000000"));
     assert.match(h.current.prompts[0].workflow, new RegExp(`Phase: ${mode}`));
     assert.equal(h.current.prompts[0].existing, "untouched");
-    assert.deepEqual(h.current.active, [...normalTools, "workflow_handoff"]);
+    assert.deepEqual(h.current.active, [...normalTools, ...workflowTools]);
     assert.equal(h.current.records.filter((entry) => entry.type === "message").length, 1);
   }
 });
@@ -226,6 +234,113 @@ test("handoffs wait for their tool to return, carry only reference/notes, and us
   }
 });
 
+const decision = { question: "Review is complete. UI review or skip to Finalize?", options: ["UI", "Finalize"] };
+
+for (const mode of ["tui", "rpc"]) test(`${mode} native choice returns the exact label without routing, then handoff dispatches once`, async (t) => {
+  const h = await harness({ mode, select: () => "Finalize" }); t.after(() => h.close());
+  await h.command("review", "original-plan.md");
+  const before = h.sessions.length, controller = new AbortController();
+  const definition = h.current.extension.tools.get("workflow_question").definition;
+  assert.equal(definition.exposure, "model-only");
+  assert.equal(definition.executionMode, "sequential");
+  assert.deepEqual(validateToolArguments(definition, { name: definition.name, arguments: decision }), decision);
+  const result = await h.call(decision, controller.signal, "workflow_question");
+  assert.deepEqual(h.current.selections, [{ title: decision.question, options: decision.options, signal: controller.signal }]);
+  assert.deepEqual(result.details, { status: "selected", choice: "Finalize" });
+  assert.equal(result.content[0].text, "Selected: Finalize");
+  assert.equal(result.terminate, undefined);
+  assert.equal(h.sessions.length, before);
+  assert.equal(h.current.sent.length, 1, "question queues no message");
+  const prompt = (await h.task()).workflow;
+  assert.match(prompt, /Use workflow_question for finite workflow decisions/);
+  assert.match(prompt, /Do not add a question gate to already-authorized transitions/);
+  assert.match(prompt, /without UI, ask the returned question\/options in chat/);
+  await h.call({ mode: "finalize", input: "original-plan.md", notes: "Human chose to skip UI" });
+  assert.equal(h.sessions.length, before + 1);
+  assert.deepEqual(state(h), { mode: "finalize", input: "original-plan.md", notes: "Human chose to skip UI" });
+});
+
+test("Escape terminates automatic continuation without dispatch, and chat remains usable", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  await h.command("review", "plan.md");
+  const before = h.sessions.length, sent = h.current.sent.length;
+  const result = await h.call(decision, undefined, "workflow_question");
+  assert.equal(result.details.status, "cancelled");
+  assert.equal(result.terminate, true);
+  assert.match(result.content[0].text, /Wait for chat; do not reopen/);
+  assert.equal(h.sessions.length, before);
+  assert.equal(h.current.sent.length, sent);
+  await h.task("Let's discuss instead");
+  assert.equal(h.current.selections.length, 1);
+  assert.equal(state(h).mode, "review");
+});
+
+for (const mode of ["print", "json"]) test(`${mode} returns unanswered question/options for chat without a dialog`, async (t) => {
+  const h = await harness({ mode }); t.after(() => h.close());
+  await h.command("review", "plan.md");
+  const before = h.sessions.length;
+  const result = await h.call(decision, undefined, "workflow_question");
+  assert.deepEqual(result.details, { status: "unavailable", ...decision });
+  assert.match(result.content[0].text, /Ask in chat; no action is authorized/);
+  for (const text of [decision.question, ...decision.options]) assert.ok(result.content[0].text.includes(text));
+  assert.equal(result.terminate, undefined, "allow the chat fallback follow-up");
+  assert.equal(h.current.selections.length, 0);
+  assert.equal(h.sessions.length, before);
+});
+
+test("invalid question arguments fail schema and runtime validation before showing UI", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  const definition = h.current.extension.tools.get("workflow_question").definition;
+  for (const input of [
+    { ...decision, question: "" }, { ...decision, question: " \n\t" },
+    { ...decision, options: [] }, { ...decision, options: ["Only"] },
+    { ...decision, options: ["", "Valid"] }, { ...decision, options: [" \t", "Valid"] },
+    { ...decision, options: ["Same", "Same"] }, {},
+  ]) {
+    assert.throws(() => validateToolArguments(definition, { name: definition.name, arguments: input }), /Validation failed/);
+    await assert.rejects(() => h.call(input, undefined, "workflow_question"), /nonblank/);
+  }
+  assert.equal(h.current.selections.length, 0);
+  assert.equal(h.sessions.length, 1);
+});
+
+test("unexpected dialog values never authorize a choice or route", async (t) => {
+  for (const value of ["Other", "", null, 0]) {
+    const h = await harness({ select: () => value }); t.after(() => h.close());
+    await assert.rejects(() => h.call(decision, undefined, "workflow_question"), /Unexpected workflow choice; no action is authorized/);
+    assert.equal(h.sessions.length, 1);
+    assert.equal(h.current.sent.length, 0);
+  }
+});
+
+test("abort before opening and during selection cannot return an authorization", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  await assert.rejects(() => h.call(decision, AbortSignal.abort(), "workflow_question"), /cancelled/);
+  h.current.ctx.signal = AbortSignal.abort();
+  await assert.rejects(() => h.call(decision, new AbortController().signal, "workflow_question"), /cancelled/);
+  assert.equal(h.current.selections.length, 0);
+  for (const source of ["tool", "context"]) {
+    let resolveDialog, opened;
+    const ready = new Promise((resolve) => { opened = resolve; });
+    const controller = new AbortController(), other = new AbortController();
+    const deferred = await harness({ select: (_title, _options, { signal }) => {
+      opened(signal);
+      return new Promise((resolve) => { resolveDialog = resolve; });
+    } });
+    t.after(() => deferred.close());
+    deferred.current.ctx.signal = source === "context" ? controller.signal : other.signal;
+    const pending = deferred.call(decision, source === "tool" ? controller.signal : other.signal, "workflow_question");
+    const rejection = assert.rejects(pending, /cancelled/);
+    const dialogSignal = await ready;
+    controller.abort();
+    assert.equal(dialogSignal.aborted, true, "native dialog receives the execution abort");
+    resolveDialog("Finalize"); // Even a stale selected result after abort is not authorization.
+    await rejection;
+    assert.equal(deferred.sessions.length, 1);
+    assert.equal(deferred.current.sent.length, 0);
+  }
+});
+
 test("Build and Review request only their targeted skills; missing skills warn and continue", async (t) => {
   const h = await harness(); t.after(() => h.close());
   for (const [mode, skill] of [["build", "ponytail"], ["review", "ponytail-review"]]) {
@@ -247,7 +362,7 @@ test("resume restores phase/input without queuing work; tree navigation follows 
   assert.deepEqual(state(h), { mode: "ui", input: "plan.md" });
   assert.deepEqual(h.current.statuses.at(-1), badgeStatus("ui", "#000000"));
   assert.equal(h.current.sent.length, 0);
-  assert.ok(h.current.active.includes("workflow_handoff"));
+  assert.deepEqual(h.current.active, [...normalTools, ...workflowTools]);
   await h.tree([]);
   assert.deepEqual(h.current.active, normalTools);
   assert.deepEqual(h.current.statuses.at(-1), { key: "workflow", text: "[text:selectedBg] auto " });
@@ -270,10 +385,17 @@ test("legacy locks, pending approvals, and complete flags cannot restrict the ne
 test("ordinary tool exclusions and newly activated tools are preserved, without per-turn reactivation", async (t) => {
   const h = await harness({ tools: ["read", "web_search"] }); t.after(() => h.close());
   await h.command("review", "plan.md");
-  assert.deepEqual(h.current.active, ["read", "web_search", "workflow_handoff"]);
+  assert.deepEqual(h.current.active, ["read", "web_search", ...workflowTools]);
   h.current.active = ["read", "web_search", "mcp__late", "workflow_external_search"];
   await h.task();
   assert.deepEqual(h.current.active, ["read", "web_search", "mcp__late", "workflow_external_search"]);
+  h.current.active.push("workflow_question");
+  await h.task();
+  assert.ok(!h.current.active.includes("workflow_handoff"), "manual exclusion is respected independently");
+  await h.tree([]);
+  assert.deepEqual(h.current.active, ["read", "web_search", "mcp__late", "workflow_external_search"]);
+  await h.tree([phaseEntry({ mode: "review", input: "plan.md" })]);
+  assert.deepEqual(h.current.active, ["read", "web_search", "mcp__late", "workflow_external_search", ...workflowTools]);
 });
 
 for (const failure of ["create", "cancel", "prompt"]) test(`handoff ${failure} failure shows the manual command/notes and permits another attempt`, async (t) => {
@@ -303,7 +425,7 @@ test("dispatch failure or a dropped command retains the manual route without a w
   }
 });
 
-test("RPC/print phases remain usable without workflow-owned UI dialogs", async (t) => {
+test("RPC/print phase commands and authorized handoffs need no extra dialog", async (t) => {
   for (const mode of ["rpc", "print"]) {
     const h = await harness({ mode }); t.after(() => h.close());
     await h.command("plan", "Plan this task");
@@ -363,7 +485,7 @@ test("artifact defaults are grouped home guidance with per-type project override
     assert.match(prompt, /instruction-only, not enforced/);
   }
   assert.equal(existsSync(join(cwd, ".pi/plans/task.md")), false);
-  assert.deepEqual([...h.current.extension.tools.keys()], ["workflow_handoff"]);
+  assert.deepEqual([...h.current.extension.tools.keys()], workflowTools);
 });
 
 test("short prompts retain selected role policies, with no deleted helper references", () => {
@@ -372,8 +494,13 @@ test("short prompts retain selected role policies, with no deleted helper refere
   assert.match(read("plan"), /browser or chat approval/i);
   assert.match(read("build"), /relevant tests\/typechecks\/non-fixing lint automatically/);
   assert.match(read("review"), /staged, unstaged, and untracked\/new/);
-  assert.match(read("review"), /ask whether to return to Plan or proceed/);
-  assert.match(read("review"), /ask UI or Finalize/);
+  assert.match(read("review"), /workflow_question to ask whether to return to Plan to revalidate findings or proceed/);
+  assert.match(read("review"), /workflow_question to ask UI .* or Finalize/);
+  assert.match(read("review"), /original implementation-plan reference; a Plan route instead receives the findings\/feedback report/);
+  assert.match(read("ui"), /workflow_question to ask whether to return to Plan to revalidate feedback or proceed to Finalize/);
+  assert.match(read("ui"), /workflow_question to ask whether to retry live review, skip to Finalize, or change direction/);
+  assert.match(read("ui"), /Explicit approval of the live UI/);
+  assert.match(read("build"), /call workflow_handoff for Review with the same absolute plan path/);
   assert.match(read("ui"), /cannot force --app/);
   assert.match(read("ui"), /live and may change real data/);
   assert.match(read("finalize"), /If no journals are required, make no document writes/);
