@@ -101,8 +101,8 @@ test("uses reported durations, styles both windows, and counts down from reset t
   assert.doesNotMatch(h.statuses.at(-1).text, /GPT/);
   assert.ok(!h.statuses.at(-1).text.includes(token));
   assert.ok(!h.statuses.at(-1).text.includes("account-private"));
-  assert.ok(h.timers.some(({ kind, delay }) => kind === "interval" && delay === 300_000));
-  const countdown = h.timers.find(({ kind, delay }) => kind === "interval" && delay === 60_000);
+  const [refresh, countdown] = h.timers.filter(({ kind, delay }) => kind === "interval" && delay === 60_000);
+  assert.ok(refresh);
   assert.ok(countdown);
   h.setNow(now + 60_000);
   countdown.callback();
@@ -174,7 +174,7 @@ test("network, HTTP, and JSON failures show only a generic unavailable status", 
     assert.equal(text, "<muted:ChatGPT unavailable>");
     assert.equal(h.statuses.at(-1).key, "z-chatgpt-usage");
     assert.doesNotMatch(text, /private|secret|account-private|provider response/);
-    const countdown = h.timers.find(({ kind, delay }) => kind === "interval" && delay === 60_000);
+    const [, countdown] = h.timers.filter(({ kind, delay }) => kind === "interval" && delay === 60_000);
     assert.ok(countdown);
     countdown.callback();
     await h.settle();
@@ -195,8 +195,7 @@ test("clears stale quota on failure and replaces unavailable status after the ne
   await h.start();
   assert.match(h.statuses.at(-1).text, /<accent:5h>/);
 
-  const refresh = h.timers.find(({ kind, delay }) => kind === "interval" && delay === 300_000);
-  const countdown = h.timers.find(({ kind, delay }) => kind === "interval" && delay === 60_000);
+  const [refresh, countdown] = h.timers.filter(({ kind, delay }) => kind === "interval" && delay === 60_000);
   assert.ok(refresh && countdown);
   refresh.callback();
   await h.settle();
@@ -228,7 +227,7 @@ test("does not fetch or start timers outside TUI; shutdown aborts and clears TUI
   await tui.emit("session_start");
   await tui.settle();
   assert.ok(signal);
-  const refresh = tui.timers.find(({ kind, delay }) => kind === "interval" && delay === 300_000);
+  const refresh = tui.timers.find(({ kind, delay }) => kind === "interval" && delay === 60_000);
   const timeout = tui.timers.find(({ kind, delay }) => kind === "timeout" && delay === 10_000);
   assert.ok(refresh && timeout && !timeout.cleared);
   refresh.callback();

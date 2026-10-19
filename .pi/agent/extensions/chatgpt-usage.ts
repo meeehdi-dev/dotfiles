@@ -5,7 +5,7 @@ const ENDPOINT = "https://chatgpt.com/backend-api/wham/usage";
 const STATUS = "z-chatgpt-usage";
 const FIVE_HOURS = 5 * 60 * 60;
 const SEVEN_DAYS = 7 * 24 * 60 * 60;
-const REFRESH_MS = 5 * 60 * 1000;
+const REFRESH_MS = 60 * 1000;
 const COUNTDOWN_MS = 60 * 1000;
 const TIMEOUT_MS = 10 * 1000;
 
