@@ -19,6 +19,9 @@ set -x LOCAL_INSTALL "$HOME/.local"
 # interactive rm for folders
 alias rm "rm -I"
 
+# ssh
+alias ssh='ghostty +ssh --'
+
 # bat
 alias cat bat
 
