@@ -488,6 +488,30 @@ test("artifact defaults are grouped home guidance with per-type project override
   assert.deepEqual([...h.current.extension.tools.keys()], workflowTools);
 });
 
+test("Plan limits scope and conditionally grills through Plannotator without changing final approval", () => {
+  const plan = readFileSync(join(workflow, "plan.md"), "utf8");
+  assert.match(plan, /only user-requested or explicitly user-approved scope/);
+  assert.match(plan, /Derive necessary implementation steps and checks without per-file\/test approval/);
+  assert.match(plan, /do not treat recommendations, inferred preferences, or unrelated improvements as requirements/);
+  assert.match(plan, /After research, grill consequential missing details, assumptions, and discretionary recommendations/);
+  assert.match(plan, /If any exist, save a separate clarification document using the Plan feedback artifact rules/);
+  assert.match(plan, /contextual Plannotator question blocks: explain consequences, give a recommendation and rationale when applicable, and offer rejection of optional additions/);
+  assert.match(plan, /installed plannotator tool, end the turn, and wait for answers; follow up only on remaining consequential uncertainty/);
+  assert.match(plan, /If no real questions exist, proceed directly to normal plan review; never invent a grilling round/);
+  assert.match(plan, /only after an explicit answer or approval clearly covers that proposal/);
+  assert.match(plan, /Silence, skipped questions, dismissal, tool failures, or approval of another item authorize nothing/);
+  assert.match(plan, /Keep unanswered or rejected proposals out of implementation scope; pause if an unanswered question blocks requested behavior/);
+  assert.match(plan, /Record settled decisions in the standalone plan/);
+  assert.match(plan, /Never use final plan approval to retroactively legitimize silently inserted scope/);
+  assert.match(plan, /Planning clarification and proposed-scope questions use Plannotator, not workflow_question or automatic chat fallback/);
+  assert.match(plan, /overrides generic question-routing\/fallback guidance for those questions/);
+  assert.match(plan, /If Plannotator is unavailable, pause unresolved scope decisions until it works or the user explicitly authorizes another channel/);
+  assert.match(plan, /Closing without answers chooses no default and authorizes no handoff/);
+  assert.match(plan, /Workflow navigation still uses workflow_question for finite choices and chat for free-form direction/);
+  assert.match(plan, /Opening or answering a grilling document neither approves the implementation plan nor authorizes Build/);
+  assert.match(plan, /Explicit browser or chat approval: call workflow_handoff for Build/);
+});
+
 test("short prompts retain selected role policies, with no deleted helper references", () => {
   const read = (mode) => readFileSync(join(workflow, `${mode}.md`), "utf8");
   assert.match(read("plan"), /independently classify every issue/i);
