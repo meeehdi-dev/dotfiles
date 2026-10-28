@@ -512,6 +512,78 @@ test("Plan limits scope and conditionally grills through Plannotator without cha
   assert.match(plan, /Explicit browser or chat approval: call workflow_handoff for Build/);
 });
 
+test("Finalize delivers bounded decision consolidation and ordered cleanup, not an artifact runner", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  await h.command("finalize", join(cwd, "implementation-plan.md"));
+  const prompt = h.current.prompts[0].workflow;
+  for (const contract of [
+    /Direct \/finalize or an authorized handoff is sufficient instruction to start/,
+    /resolve its actual implementation plan through its references; ask if the target plan is ambiguous or missing/,
+    /Keep the existing implementation-plan path as the surviving summary/,
+    /concrete set of eligible source paths before editing: only the current task's/,
+    /Read these inputs completely/,
+    /reports that reference the plan but are not linked from it/,
+    /not every historical link/,
+    /Do not bulk-read project history or infer membership from filename prefix or modification time alone/,
+    /outside normal artifact folders is not automatically eligible for deletion/,
+    /task membership, shared artifacts, target paths, conflicting decisions, unreadable inputs, or relevant outcomes\/reasons remain unclear/,
+    /do not invent rationale, treat proposals as approval, or call unresolved findings fixed/,
+    /concise standalone final decision record identifying the task and its final choices with documented reasons/,
+    /Merge repeated choices, replace superseded proposals/,
+    /keep rejected alternatives only when they explain that position/,
+    /Retain accepted limitations and deferred findings with their reasons/,
+    /Exclude implementation checklists, session routing, review ceremony, raw test output/,
+    /Do not leave links to artifacts being deleted/,
+    /preserve input reports and earlier review reports in Plan, Build, Review, and UI/,
+    /Finalize alone may replace the current task's implementation plan/,
+    /Fully read and consolidate all eligible inputs before replacing the plan/,
+    /Write the complete summary at the target plan path, then read it back and verify/,
+    /Only after successful verification delete the exact other task artifact paths already identified and fully consolidated/,
+    /Never delete the surviving summary, parent directories, unrelated\/shared artifacts, source\/configuration files, journals, session logs, or Plannotator history/,
+    /If summary write\/readback or verification fails, perform no cleanup/,
+    /If deletion partially fails, preserve the summary and remaining files and report exactly what remains/,
+    /Do not promise transactional rollback or automatic recovery/,
+    /On repeated Finalize, read the existing summary, preserve its decisions, avoid duplicate entries and unrelated cleanup/,
+    /no new task inputs means no substantive rewrite/,
+    /Update only journals\/logs explicitly required/,
+    /Do not edit source, instructions, or unrelated docs/,
+    /Do not run tests\/checks\/installs or reopen Plannotator as an automatic final phase/,
+    /All Git writes remain the user's/,
+    /Suggest exactly one single-line Conventional Commit subject for the complete task from its start/,
+    /Finish with the summary path, cleanup results or exact remaining artifacts\/limitations/,
+    /No completion tool or next session is needed/,
+  ]) assert.match(prompt, contract);
+  assert.ok(prompt.indexOf("Fully read and consolidate") < prompt.indexOf("Write the complete summary"));
+  assert.ok(prompt.indexOf("Write the complete summary") < prompt.indexOf("Only after successful verification delete"));
+  assert.doesNotMatch(prompt, /make no document writes|Do not edit source, plans/);
+  assert.deepEqual([...h.current.extension.tools.keys()], workflowTools);
+  assert.equal(existsSync(join(cwd, "implementation-plan.md")), false, "prompt injection must not write or delete artifacts");
+});
+
+test("Review to UI to Finalize forwards artifact paths and decision guidance through existing notes", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  const input = join(cwd, "implementation-plan.md");
+  const reports = [join(cwd, "review.md"), join(cwd, "ui-feedback.md")];
+  await h.command("review", input);
+  const review = h.current.prompts[0].workflow;
+  assert.match(review, /notes for UI or Finalize, carry concise absolute paths/);
+  assert.match(review, /forwarding paths from incoming notes/);
+  assert.match(review, /accepted deferrals\/limitations and their documented reasons/);
+  assert.match(review, /original implementation-plan reference; a Plan route instead receives the findings\/feedback report/);
+  await h.call({ mode: "ui", input, notes: `${reports[0]} — deferred live check: user will test locally` });
+  const ui = h.current.prompts[0].workflow;
+  assert.match(ui, /with the original implementation-plan reference/);
+  assert.match(ui, /forward concise absolute paths to known same-task artifacts from incoming notes and any new UI feedback report/);
+  assert.match(ui, /accepted deferrals\/limitations and their documented reasons/);
+  assert.match(ui, /Do not replace the primary plan with a report list or transfer the transcript/);
+  assert.ok(ui.includes(reports[0]));
+  const notes = `${reports.join("; ")} — accepted limitation: live check deferred to local user testing`;
+  await h.call({ mode: "finalize", input, notes });
+  assert.deepEqual(state(h), { mode: "finalize", input, notes });
+  assert.ok(h.current.prompts[0].workflow.includes(notes));
+  assert.equal(h.current.selections.length, 0, "authorized handoffs add no approval gate");
+});
+
 test("short prompts retain selected role policies, with no deleted helper references", () => {
   const read = (mode) => readFileSync(join(workflow, `${mode}.md`), "utf8");
   assert.match(read("plan"), /independently classify every issue/i);
@@ -527,7 +599,7 @@ test("short prompts retain selected role policies, with no deleted helper refere
   assert.match(read("build"), /call workflow_handoff for Review with the same absolute plan path/);
   assert.match(read("ui"), /cannot force --app/);
   assert.match(read("ui"), /live and may change real data/);
-  assert.match(read("finalize"), /If no journals are required, make no document writes/);
+  assert.match(read("finalize"), /If no journals are required, skip journal writes/);
   assert.match(read("finalize"), /complete task from its start/);
   for (const mode of modes) assert.doesNotMatch(read(mode), /workflow_(?:save_artifact|submit_plan|git|check|ui_review|finish)/);
 });
