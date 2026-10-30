@@ -234,6 +234,205 @@ test("handoffs wait for their tool to return, carry only reference/notes, and us
   }
 });
 
+test("feature progress notes survive fresh handoff and restore without automatic dispatch or artifact writes", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  const input = join(cwd, "feature-loop-plan.md");
+  const reports = [join(cwd, "feature-1-review.md"), join(cwd, "clarifications.md")];
+  const notes = `Authorized implementation loop; Feature 1; next: independent Review. Latest progress: ${reports[0]}; clarification: ${reports[1]}. Feature 1 implemented, not reviewed; Features 2/3 pending. Checks: focused suite passed.`;
+  await h.command("build", input);
+  await h.task("PRIVATE implementation transcript");
+  const before = h.current;
+  await h.call({ mode: "review", input, notes });
+  assert.notEqual(h.current.extension, before.extension);
+  assert.deepEqual(state(h), { mode: "review", input, notes });
+  assert.ok(h.current.prompts[0].workflow.includes(notes));
+  assert.ok(!h.current.sent[0].content.includes("PRIVATE implementation transcript"));
+  const records = structuredClone(h.current.records);
+  await h.resume(records);
+  assert.deepEqual(state(h), { mode: "review", input, notes });
+  assert.equal(h.current.sent.length, 0);
+  assert.equal(h.current.prompts.length, 0);
+  const restored = (await h.task()).workflow;
+  assert.ok(restored.includes(notes));
+  assert.match(restored, /Restoring a session never automatically dispatches work/);
+  assert.match(restored, /reconcile missing, stale, or conflicting progress from code, checks, and referenced reports/);
+  for (const path of [input, ...reports]) assert.equal(existsSync(path), false, "transport must not create or rewrite artifacts");
+  assert.deepEqual(Object.keys(h.current.extension.tools.get("workflow_handoff").definition.parameters.properties).sort(), ["input", "mode", "notes"]);
+});
+
+// These scripted transitions verify transport and injected contracts, not model scheduling decisions.
+test("feature Build → Review → fix → Review → next Build keeps original plan and cumulative references", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  const input = join(cwd, "loop-plan.md");
+  const clarification = join(cwd, "clarification.md");
+  const first = join(cwd, "feature-1-findings.md"), second = join(cwd, "feature-1-clean.md");
+  await h.command("build", input);
+  const steps = [
+    ["review", `Feature 1 implemented, not reviewed; next: independent feature Review. Clarification: ${clarification}.`],
+    ["build", `Feature 1; next: validate/fix F1-R1. Latest: ${first}; clarification: ${clarification}. Feature 2 pending.`],
+    ["review", `Feature 1; next: independently recheck F1-R1 correction. Latest: ${first}; clarification: ${clarification}. Feature 2 pending.`],
+    ["build", `Feature 2; next: implement only next eligible feature. Feature 1 independently reviewed clean; F1-R1 resolved. Latest: ${second}; predecessor: ${first}; clarification: ${clarification}.`],
+  ];
+  for (const [mode, context] of steps) {
+    const notes = `Explicitly authorized implementation loop. ${context}`;
+    await h.task("PRIVATE prior feature transcript");
+    const previous = h.current, before = h.sessions.length;
+    await h.call({ mode, input, notes });
+    assert.equal(h.sessions.length, before + 1);
+    assert.notEqual(h.current.extension, previous.extension);
+    assert.deepEqual(state(h), { mode, input, notes });
+    assert.ok(h.current.prompts[0].workflow.includes(notes));
+    assert.ok(!h.current.sent[0].content.includes("PRIVATE prior feature transcript"));
+    assert.equal(h.current.records.filter((entry) => entry.type === "message").length, 1);
+  }
+  assert.equal(h.sessions.flatMap((session) => session.selections).length, 0);
+  assert.equal(h.sessions.flatMap((session) => session.notices).length, 0);
+  for (const path of [input, clarification, first, second]) assert.equal(existsSync(path), false);
+});
+
+test("whole-plan Review → focused Build → whole-plan Review preserves blocker/finding context", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  const input = join(cwd, "whole-plan.md"), report = join(cwd, "whole-plan-findings.md");
+  await h.command("review", input);
+  for (const [mode, action] of [["build", "validate/fix WP-R1 integration finding; verify affected Feature 1/2 criteria"], ["review", "fresh whole-plan Review; independently verify WP-R1 correction and every requirement"]]) {
+    const notes = `Explicitly authorized implementation loop; whole-plan correction loop; next: ${action}. Latest: ${report}. Features 1/2 reviewed; Feature 3 partial, B1 blocked on required input; no dependent work authorized. Exhaust independent corrections before consolidated blocker questions.`;
+    const before = h.sessions.length;
+    await h.call({ mode, input, notes });
+    assert.equal(h.sessions.length, before + 1);
+    assert.deepEqual(state(h), { mode, input, notes });
+    assert.ok(h.current.prompts[0].workflow.includes(notes));
+    assert.match(h.current.prompts[0].workflow, /whole-plan Review/);
+    assert.match(h.current.prompts[0].workflow, /affected feature criteria/);
+  }
+  assert.equal(h.sessions.flatMap((session) => session.selections).length, 0);
+  assert.equal(existsSync(report), false);
+});
+
+test("authorized loop contracts defer blockers, exhaust independent work, and keep standalone Review read-only", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  for (const mode of ["build", "review"]) {
+    await h.command(mode, join(cwd, "original-plan.md"));
+    const prompt = h.current.prompts[0].workflow;
+    for (const contract of [
+      /first eligible feature in plan order unless dependency\/blocker evidence requires another/,
+      /same unsuccessful approach without new evidence is not progress; there is no numerical retry cap/,
+      /missing consequential decision, unavailable required authority\/input, or demonstrated inability to make further progress/,
+      /(?:whole-plan|final-review) corrections are exhausted/,
+      /User answers resume the appropriate Build\/Review loop without another start confirmation/,
+      /new scope still needs (?:explicit )?approval/,
+    ]) assert.match(prompt, contract);
+    if (mode === "build") {
+      assert.match(prompt, /implement only the selected eligible feature and its necessary checks, not all remaining features/);
+      assert.match(prompt, /Validate incoming Review findings against the code/);
+      assert.match(prompt, /disputed or unsupported findings with evidence rather than blindly applying them/);
+      // F1 blocked, independent F2 continues; dependent F3 must wait.
+      assert.match(prompt, /defer blocked work and continue the safe separable remainder of the selected feature/);
+      assert.match(prompt, /fresh Build for the next safely independent feature/);
+      assert.match(prompt, /Never implement dependent work on guessed answers or repeatedly retry blocked work/);
+      // All-blocked or partially completed work still receives whole-plan Review, never a false pass.
+      assert.match(prompt, /Once no eligible feature work remains, hand off to fresh whole-plan Review, even for partial implementation/);
+      assert.match(prompt, /partial feature is not complete or reviewed/);
+      assert.match(prompt, /after whole-plan corrections request fresh whole-plan Review, including affected feature criteria/);
+      assert.match(prompt, /Do not independently start reviewing, open a browser, or insert routine approval questions during the loop/);
+    } else {
+      assert.match(prompt, /Feature scope is semantic, not a guessed Git diff boundary/);
+      assert.match(prompt, /selected feature's acceptance criteria, connected code\/tests, and cumulative changes relevant to regressions/);
+      assert.match(prompt, /automatically call workflow_handoff for fresh Build of that feature with the same absolute original plan path and exact report\/finding references/);
+      assert.match(prompt, /No Plan picker, browser, or routine approval question interrupts feature\/fix\/next transitions/);
+      assert.match(prompt, /not human-approved or whole-plan approved, then hand off directly to Build/);
+      assert.match(prompt, /Defer blockers while continuing all safe independent work, including a separable remainder of a partially blocked feature; never mark partial work reviewed/);
+      assert.match(prompt, /After feature Review, once eligible feature work\/reviews are exhausted, call workflow_handoff for fresh whole-plan Review/);
+      assert.match(prompt, /Map every requirement to implementation and checks; inspect cross-feature integration, regressions, missed scope, and unresolved blockers/);
+      assert.match(prompt, /Partial implementation can be reviewed but cannot receive a clean whole-plan verdict/);
+      assert.match(prompt, /Whole-plan actionable in-scope findings automatically return to focused Build, then fresh whole-plan Review/);
+      assert.match(prompt, /Only a whole-plan review with no unresolved actionable findings, incomplete features, or blockers reaches the normal human approval flow/);
+      assert.match(prompt, /Standalone \/review never infers implementation authority from a plan filename, prior reports, or numbered features/);
+      assert.match(prompt, /it stays read-only and uses the explicit findings-routing choice below/);
+      assert.match(prompt, /Review never fixes source itself/);
+      assert.match(prompt, /following findings choice applies only without implementation-loop authority/);
+      assert.match(prompt, /Standalone findings: show the report and use workflow_question to ask whether to return to Plan/);
+      assert.match(prompt, /never a clean feature Review or incomplete\/blocked loop/);
+    }
+  }
+  await h.command("workflow");
+  const help = h.current.notices.at(-1).content;
+  assert.match(help, /per-feature Build ↔ Review → whole-plan Review ↔ focused Build/);
+  assert.match(help, /Standalone \/review stays read-only and asks before findings routing/);
+});
+
+const codeReviewDecision = {
+  question: "Automated review is clean. Review code or approve and continue?",
+  options: ["Review code in Plannotator", "Approve code and go to UI", "Approve code, skip UI, and go to Finalize"],
+};
+
+// Scripted selections/handoffs test transport, not model decisions or browser execution.
+for (const choice of [...codeReviewDecision.options, undefined]) test(`clean-review menu: ${choice ?? "cancel"} authorizes only its selected action`, async (t) => {
+  const h = await harness({ select: () => choice }); t.after(() => h.close());
+  const input = join(cwd, "resolved-original-plan.md");
+  const reports = ["clarification", "feature-1", "feature-2", "blocker", "whole-plan", "human-feedback"].map((name) => join(cwd, `${name}.md`));
+  await h.command("review", join(cwd, "standalone-reference.md"));
+  const before = h.sessions.length, session = h.current;
+  const result = await h.call(codeReviewDecision, undefined, "workflow_question");
+  assert.deepEqual(session.selections[0].options, codeReviewDecision.options);
+  assert.equal(h.sessions.length, before, "selection never dispatches a destination");
+  assert.equal(session.sent.length, 1);
+  if (choice === undefined) {
+    assert.equal(result.details.status, "cancelled");
+    assert.equal(result.terminate, true);
+    await h.task("Resume in chat");
+    assert.equal(session.selections.length, 1, "no automatic reopen");
+  } else {
+    assert.deepEqual(result.details, { status: "selected", choice });
+    if (choice !== codeReviewDecision.options[0]) {
+      const mode = choice === codeReviewDecision.options[1] ? "ui" : "finalize";
+      const notes = `Explicit code approval: ${choice}. Artifacts: ${reports.join("; ")}. Accepted limitation: live checks deferred by user.`;
+      await h.call({ mode, input, notes });
+      assert.equal(h.sessions.length, before + 1);
+      assert.deepEqual(state(h), { mode, input, notes });
+      for (const path of reports) assert.ok(h.current.prompts[0].workflow.includes(path));
+      assert.equal(h.sessions.flatMap((item) => item.selections).length, 1, "no extra destination picker");
+    }
+  }
+});
+
+test("clean-review prompt makes browser review opt-in and preserves approval, scope, and feedback safeguards", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  await h.command("review", "reference.md");
+  const prompt = h.current.prompts[0].workflow;
+  const review = prompt.slice(prompt.indexOf("# Review"));
+  const menu = review.match(/use workflow_question with exactly these three actions, in order: ([^\n]+)/)?.[1];
+  assert.ok(menu);
+  assert.deepEqual([...menu.matchAll(/"([^"]+)"/g)].map((match) => match[1]), codeReviewDecision.options);
+  for (const contract of [
+    /clean standalone or clean whole-plan Review, never a clean feature Review or incomplete\/blocked loop/,
+    /Never open code review merely because automated review completed/,
+    /Resolve the original implementation-plan reference through the supplied reference\/reports before UI\/Finalize routing/,
+    /ask in chat if missing or ambiguous, never guess the latest plan or substitute a report/,
+    /Either direct approval choice: call workflow_handoff once for its named phase/,
+    /Do not ask an extra UI-or-Finalize question or open a browser/,
+    /only opts into browser review; it does not approve code or authorize UI\/Finalize/,
+    /Before opening, explain the approval gate.*plain close may send no message and they can resume in chat/,
+    /Open ordinary Plannotator code review with gate: true.*then end the turn/,
+    /Default is this project's uncommitted changes/,
+    /--diff-type uncommitted.*saved browser preferences can differ/,
+    /Ask the user to verify\/change the comparison/,
+    /explicit branch base use the tool's options.base.*never silently choose a different scope/,
+    /Human annotations: save a new standalone feedback report.*preserve the originals/,
+    /requests to revalidate, not proven defects or automatically authorized new scope/,
+    /workflow_question for Plan \(revalidate feedback\) or proceed without replanning/,
+    /proceeding leaves the requests unimplemented/,
+    /After explicit browser approval.*workflow_question to ask UI .* or Finalize .*unless the user already explicitly specified the destination/,
+    /Silent close, cancellation, empty feedback without explicit approval, failed browser opening, or unavailable UI is not approval and authorizes no destination/,
+    /without UI, ask the returned question\/options in chat/,
+    /cancelled picker means wait for chat without dispatching or reopening/,
+    /all known same-task clarification, feature-review, blocker, whole-plan review, and human feedback reports/,
+    /forwarding paths from incoming notes/,
+    /material decisions, accepted deferrals\/limitations and their documented reasons/,
+  ]) assert.match(review, contract);
+  await h.command("workflow");
+  for (const action of codeReviewDecision.options) assert.ok(h.current.notices.at(-1).content.includes(action));
+});
+
 const decision = { question: "Review is complete. UI review or skip to Finalize?", options: ["UI", "Finalize"] };
 
 for (const mode of ["tui", "rpc"]) test(`${mode} native choice returns the exact label without routing, then handoff dispatches once`, async (t) => {
@@ -286,6 +485,10 @@ for (const mode of ["print", "json"]) test(`${mode} returns unanswered question/
   assert.equal(result.terminate, undefined, "allow the chat fallback follow-up");
   assert.equal(h.current.selections.length, 0);
   assert.equal(h.sessions.length, before);
+  const menu = await h.call(codeReviewDecision, undefined, "workflow_question");
+  assert.deepEqual(menu.details, { status: "unavailable", ...codeReviewDecision });
+  for (const action of codeReviewDecision.options) assert.ok(menu.content[0].text.includes(action));
+  assert.equal(h.sessions.length, before, "unavailable menu authorizes no destination");
 });
 
 test("invalid question arguments fail schema and runtime validation before showing UI", async (t) => {
@@ -512,6 +715,43 @@ test("Plan limits scope and conditionally grills through Plannotator without cha
   assert.match(plan, /Explicit browser or chat approval: call workflow_handoff for Build/);
 });
 
+test("feature identity and cumulative progress contracts preserve original plans and older-plan compatibility", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  await h.command("plan", "Task with multiple features");
+  const plan = h.current.prompts[0].workflow;
+  for (const contract of [
+    /one original plan with numbered features and stable feature identifiers/,
+    /acceptance criteria per feature, ordered implementation steps, and explicit dependencies/,
+    /Do not turn each file or test into a feature or split features into separately approved plans/,
+    /single-feature or older unnumbered plan remains usable as one implementation unit/,
+    /clarify only genuinely ambiguous feature divisions or dependencies/,
+    /not a progress checklist to rewrite during implementation/,
+  ]) assert.match(plan, contract);
+  for (const mode of ["build", "review"]) {
+    await h.command(mode, join(cwd, "original-plan.md"));
+    const prompt = h.current.prompts[0].workflow;
+    for (const contract of [
+      /complete original plan, applicable instructions, and latest same-task progress\/review references/,
+      /explicit loop authorization \(never infer it from a filename or report\)/,
+      /current stable feature identity or whole-plan review kind, next action, and absolute progress\/report references/,
+      /forward predecessor and clarification paths/,
+      /Preserve the original plan and earlier reports until Finalize's bounded consolidation/,
+      /single-feature or older unnumbered plan is one implementation unit/,
+    ]) assert.match(prompt, contract);
+    if (mode === "build") {
+      assert.match(prompt, /If a blocker prevents a normal Review handoff, save a focused standalone blocker\/progress report under the shared review-report path rules/);
+      assert.match(prompt, /cumulative feature states, dependencies and blockers, unresolved requirements\/findings with stable IDs and status, evidence and actual checks, what can safely continue, and next eligible work/);
+      assert.match(prompt, /partial feature is not complete or reviewed/);
+    } else {
+      assert.match(prompt, /report is also the cumulative progress snapshot/);
+      assert.match(prompt, /all feature states and dependency\/blocker relationships/);
+      assert.match(prompt, /stable finding IDs and their open\/resolved\/disputed status with evidence, actual checks, next action and next eligible work/);
+      assert.match(prompt, /Carry forward unresolved findings\/blockers; do not mark partial features complete or reviewed/);
+      assert.match(prompt, /resume without the prior transcript and preserve older reports and their paths; do not rewrite the original plan to track progress/);
+    }
+  }
+});
+
 test("Finalize delivers bounded decision consolidation and ordered cleanup, not an artifact runner", async (t) => {
   const h = await harness(); t.after(() => h.close());
   await h.command("finalize", join(cwd, "implementation-plan.md"));
@@ -566,7 +806,7 @@ test("Review to UI to Finalize forwards artifact paths and decision guidance thr
   const reports = [join(cwd, "review.md"), join(cwd, "ui-feedback.md")];
   await h.command("review", input);
   const review = h.current.prompts[0].workflow;
-  assert.match(review, /notes for UI or Finalize, carry concise absolute paths/);
+  assert.match(review, /notes for UI or Finalize, carry concise absolute paths to all known same-task clarification, feature-review, blocker, whole-plan review, and human feedback reports/);
   assert.match(review, /forwarding paths from incoming notes/);
   assert.match(review, /accepted deferrals\/limitations and their documented reasons/);
   assert.match(review, /original implementation-plan reference; a Plan route instead receives the findings\/feedback report/);
