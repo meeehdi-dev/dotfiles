@@ -40,7 +40,7 @@ const badgeStatus = (mode, foreground, colors = configuredThemeColors) => ({
   key: "workflow", text: `[${foreground}:${colorHex(colors[modeColors[mode]])}] ${mode} `,
 });
 
-async function harness({ entries = [], skills = ["ponytail", "ponytail-review"], tools = normalTools, failure, select = () => undefined, mode = "tui", themeColors = configuredThemeColors } = {}) {
+async function harness({ entries = [], skills = ["plannotator", "ponytail", "ponytail-review"], tools = normalTools, failure, select = () => undefined, mode = "tui", themeColors = configuredThemeColors } = {}) {
   const sessions = [], pending = new Set(), errors = [];
   let current;
   async function event(session, name, fields = {}) {
@@ -544,17 +544,20 @@ test("abort before opening and during selection cannot return an authorization",
   }
 });
 
-test("Build and Review request only their targeted skills; missing skills warn and continue", async (t) => {
+test("Plan, Build, and Review request only their targeted skills; missing skills warn and continue", async (t) => {
   const h = await harness(); t.after(() => h.close());
-  for (const [mode, skill] of [["build", "ponytail"], ["review", "ponytail-review"]]) {
+  for (const [mode, skill] of [["plan", "plannotator"], ["build", "ponytail"], ["review", "ponytail-review"]]) {
     await h.command(mode, "plan.md");
     assert.ok(h.current.sent[0].content.startsWith(`/skill:${skill} `));
     assert.equal(h.current.sent[0].options.expandPromptTemplates, true);
   }
   const missing = await harness({ skills: [] }); t.after(() => missing.close());
-  await missing.command("review", "plan.md");
-  assert.ok(missing.sessions[0].notifications.some(({ text }) => text.includes("unavailable")));
-  assert.ok(missing.current.sent[0].content.startsWith("Begin review"));
+  for (const mode of ["plan", "build", "review"]) {
+    const previous = missing.current;
+    await missing.command(mode, "plan.md");
+    assert.ok(previous.notifications.some(({ text }) => text.includes("unavailable")));
+    assert.ok(missing.current.sent[0].content.startsWith(`Begin ${mode}`));
+  }
 });
 
 test("resume restores phase/input without queuing work; tree navigation follows only its active branch", async (t) => {

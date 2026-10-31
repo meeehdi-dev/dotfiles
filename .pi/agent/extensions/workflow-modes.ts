@@ -75,7 +75,7 @@ export default function workflowModes(pi: ExtensionAPI) {
     const fallback = (error: unknown) => `Workflow could not start ${state.mode}: ${String(error)}\nYou can keep chatting, or try manually:\n${manual}${state.notes ? `\nHandoff notes:\n${state.notes}` : ""}`;
     try {
       await ctx.waitForIdle();
-      const skill = state.mode === "build" ? "ponytail" : state.mode === "review" ? "ponytail-review" : undefined;
+      const skill = state.mode === "plan" ? "plannotator" : state.mode === "build" ? "ponytail" : state.mode === "review" ? "ponytail-review" : undefined;
       const available = skill && pi.getCommands().some((item) => item.name === `skill:${skill}` && item.source === "skill");
       if (skill && !available) ctx.ui.notify(`Skill ${skill} unavailable; continuing with the phase instructions.`, "warning");
       const request = `Begin ${state.mode} now; do not ask for another start confirmation.\n\n${state.input.trim() ? `User input (task/report or plan/reference):\n${state.input}` : "Ask the user for the task or plan/reference you need."}${state.notes ? `\n\nHandoff notes:\n${state.notes}` : ""}`;
