@@ -1,10 +1,10 @@
 import { readFileSync, realpathSync } from "node:fs";
-import { isAbsolute, join, relative, sep } from "node:path";
-import { UIServer } from "./workflow/ui-server";
+import { dirname, isAbsolute, join, relative, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Type } from "typebox";
 import { colorToRgb, rgbColor, type Color } from "@earendil-works/pi-tui";
 import { getAgentDir, type ExtensionAPI, type ExtensionCommandContext, type ExtensionContext, type ReplacedSessionContext } from "@earendil-works/pi-coding-agent";
-import { association, entrySession, git, task, workspace, type Task } from "./workflow/workspace";
+import type { Task } from "./workflow/workspace";
 
 const MODES = ["plan", "build", "review", "ui", "finalize"] as const;
 type Mode = typeof MODES[number];
@@ -65,7 +65,11 @@ function phase(value: unknown): Phase | undefined {
     (data.notes === undefined || typeof data.notes === "string") ? data : undefined;
 }
 
-export default function workflowModes(pi: ExtensionAPI) {
+export default async function workflowModes(pi: ExtensionAPI) {
+  // Pi resolves static imports beside the symlink, not its source file.
+  const source = dirname(realpathSync(fileURLToPath(import.meta.url)));
+  const { UIServer } = await import(join(source, "workflow/ui-server.ts"));
+  const { association, entrySession, git, task, workspace } = await import(join(source, "workflow/workspace.ts"));
   const directory = join(getAgentDir(), "workflow");
   let selected = false, uiSelected = false;
   const server = new UIServer();
