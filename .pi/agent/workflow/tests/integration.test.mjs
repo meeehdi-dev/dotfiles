@@ -790,7 +790,20 @@ test("Finalize delivers bounded decision consolidation and ordered cleanup, not 
     /no new task inputs means no substantive rewrite/,
     /Update only journals\/logs explicitly required/,
     /Do not edit source, instructions, or unrelated docs/,
-    /Do not run tests\/checks\/installs or reopen Plannotator as an automatic final phase/,
+    /After any documentation\/bookkeeping edits, verify all files changed in Finalize/,
+    /applicable project formatting, Markdown, and documentation lint rules/,
+    /Inspect existing configuration\/scripts first/,
+    /run relevant installed checks in non-fixing mode, scoped to those files where supported/,
+    /Correct only formatting\/lint issues introduced by Finalize within its allowed edit scope/,
+    /rerun the affected checks after the last edit/,
+    /Do not install tools, change configuration, or reformat unrelated content/,
+    /If no automated check applies, inspect the changed text.*verification was manual/,
+    /Report actual results, unavailable checks, and unresolved or pre-existing issues/,
+    /do not claim earlier checks cover later edits/,
+    /If summary formatting verification fails, perform no artifact cleanup/,
+    /Do not run tests, unrelated checks, or installs/,
+    /only the scoped documentation formatting\/lint checks above are automatic/,
+    /formatting\/lint verification results and any evidence limitations/,
     /All Git writes remain the user's/,
     /Suggest exactly one single-line Conventional Commit subject for the complete task from its start/,
     /Finish with the summary path, cleanup results or exact remaining artifacts\/limitations/,
@@ -798,6 +811,7 @@ test("Finalize delivers bounded decision consolidation and ordered cleanup, not 
   ]) assert.match(prompt, contract);
   assert.ok(prompt.indexOf("Fully read and consolidate") < prompt.indexOf("Write the complete summary"));
   assert.ok(prompt.indexOf("Write the complete summary") < prompt.indexOf("Only after successful verification delete"));
+  assert.ok(prompt.indexOf("applicable formatting rules are respected") < prompt.indexOf("Only after successful verification delete"));
   assert.doesNotMatch(prompt, /make no document writes|Do not edit source, plans/);
   assert.deepEqual([...h.current.extension.tools.keys()], workflowTools);
   assert.equal(existsSync(join(cwd, "implementation-plan.md")), false, "prompt injection must not write or delete artifacts");
