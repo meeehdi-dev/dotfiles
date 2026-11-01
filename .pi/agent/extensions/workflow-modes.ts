@@ -53,6 +53,14 @@ function publicationUrl(value: unknown, mode?: Mode, data?: Task): string | unde
   return url.href;
 }
 
+function localMerge(value: unknown, mode?: Mode, data?: Task, published?: unknown): string | undefined {
+  if (value === undefined) return;
+  if (mode !== "finalize" || !data || data.kind === "directory" || published !== undefined || typeof value !== "string" || !value.trim()) {
+    throw new Error("Local-merge return requires managed Git Finalize, a base branch and no publicationUrl.");
+  }
+  return value;
+}
+
 function taskGuidance(data: Task) {
   return `Task: ${data.id}\nProject key: ${data.projectKey}\n${data.kind === "directory" ? `Workspace kind: non-Git, in-place\nCanonical directory: ${data.root}\nNo Git baseline or browser file review; edits affect actual files without isolation or rollback.` : `Canonical repository: ${data.repository}\nTask checkout / Plannotator code-review target: ${data.root}`}\nDefault plan: ~/.pi/plans/${data.projectKey}/${data.id}.md\nDefault Plan feedback: ~/.pi/plans/${data.projectKey}/${data.id}-<topic>.md\nDefault Review/UI feedback: ~/.pi/reviews/${data.projectKey}/${data.id}-<topic>-<UTC timestamp>.md\nThese defaults do not replace exact references or per-artifact overrides.${data.kind === "directory" ? " Identity lives only in the session; resume it to continue this task. Never infer identity from an old plan filename." : " Pass the task checkout explicitly as Plannotator code review's target, even when launched in an application subdirectory; never review the source checkout by default."}`;
 }
@@ -75,7 +83,7 @@ export default async function workflowModes(pi: ExtensionAPI) {
     catch (error) { throw new Error(`Required workflow instructions unavailable: ${path}: ${String(error)}`); }
   }).join("\n\n");
   let selected = false, uiSelected = false;
-  let pending: { token: string; state?: Phase; published?: string; signal?: AbortSignal } | undefined;
+  let pending: { token: string; state?: Phase; published?: string; mergedInto?: string; signal?: AbortSignal } | undefined;
   function dispatch(request: Omit<NonNullable<typeof pending>, "token">) {
     const token = randomUUID();
     pending = { ...request, token };
@@ -161,7 +169,20 @@ export default async function workflowModes(pi: ExtensionAPI) {
     }
   }
 
-  async function exit(ctx: ExtensionCommandContext, published?: unknown) {
+  async function verifyLocalMerge(data: Task, base: string, signal?: AbortSignal) {
+    if (data.kind === "directory" || data.root === data.sourceRoot || base === data.branch) throw new Error("Local merge needs a separate managed task worktree and base branch.");
+    await association(data.root, data, signal);
+    await git(data.sourceRoot, ["check-ref-format", "--branch", base], signal);
+    if (await git(data.sourceRoot, ["branch", "--show-current"], signal) !== base) throw new Error("Source checkout is not on the selected local base branch.");
+    const head = await git(data.root, ["rev-parse", "--verify", "HEAD^{commit}"], signal);
+    await git(data.sourceRoot, ["merge-base", "--is-ancestor", head, "HEAD"], signal);
+    if (await git(data.sourceRoot, ["status", "--porcelain=v1", "--untracked-files=all"], signal)) throw new Error("Local base checkout has pending files; preserve the worktree and ask for direction.");
+    if (await git(data.root, ["status", "--porcelain=v1", "--untracked-files=all", "--ignored=matching"], signal)) {
+      throw new Error("Task worktree has pending or ignored files; preserve it and resolve cleanup in chat.");
+    }
+  }
+
+  async function exit(ctx: ExtensionCommandContext, published?: unknown, mergedInto?: unknown) {
     const notify = ctx.ui.notify.bind(ctx.ui);
     const actualCwd = ctx.cwd;
     const selection = { model: ctx.model && { provider: ctx.model.provider, id: ctx.model.id }, thinking: ctx.thinkingLevel };
@@ -171,6 +192,8 @@ export default async function workflowModes(pi: ExtensionAPI) {
       ctx.signal?.throwIfAborted();
       const state = restore(ctx);
       const pr = publicationUrl(published, state?.mode, state?.task);
+      const base = localMerge(mergedInto, state?.mode, state?.task, published);
+      if (base) recovery += `\nReported local merge into: ${base}; nothing pushed.`;
       if (pr) recovery += `\nReported published PR: ${pr}`;
       if (state && !state.task) throw new Error("Legacy/unassociated workflow session; ask for recovery direction, not automatic migration.");
       const data = await association(actualCwd, state?.task, ctx.signal);
@@ -178,8 +201,9 @@ export default async function workflowModes(pi: ExtensionAPI) {
       recovery += `\nRetained task workspace: ${data.root}\nOriginal launch cwd: ${data.originalCwd}`;
       if (!ctx.sessionManager.getSessionFile()) throw new Error("Return needs a persistent session; use the manual launch route.");
       await server.stop();
+      if (base) await verifyLocalMerge(data, base, ctx.signal);
       const pending = data.kind !== "directory" && await git(data.root, ["status", "--porcelain=v1", "--untracked-files=all"], ctx.signal);
-      const notice = `Returned to ${data.originalCwd}. Ordinary Pi; no work started. Task retained at ${data.root}.${pending ? " Pending files remain there." : ""} ${pr ? `Published PR: ${pr}. CI and merge remain yours; no integration or cleanup performed.` : "Nothing was published, approved, or marked complete."}`;
+      const notice = `Returned to ${data.originalCwd}. Ordinary Pi; no work started. Task retained at ${data.root}.${pending ? " Pending files remain there." : ""} ${pr ? `Published PR: ${pr}. CI and merge remain yours; no integration or cleanup performed.` : base ? `Local merge into ${base} verified; nothing pushed. Task branch retained; worktree cleanup follows return validation.` : "Nothing was published, approved, or marked complete."}`;
       const file = entrySession(data.originalCwd, undefined, ctx, notice);
       recovery += `\nReturn session: ${file}`;
       ctx.signal?.throwIfAborted();
@@ -192,8 +216,14 @@ export default async function workflowModes(pi: ExtensionAPI) {
               (selection.thinking !== undefined && next.thinkingLevel !== selection.thinking)) {
             throw new Error("Selected model/thinking could not be restored; select your settings before continuing.");
           }
+          if (base && data.kind !== "directory") {
+            // Never remove the active task checkout before successful session replacement.
+            await verifyLocalMerge(data, base, next.signal);
+            await git(data.sourceRoot, ["worktree", "remove", "--", data.root], next.signal);
+            await next.sendMessage({ customType: "workflow-notice", content: `Removed merged task worktree ${data.root}. Branch ${data.branch} retained. Local base: ${base}; push remains manual.`, display: true }, { triggerTurn: false });
+          }
         } catch (error) {
-          await next.sendMessage({ customType: "workflow-notice", content: `Return validation failed: ${String(error)}\nActual cwd: ${next.cwd}\n${recovery}\nNo work started. Relaunch Pi manually in the original directory, or resume the retained task.`, display: true }, { triggerTurn: false });
+          await next.sendMessage({ customType: "workflow-notice", content: `Return validation failed: ${String(error)}\nActual cwd: ${next.cwd}\n${recovery}\nNo further work started. Inspect the reported task path before resuming; cleanup may have failed or already completed. Relaunch Pi manually in the original directory if needed.`, display: true }, { triggerTurn: false });
         }
       } });
       if (result.cancelled) throw new Error("Session replacement cancelled; return not completed.");
@@ -213,7 +243,7 @@ export default async function workflowModes(pi: ExtensionAPI) {
         await ctx.waitForIdle();
         request.signal?.throwIfAborted();
         if (request.state) await start(request.state, ctx);
-        else await exit(ctx, request.published);
+        else await exit(ctx, request.published, request.mergedInto);
       } catch (error) {
         ctx.ui.notify(`Workflow dispatch cancelled: ${String(error)}\nActual cwd: ${ctx.cwd}. No replacement requested; retry in chat or resume the workflow session.${request.published ? ` Published PR: ${request.published}.` : ""}`, "warning");
       }
@@ -244,20 +274,24 @@ export default async function workflowModes(pi: ExtensionAPI) {
   pi.registerTool({
     name: EXIT, label: "Return to ordinary Pi", defaultActive: false,
     exposure: "model-only", executionMode: "sequential",
-    description: "Return to fresh ordinary Pi at the original launch cwd on explicit exit, after successful non-Git Finalize, or after confirmed authorized Git Finalize publication. This tool never publishes. Omit publicationUrl for exit without publishing; only managed Git Finalize may supply the verified PR URL as display context, not proof/authority. Preserves pending files, branch/worktree, sessions and artifacts. End the turn after calling. On failure preserve any PR URL and retry in chat, resume the workflow session or relaunch manually; never assume return succeeded.",
-    parameters: Type.Object({ publicationUrl: Type.Optional(Type.String({ description: "Managed-Git Finalize-only verified HTTPS PR URL, after reporting successful publication. Display context only." })) }),
+    description: "Return to fresh ordinary Pi at the original launch cwd on explicit exit or successful Finalize. Never commits, merges or pushes. Only managed Git Finalize may supply publicationUrl (verified PR display context) or mergedInto (local base branch after a reported successful merge), never both. With mergedInto, verifies local ancestry and a task worktree free of pending/ignored files, returns first, then removes only that worktree without force; keeps the task branch. Otherwise preserves all task resources. End the turn after calling. On failure inspect actual cwd and retained resources before recovery; never assume return or cleanup succeeded.",
+    parameters: Type.Object({
+      publicationUrl: Type.Optional(Type.String({ description: "Managed-Git Finalize-only verified HTTPS PR URL, after reporting successful publication. Display context only." })),
+      mergedInto: Type.Optional(Type.String({ description: "Managed-Git Finalize-only local base branch after verified merge. Authorizes non-forced task worktree removal after return; retains branch, never pushes." })),
+    }),
     async execute(_id, params, signal, _update, ctx) {
       if (signal?.aborted || ctx.signal?.aborted) throw new Error("Workflow exit cancelled.");
       const state = restore(ctx);
       if (!state) throw new Error("Workflow exit helper is phase-scoped; resume the task's workflow session, or use /work to enter Plan first and request return in chat.");
       const pr = publicationUrl(params.publicationUrl, state.mode, state.task);
+      const base = localMerge(params.mergedInto, state.mode, state.task, params.publicationUrl);
       const cwd = ctx.cwd;
       try {
-        dispatch({ published: pr, signal: signal && ctx.signal ? AbortSignal.any([signal, ctx.signal]) : signal ?? ctx.signal });
+        dispatch({ published: pr, mergedInto: base, signal: signal && ctx.signal ? AbortSignal.any([signal, ctx.signal]) : signal ?? ctx.signal });
       } catch (error) {
         return { content: [{ type: "text", text: `Return request failed: ${String(error)}.${pr ? ` Published PR: ${pr}.` : ""} Current workspace: ${cwd}. Retry in chat or relaunch Pi manually in the original directory; task resources remain intact.` }], details: undefined, isError: true };
       }
-      return { content: [{ type: "text", text: `Requested return${pr ? ` after publication: ${pr}` : " without publication"}. Current workspace: ${cwd}. If it does not open, retry in chat or resume the workflow session; task resources remain intact.` }], details: undefined, terminate: true };
+      return { content: [{ type: "text", text: `Requested return${pr ? ` after publication: ${pr}` : base ? ` after local merge into ${base}, with worktree cleanup after return` : " without publication"}. Current workspace: ${cwd}. If it does not open, retry in chat or resume the workflow session; task resources remain intact.` }], details: undefined, terminate: true };
     },
   });
 

@@ -12,6 +12,9 @@ const boundaries = {
     /explicit human code\/UI approval or direct publication instruction/,
     /not task metadata, a standalone Review, a documentation-only Finalize, or automated review success/,
     /without a new routine publication gate/,
+    /Before staging, use workflow_question with exactly two actions in order: "Merge in-place \(local only, no push\)"; "Create or reuse a PR on GitHub"/,
+    /Skip the picker only when the user already explicitly chose a route for this task/,
+    /Cancellation\/abort means wait for chat without choosing a default or reopening; without UI ask in chat and wait/,
     /Stop if consolidation, required bookkeeping or scoped formatting verification is incomplete\/failed/,
     /Stop any owned UI server before publication/,
   ],
@@ -112,6 +115,26 @@ const boundaries = {
 for (const [name, contracts] of Object.entries(boundaries)) test(`publication contract: ${name}`, () => {
   assert.ok(publication.startsWith("## Authorized publication"));
   for (const contract of contracts) assert.match(publication, contract);
+});
+
+test("local merge is local-only, verified, and cleans up only after return", () => {
+  for (const contract of [
+    /local-merge choice follows \*\*Local merge\*\* below and skips steps 6–9 entirely: no push, remote\/gh calls or SSH authentication/,
+    /metadata records the starting commit, not the original branch name/,
+    /Require a clean source checkout and no merge\/rebase\/cherry-pick\/revert in progress in either checkout/,
+    /no staged, unstaged, untracked or ignored files/,
+    /git merge --ff-only -- <task branch>/,
+    /ask before a non-fast-forward signed merge/,
+    /git merge --no-ff -S -m <merge subject> -- <task branch>/,
+    /conflicts stay for user direction/,
+    /git merge-base --is-ancestor <task HEAD> HEAD/,
+    /Do not push either branch, fetch\/pull, call gh, poll CI or delete the task branch/,
+    /workflow_exit once with mergedInto set to the verified local base branch \(no publicationUrl\)/,
+    /returns to the original cwd, then uses non-forced `git worktree remove -- <task root>`/,
+    /Never remove the active task worktree yourself before return/,
+    /Failed\/cancelled return preserves the worktree/,
+    /never uses --force/,
+  ]) assert.match(publication, contract);
 });
 
 test("non-Git completion returns only after consolidation/checks, without publication", () => {

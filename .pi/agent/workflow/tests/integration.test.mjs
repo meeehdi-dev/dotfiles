@@ -1044,7 +1044,7 @@ test("Finalize delivers bounded decision consolidation and ordered cleanup, not 
     /Do not run tests, unrelated checks, or installs/,
     /only the scoped documentation formatting\/lint checks above are automatic/,
     /formatting\/lint verification results and any evidence limitations/,
-    /Only the task-scoped staging, signed commit, normal SSH push and gh PR sequence below is a Git\/publication exception/,
+    /Only the task-scoped staging, signed commit and selected local-merge or normal SSH push\/gh PR route below are Git-write exceptions/,
     /Suggest exactly one single-line Conventional Commit subject for the complete task from its start/,
     /Finish with the summary path, cleanup results or exact remaining artifacts\/limitations/,
     /For documentation-only Finalize in Git, remain in this session unless explicitly asked to exit/,
@@ -1405,6 +1405,48 @@ test("published return context is Finalize-only and rejects malformed or credent
   await h.command("return");
   const notice = SessionManager.open(h.current.entryFile).getEntries().find((entry) => entry.customType === "workflow-notice").content;
   assert.match(notice, /Nothing was published/); assert.doesNotMatch(notice, /Published PR:/);
+});
+
+// Disposable fixture commits/merges only; no real signing, pushes or model requests.
+for (const scenario of ["success", "unmerged", "ignored", "cancel", "wrong-cwd"]) test(`local-merge return and worktree cleanup: ${scenario}`, async (t) => {
+  const source = freshSource("local-merge"), h = await harness({ directory: source }); t.after(() => h.close());
+  await h.command("plan", "task"); const data = taskState(h);
+  await h.command("finalize", "/exact/plan.md");
+  writeFileSync(join(data.root, "tracked"), "local task change\n");
+  git(data.root, "add", "tracked");
+  git(data.root, "-c", "commit.gpgsign=false", "commit", "-m", "fixture task");
+  const head = git(data.root, "rev-parse", "HEAD");
+  if (scenario !== "unmerged") git(source, "merge", "--ff-only", data.branch);
+  if (scenario === "ignored") {
+    writeFileSync(join(source, ".git", "info", "exclude"), "local-cache\n");
+    writeFileSync(join(data.root, "local-cache"), "preserve me\n");
+  }
+  if (["cancel", "wrong-cwd"].includes(scenario)) h.setFailure(scenario);
+  const definition = h.current.extension.tools.get("workflow_exit").definition;
+  assert.deepEqual(validateToolArguments(definition, { name: definition.name, arguments: { mergedInto: "main" } }), { mergedInto: "main" });
+  await h.call({ mergedInto: "main" }, undefined, "workflow_exit");
+  assert.equal(git(source, "rev-parse", data.branch), head, "task branch always survives");
+  if (scenario === "success") {
+    assert.equal(h.current.ctx.cwd, source); assert.equal(state(h), undefined);
+    assert.equal(existsSync(data.root), false);
+    assert.equal(git(source, "worktree", "list", "--porcelain").includes(data.root), false);
+    assert.match(notifications(h), /Removed merged task worktree/);
+    assert.match(notifications(h), /push remains manual/);
+    assert.equal(git(source, "rev-parse", "HEAD"), head);
+  } else {
+    assert.equal(existsSync(data.root), true, "failed validation/replacement must preserve the task checkout");
+    assert.match(notifications(h), /Return validation failed|Workflow return failed/);
+    if (scenario === "ignored") assert.equal(readFileSync(join(data.root, "local-cache"), "utf8"), "preserve me\n");
+  }
+});
+
+test("local-merge cleanup context requires Git Finalize and excludes PR context", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  await h.command("build", "plan.md");
+  await assert.rejects(() => h.call({ mergedInto: "main" }, undefined, "workflow_exit"), /Local-merge return requires/);
+  await h.command("finalize", "plan.md");
+  await assert.rejects(() => h.call({ mergedInto: "main", publicationUrl: "https://github.example.invalid/o/r/pull/1" }, undefined, "workflow_exit"), /Local-merge return requires/);
+  await assert.rejects(() => h.call({ mergedInto: "" }, undefined, "workflow_exit"), /Local-merge return requires/);
 });
 
 function freshSource(label) { return repository(join(temp, `${label}-${randomUUID()}`)); }
