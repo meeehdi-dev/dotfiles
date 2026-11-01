@@ -15,6 +15,12 @@ const temp = mkdtempSync(join(tmpdir(), "pi-workflow-"));
 const cwd = join(temp, "project"), agentDir = join(temp, "agent");
 mkdirSync(cwd); mkdirSync(join(agentDir, "workflow"), { recursive: true });
 const modes = ["plan", "build", "review", "ui", "finalize"];
+const skillFixtures = ["plannotator", "ponytail", "ponytail-review"].map((name) => {
+  const baseDir = join(agentDir, "skills", name), filePath = join(baseDir, "SKILL.md");
+  mkdirSync(baseDir, { recursive: true });
+  writeFileSync(filePath, `# ${name}\nFixture instructions for ${name}.\n`);
+  return { name, baseDir, filePath };
+});
 for (const mode of modes) cpSync(join(workflow, `${mode}.md`), join(agentDir, "workflow", `${mode}.md`));
 const previousAgent = process.env.PI_CODING_AGENT_DIR;
 process.env.PI_CODING_AGENT_DIR = agentDir;
@@ -89,7 +95,7 @@ async function harness({ entries = [], skills = ["plannotator", "ponytail", "pon
       const handler = session.extension.commands.get(name)?.handler;
       if (handler) return handler(split < 0 ? "" : content.slice(split + 1), session.ctx);
     }
-    const before = await event(session, "before_agent_start", { messageType: "user", prompt: content, systemPromptOptions: { sections: { existing: "untouched" } } });
+    const before = await event(session, "before_agent_start", { messageType: "user", prompt: content, systemPromptOptions: { sections: { existing: "untouched" }, skills: skillFixtures.filter((skill) => skills.includes(skill.name)) } });
     session.prompts.push(before.systemPromptOptions.sections);
     session.records.push({ type: "message", message: { role: "user", content } });
   }
@@ -601,20 +607,43 @@ test("abort before opening and during selection cannot return an authorization",
   }
 });
 
-test("Plan, Build, and Review request only their targeted skills; missing skills warn and continue", async (t) => {
+test("every phase loads exactly its skills on entry and resume; missing skills warn and continue", async (t) => {
+  const expected = { plan: ["plannotator"], build: ["ponytail"], review: ["ponytail-review", "plannotator"], ui: ["plannotator"], finalize: [] };
   const h = await harness(); t.after(() => h.close());
-  for (const [mode, skill] of [["plan", "plannotator"], ["build", "ponytail"], ["review", "ponytail-review"]]) {
-    await h.command(mode, "plan.md");
-    assert.ok(h.current.sent[0].content.startsWith(`/skill:${skill} `));
-    assert.equal(h.current.sent[0].options.expandPromptTemplates, true);
-  }
   const missing = await harness({ skills: [] }); t.after(() => missing.close());
-  for (const mode of ["plan", "build", "review"]) {
-    const previous = missing.current;
+  for (const mode of modes) {
+    await h.command(mode, "plan.md");
+    assert.ok(h.current.sent[0].content.startsWith(`Begin ${mode}`));
+    assert.equal(h.current.sent[0].options.expandPromptTemplates, false);
+    const check = (prompt) => {
+      assert.deepEqual([...prompt.workflow.matchAll(/<skill name="([^"]+)"/g)].map((match) => match[1]), expected[mode]);
+      for (const name of expected[mode]) {
+        const skill = skillFixtures.find((item) => item.name === name);
+        assert.ok(prompt.workflow.includes(`location="${skill.filePath}"`));
+        assert.ok(prompt.workflow.includes(`References are relative to ${skill.baseDir}.`));
+        assert.ok(prompt.workflow.includes(readFileSync(skill.filePath, "utf8")));
+      }
+    };
+    check(h.current.prompts[0]);
+    await h.resume(h.current.records);
+    assert.equal(h.current.sent.length, 0, "resume must not dispatch work");
+    check(await h.task());
     await missing.command(mode, "plan.md");
-    assert.ok(previous.notifications.some(({ text }) => text.includes("unavailable")));
-    assert.ok(missing.current.sent[0].content.startsWith(`Begin ${mode}`));
+    assert.equal(missing.current.notifications.filter(({ text }) => text.startsWith("Skill ")).length, expected[mode].length);
+    assert.doesNotMatch(missing.current.prompts[0].workflow, /<skill name=/);
   }
+});
+
+test("an unreadable skill warns without dropping the other phase skill", async (t) => {
+  const skill = skillFixtures.find((item) => item.name === "plannotator");
+  const original = skill.filePath;
+  skill.filePath = join(skill.baseDir, "missing.md");
+  t.after(() => { skill.filePath = original; });
+  const h = await harness(); t.after(() => h.close());
+  await h.command("review", "plan.md");
+  assert.match(h.current.prompts[0].workflow, /Fixture instructions for ponytail-review/);
+  assert.doesNotMatch(h.current.prompts[0].workflow, /<skill name="plannotator"/);
+  assert.ok(h.current.notifications.some(({ text }) => text.startsWith("Skill plannotator unavailable")));
 });
 
 test("resume restores phase/input without queuing work; tree navigation follows only its active branch", async (t) => {

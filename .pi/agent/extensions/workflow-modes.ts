@@ -8,6 +8,13 @@ import type { Task } from "./workflow/workspace";
 
 const MODES = ["plan", "build", "review", "ui", "finalize"] as const;
 type Mode = typeof MODES[number];
+const SKILLS: Record<Mode, string[]> = {
+  plan: ["plannotator"],
+  build: ["ponytail"],
+  review: ["ponytail-review", "plannotator"],
+  ui: ["plannotator"],
+  finalize: [],
+};
 type Phase = { mode: Mode; input: string; notes?: string; task?: Task };
 const STATE = "workflow-phase";
 const TOOL = "workflow_handoff";
@@ -116,9 +123,6 @@ export default async function workflowModes(pi: ExtensionAPI) {
       const target = await workspace(ctx, state.mode, current?.task);
       state = { ...state, task: target.task };
       recovery = `Task ${target.task.id}: ${target.task.branch}\nRetained workspace: ${target.task.root}\nLaunch cwd: ${target.cwd}`;
-      const skill = state.mode === "plan" ? "plannotator" : state.mode === "build" ? "ponytail" : state.mode === "review" ? "ponytail-review" : undefined;
-      const available = skill && pi.getCommands().some((item) => item.name === `skill:${skill}` && item.source === "skill");
-      if (skill && !available) ctx.ui.notify(`Skill ${skill} unavailable; continuing with the phase instructions.`, "warning");
       const request = `Begin ${state.mode} now; do not ask for another start confirmation.\n\n${state.input.trim() ? `User input (task/report or plan/reference):\n${state.input}` : "Ask the user for the task or plan/reference you need."}${state.notes ? `\n\nHandoff notes:\n${state.notes}` : ""}`;
       // Session replacement reloads extensions: persist plain data and use only the fresh context afterward.
       const withSession = async (next: ReplacedSessionContext) => {
@@ -129,7 +133,7 @@ export default async function workflowModes(pi: ExtensionAPI) {
             throw new Error("Selected model/thinking could not be restored. Relaunch Pi in the task workspace with your selected model/settings before retrying.");
           }
           await association(next.cwd, target.task, next.signal);
-          await next.sendUserMessage(available ? `/skill:${skill} ${request}` : request, { expandPromptTemplates: Boolean(available) });
+          await next.sendUserMessage(request, { expandPromptTemplates: false });
         } catch (error) {
           await next.sendMessage({ customType: "workflow-notice", content: fallback(error), display: true }, { triggerTurn: false });
         }
@@ -358,6 +362,16 @@ export default async function workflowModes(pi: ExtensionAPI) {
       ctx.ui.notify(`Workflow prompt unavailable; continuing without it: ${String(error)}`, "warning");
       prompt = `Help the user with the ${state.mode} phase; ask about missing requirements.`;
     }
-    event.systemPromptOptions.sections.workflow = `${guidance}\n\n${prompt}\n\n${taskGuidance(state.task)}\nTask workspace: ${JSON.stringify(state.task)}\nThis task association is workspace context, not progress or approval. All phases reuse this checkout; worktrees are not a sandbox.\nPhase: ${state.mode}\nInput: ${state.input || "not supplied — ask the user"}${state.notes ? `\nHandoff notes: ${state.notes}` : ""}`;
+    const skills: string[] = [];
+    for (const name of SKILLS[state.mode]) {
+      try {
+        const skill = event.systemPromptOptions.skills?.find((item) => item.name === name);
+        if (!skill) throw new Error("not installed in this session");
+        skills.push(`<skill name="${name}" location="${skill.filePath}">\nReferences are relative to ${skill.baseDir}.\n\n${readFileSync(skill.filePath, "utf8")}\n</skill>`);
+      } catch (error) {
+        ctx.ui.notify(`Skill ${name} unavailable; continuing with the phase instructions: ${String(error)}`, "warning");
+      }
+    }
+    event.systemPromptOptions.sections.workflow = `${skills.join("\n\n")}\n\n${guidance}\n\n${prompt}\n\n${taskGuidance(state.task)}\nTask workspace: ${JSON.stringify(state.task)}\nThis task association is workspace context, not progress or approval. All phases reuse this checkout; worktrees are not a sandbox.\nPhase: ${state.mode}\nInput: ${state.input || "not supplied — ask the user"}${state.notes ? `\nHandoff notes: ${state.notes}` : ""}`;
   });
 }
