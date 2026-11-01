@@ -177,8 +177,8 @@ export default async function workflowModes(pi: ExtensionAPI) {
     const head = await git(data.root, ["rev-parse", "--verify", "HEAD^{commit}"], signal);
     await git(data.sourceRoot, ["merge-base", "--is-ancestor", head, "HEAD"], signal);
     if (await git(data.sourceRoot, ["status", "--porcelain=v1", "--untracked-files=all"], signal)) throw new Error("Local base checkout has pending files; preserve the worktree and ask for direction.");
-    if (await git(data.root, ["status", "--porcelain=v1", "--untracked-files=all", "--ignored=matching"], signal)) {
-      throw new Error("Task worktree has pending or ignored files; preserve it and resolve cleanup in chat.");
+    if (await git(data.root, ["status", "--porcelain=v1", "--untracked-files=all"], signal)) {
+      throw new Error("Task worktree has tracked or non-ignored pending files; preserve it and resolve cleanup in chat.");
     }
   }
 
@@ -219,16 +219,20 @@ export default async function workflowModes(pi: ExtensionAPI) {
           if (base && data.kind !== "directory") {
             // Never remove the active task checkout before successful session replacement.
             await verifyLocalMerge(data, base, next.signal);
+            await git(data.root, ["clean", "-fdX"], next.signal);
+            if (await git(data.root, ["status", "--porcelain=v1", "--untracked-files=all", "--ignored=matching"], next.signal)) {
+              throw new Error("Task worktree still has pending or protected ignored contents after ignored-only cleanup; worktree retained. Inspect remaining files before recovery.");
+            }
             await git(data.sourceRoot, ["worktree", "remove", "--", data.root], next.signal);
             await next.sendMessage({ customType: "workflow-notice", content: `Removed merged task worktree ${data.root}. Branch ${data.branch} retained. Local base: ${base}; push remains manual.`, display: true }, { triggerTurn: false });
           }
         } catch (error) {
-          await next.sendMessage({ customType: "workflow-notice", content: `Return validation failed: ${String(error)}\nActual cwd: ${next.cwd}\n${recovery}\nNo further work started. Inspect the reported task path before resuming; cleanup may have failed or already completed. Relaunch Pi manually in the original directory if needed.`, display: true }, { triggerTurn: false });
+          await next.sendMessage({ customType: "workflow-notice", content: `Return validation failed: ${String(error)}\nActual cwd: ${next.cwd}\n${recovery}\nNo further work started. Inspect the reported task path before resuming; ignored-file cleanup may have partially succeeded or worktree removal may have completed; no rollback is promised. Relaunch Pi manually in the original directory if needed.`, display: true }, { triggerTurn: false });
         }
       } });
       if (result.cancelled) throw new Error("Session replacement cancelled; return not completed.");
     } catch (error) {
-      notify(`Workflow return failed: ${String(error)}\n${recovery}\nIf replacement failed, the active workspace may be unavailable; verify cwd before continuing. Relaunch Pi manually in the original launch directory for ordinary mode, or in the retained task to resume. No Git state or task resources were changed by exit.`, "warning");
+      notify(`Workflow return failed: ${String(error)}\n${recovery}\nIf replacement failed, the active workspace may be unavailable; verify cwd before continuing. Relaunch Pi manually in the original launch directory for ordinary mode, or in the retained task to resume. Before successful return validation no ignored files are deleted. If return validation ran, inspect actual retained resources: ignored-file cleanup may have partially succeeded or worktree removal may have completed.`, "warning");
     }
   }
 
@@ -274,10 +278,10 @@ export default async function workflowModes(pi: ExtensionAPI) {
   pi.registerTool({
     name: EXIT, label: "Return to ordinary Pi", defaultActive: false,
     exposure: "model-only", executionMode: "sequential",
-    description: "Return to fresh ordinary Pi at the original launch cwd on explicit exit or successful Finalize. Never commits, merges or pushes. Only managed Git Finalize may supply publicationUrl (verified PR display context) or mergedInto (local base branch after a reported successful merge), never both. With mergedInto, verifies local ancestry and a task worktree free of pending/ignored files, returns first, then removes only that worktree without force; keeps the task branch. Otherwise preserves all task resources. End the turn after calling. On failure inspect actual cwd and retained resources before recovery; never assume return or cleanup succeeded.",
+    description: "Return to fresh ordinary Pi at the original launch cwd on explicit exit or successful Finalize. Never commits, merges or pushes. Only managed Git Finalize may supply publicationUrl (verified PR display context) or mergedInto (local base branch after a reported successful merge), never both. With mergedInto, verifies local ancestry and no tracked/non-ignored pending task work, returns first, then revalidates and discards all ignored task files (including modified env/local databases) with git clean -fdX, checks leftovers and removes only that worktree without force; keeps the task branch and source originals. Failed return validation deletes no ignored files; post-return cleanup may partially succeed. Otherwise preserves all task resources. End the turn after calling. On failure inspect actual cwd and retained resources before recovery; never assume return or cleanup succeeded.",
     parameters: Type.Object({
       publicationUrl: Type.Optional(Type.String({ description: "Managed-Git Finalize-only verified HTTPS PR URL, after reporting successful publication. Display context only." })),
-      mergedInto: Type.Optional(Type.String({ description: "Managed-Git Finalize-only local base branch after verified merge. Authorizes non-forced task worktree removal after return; retains branch, never pushes." })),
+      mergedInto: Type.Optional(Type.String({ description: "Managed-Git Finalize-only local base branch after verified merge. Authorizes all ignored task-file disposal and non-forced worktree removal after successful return validation; retains branch and source originals, never pushes." })),
     }),
     async execute(_id, params, signal, _update, ctx) {
       if (signal?.aborted || ctx.signal?.aborted) throw new Error("Workflow exit cancelled.");
@@ -291,7 +295,7 @@ export default async function workflowModes(pi: ExtensionAPI) {
       } catch (error) {
         return { content: [{ type: "text", text: `Return request failed: ${String(error)}.${pr ? ` Published PR: ${pr}.` : ""} Current workspace: ${cwd}. Retry in chat or relaunch Pi manually in the original directory; task resources remain intact.` }], details: undefined, isError: true };
       }
-      return { content: [{ type: "text", text: `Requested return${pr ? ` after publication: ${pr}` : base ? ` after local merge into ${base}, with worktree cleanup after return` : " without publication"}. Current workspace: ${cwd}. If it does not open, retry in chat or resume the workflow session; task resources remain intact.` }], details: undefined, terminate: true };
+      return { content: [{ type: "text", text: `Requested return${pr ? ` after publication: ${pr}` : base ? ` after local merge into ${base}, with worktree cleanup after return` : " without publication"}. Current workspace: ${cwd}. If it does not open, retry in chat or resume the workflow session; bare/PR return retains resources, local-merge cleanup runs only after successful return validation.` }], details: undefined, terminate: true };
     },
   });
 
@@ -328,7 +332,7 @@ export default async function workflowModes(pi: ExtensionAPI) {
   pi.registerTool({
     name: SERVER, label: "UI dev server", defaultActive: false,
     exposure: "model-only", executionMode: "sequential",
-    description: "UI-only owned dev-server start/status/stop. Before start inspect the existing command/scripts and establish authority, prerequisites and safe data effects. Pass executable and arguments (no shell expansion or credentials), plus application cwd inside the task. Returns only discovered loopback HTTP URLs, not raw logs. A URL is not human approval or a readiness probe. Multiple/no URLs require clarification/manual fallback. User-managed URLs need no call and are never owned. Stop before leaving UI. No installs, scans, infrastructure or generic jobs.",
+    description: "UI-only owned dev-server start/status/stop. Before start inspect the existing command/scripts and establish authority, prerequisites and safe data effects. Managed-Git UI may prepare prerequisites under the shared rule through ordinary tools first; this helper runs only the dev server. Pass executable and arguments (no shell expansion or credentials), plus application cwd inside the task. Returns only discovered loopback HTTP URLs, not raw logs. A URL is not human approval or a readiness probe. Multiple/no URLs require clarification/manual fallback. User-managed URLs need no call and are never owned. Stop before leaving UI. No installs, scans, infrastructure or generic jobs.",
     parameters: Type.Object({
       action: Type.Union([Type.Literal("start"), Type.Literal("status"), Type.Literal("stop")]),
       command: Type.Optional(Type.String({ minLength: 1 })),

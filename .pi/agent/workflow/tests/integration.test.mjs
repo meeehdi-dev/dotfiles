@@ -1217,6 +1217,8 @@ for (const via of ["helper", "fresh-instance"]) test(`requested ${via} exit retu
   writeFileSync(join(data.root, "tracked"), "task staged\n"); git(data.root, "add", "tracked");
   writeFileSync(join(data.root, "tracked"), "task unstaged\n");
   writeFileSync(join(data.root, "untracked"), "task pending");
+  writeFileSync(join(source, ".git", "info", "exclude"), "ignored-task-file\n");
+  writeFileSync(join(data.root, "ignored-task-file"), "retain on bare exit\n");
   const before = snapshot(source), taskBefore = git(data.root, "status", "--porcelain=v1"),
     index = readFileSync(join(git(data.root, "rev-parse", "--absolute-git-dir"), "index")),
     worktrees = git(source, "worktree", "list", "--porcelain"), branches = git(source, "branch");
@@ -1241,6 +1243,7 @@ for (const via of ["helper", "fresh-instance"]) test(`requested ${via} exit retu
   assert.deepEqual(await active.task("Quoted example: I'm done committing; return to ordinary Pi"), { existing: "untouched" });
   assert.equal(active.current.ctx.cwd, originalCwd, "ordinary chat is not intercepted");
   assert.deepEqual(snapshot(source), before);
+  assert.equal(readFileSync(join(data.root, "ignored-task-file"), "utf8"), "retain on bare exit\n");
   assert.equal(git(data.root, "status", "--porcelain=v1"), taskBefore);
   assert.deepEqual(readFileSync(join(git(data.root, "rev-parse", "--absolute-git-dir"), "index")), index);
   assert.equal(git(source, "worktree", "list", "--porcelain"), worktrees); assert.equal(git(source, "branch"), branches);
@@ -1361,6 +1364,8 @@ for (const failure of [undefined, "queue", "drop", "switch", "cancel", "wrong-cw
   await h.command("plan", "task"); const data = taskState(h);
   await h.call({ mode: "finalize", input: "/exact/plan.md", notes: "Transport fixture; no real publication." });
   writeFileSync(join(data.root, "tracked"), "retained task work\n");
+  writeFileSync(join(source, ".git", "info", "exclude"), "ignored-task-file\n");
+  writeFileSync(join(data.root, "ignored-task-file"), "retain on PR return\n");
   const before = snapshot(source), taskStatus = git(data.root, "status", "--porcelain=v1"), head = git(data.root, "rev-parse", "HEAD");
   const url = "https://github.example.invalid/owner/repo/pull/42";
   const definition = h.current.extension.tools.get("workflow_exit").definition;
@@ -1384,6 +1389,7 @@ for (const failure of [undefined, "queue", "drop", "switch", "cancel", "wrong-cw
   }
   assert.deepEqual(snapshot(source), before);
   assert.equal(git(data.root, "status", "--porcelain=v1"), taskStatus);
+  assert.equal(readFileSync(join(data.root, "ignored-task-file"), "utf8"), "retain on PR return\n");
   assert.equal(git(data.root, "rev-parse", "HEAD"), head);
   assert.equal(existsSync(join(git(data.root, "rev-parse", "--absolute-git-dir"), "workflow-task.json")), true);
 });
@@ -1408,7 +1414,7 @@ test("published return context is Finalize-only and rejects malformed or credent
 });
 
 // Disposable fixture commits/merges only; no real signing, pushes or model requests.
-for (const scenario of ["success", "unmerged", "ignored", "cancel", "wrong-cwd"]) test(`local-merge return and worktree cleanup: ${scenario}`, async (t) => {
+for (const scenario of ["success", "ignored", "unmerged", "tracked", "staged", "untracked", "dirty-source", "wrong-branch", "changed-after-return", "nested-repository", "switch", "cancel", "wrong-cwd"]) test(`local-merge return and worktree cleanup: ${scenario}`, async (t) => {
   const source = freshSource("local-merge"), h = await harness({ directory: source }); t.after(() => h.close());
   await h.command("plan", "task"); const data = taskState(h);
   await h.command("finalize", "/exact/plan.md");
@@ -1417,16 +1423,35 @@ for (const scenario of ["success", "unmerged", "ignored", "cancel", "wrong-cwd"]
   git(data.root, "-c", "commit.gpgsign=false", "commit", "-m", "fixture task");
   const head = git(data.root, "rev-parse", "HEAD");
   if (scenario !== "unmerged") git(source, "merge", "--ff-only", data.branch);
-  if (scenario === "ignored") {
-    writeFileSync(join(source, ".git", "info", "exclude"), "local-cache\n");
-    writeFileSync(join(data.root, "local-cache"), "preserve me\n");
+  writeFileSync(join(source, ".git", "info", "exclude"), ".env.local\nlocal-cache/\n");
+  writeFileSync(join(source, ".env.local"), "source original\n");
+  if (scenario !== "success") {
+    writeFileSync(join(data.root, ".env.local"), "modified task copy\n");
+    mkdirSync(join(data.root, "local-cache"));
+    writeFileSync(join(data.root, "local-cache", "local.db"), "task-only data\n");
   }
-  if (["cancel", "wrong-cwd"].includes(scenario)) h.setFailure(scenario);
+  if (scenario === "nested-repository") repository(join(data.root, "local-cache", "protected"));
+  if (["tracked", "staged"].includes(scenario)) {
+    writeFileSync(join(data.root, "tracked"), "pending task work\n");
+    if (scenario === "staged") git(data.root, "add", "tracked");
+  }
+  if (scenario === "untracked") writeFileSync(join(data.root, "pending"), "pending task work\n");
+  if (scenario === "dirty-source") writeFileSync(join(source, "tracked"), "pending source work\n");
+  if (scenario === "wrong-branch") git(source, "checkout", "-b", "other-base");
+  if (scenario === "changed-after-return") {
+    const switchSession = h.current.ctx.switchSession;
+    h.current.ctx.switchSession = (file, options) => switchSession(file, { withSession: async (next) => {
+      writeFileSync(join(data.root, "pending"), "work appeared during return\n");
+      await options.withSession(next);
+    } });
+  }
+  if (["switch", "cancel", "wrong-cwd"].includes(scenario)) h.setFailure(scenario);
   const definition = h.current.extension.tools.get("workflow_exit").definition;
   assert.deepEqual(validateToolArguments(definition, { name: definition.name, arguments: { mergedInto: "main" } }), { mergedInto: "main" });
   await h.call({ mergedInto: "main" }, undefined, "workflow_exit");
   assert.equal(git(source, "rev-parse", data.branch), head, "task branch always survives");
-  if (scenario === "success") {
+  assert.equal(readFileSync(join(source, ".env.local"), "utf8"), "source original\n", "source originals always survive");
+  if (["success", "ignored"].includes(scenario)) {
     assert.equal(h.current.ctx.cwd, source); assert.equal(state(h), undefined);
     assert.equal(existsSync(data.root), false);
     assert.equal(git(source, "worktree", "list", "--porcelain").includes(data.root), false);
@@ -1436,7 +1461,19 @@ for (const scenario of ["success", "unmerged", "ignored", "cancel", "wrong-cwd"]
   } else {
     assert.equal(existsSync(data.root), true, "failed validation/replacement must preserve the task checkout");
     assert.match(notifications(h), /Return validation failed|Workflow return failed/);
-    if (scenario === "ignored") assert.equal(readFileSync(join(data.root, "local-cache"), "utf8"), "preserve me\n");
+    if (scenario === "nested-repository") {
+      assert.equal(h.current.ctx.cwd, source, "cleanup happens only after return");
+      assert.equal(existsSync(join(data.root, ".env.local")), false, "ignored cleanup may partially succeed");
+      assert.equal(readFileSync(join(data.root, "local-cache", "protected", "tracked"), "utf8"), "committed\n");
+      assert.match(notifications(h), /protected ignored contents.*worktree retained/);
+      assert.match(notifications(h), /partially succeeded/);
+    } else {
+      assert.equal(readFileSync(join(data.root, ".env.local"), "utf8"), "modified task copy\n", "pre-return failures must not delete ignored files");
+      assert.equal(readFileSync(join(data.root, "local-cache", "local.db"), "utf8"), "task-only data\n");
+    }
+    if (["tracked", "staged"].includes(scenario)) assert.equal(readFileSync(join(data.root, "tracked"), "utf8"), "pending task work\n");
+    if (scenario === "untracked") assert.equal(readFileSync(join(data.root, "pending"), "utf8"), "pending task work\n");
+    if (scenario === "dirty-source") assert.equal(readFileSync(join(source, "tracked"), "utf8"), "pending source work\n");
   }
 });
 
@@ -1865,6 +1902,41 @@ for (const departure of ["handoff", "exit", "tree", "reload", "shutdown"]) test(
   if (departure === "shutdown") await h.shutdown();
   if (state(h)?.mode === "ui") assert.equal((await h.call({ action: "status" }, undefined, serverTool)).details.owned, false);
   else assert.ok(!h.current.active.includes(serverTool));
+});
+
+test("preparation contracts are just-in-time, managed-Git Build/UI only and secret-safe", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  for (const mode of ["build", "ui"]) {
+    await h.command(mode, "original-plan.md");
+    const prompt = h.current.prompts[0].workflow;
+    for (const contract of [
+      /Managed-worktree preparation — Build\/UI only/,
+      /In managed Git tasks only/,
+      /just before the first Build check or UI startup that needs them/,
+      /ordinary agent tools without routine install\/copy confirmation or a detour from UI to Build/,
+      /Initial Plan entry still copies committed files only; Plan remains non-mutating and Review read-only/,
+      /Non-Git tasks receive no new preparation authority/,
+      /including normal install lifecycle hooks/,
+      /project's existing install command at the appropriate task app\/workspace root/,
+      /Reuse usable dependencies; repeat only for missing or changed prerequisites/,
+      /No new runner, tool, dependencies, intentional manifest\/lockfile updates or dependency-directory sharing\/symlinking/,
+      /identified required Git-ignored app files \(not just environment files\)/,
+      /recorded sourceRoot to the corresponding relative task path, only when the destination is missing/,
+      /each source\/destination is untracked and ignored in its checkout and contained within its canonical root/,
+      /including existing parent paths; never follow symlink escapes, overwrite task files or modify source originals/,
+      /never copy ignored trees, dependencies, caches or databases wholesale/,
+      /without reading their contents into model-facing results, logs or artifacts/,
+      /suppress raw installer\/app output that could disclose secrets/,
+      /Unknown commands, missing required source files, incompatible existing configuration, required lockfile changes, migrations, external-service provisioning or unclear data effects are concrete blockers/,
+    ]) assert.match(prompt, contract);
+    assert.match(prompt.slice(prompt.indexOf(mode === "build" ? "# Build" : "# UI")), /apply the shared managed-worktree preparation rule/);
+  }
+  const server = h.current.extension.tools.get("workflow_ui_server").definition;
+  assert.match(server.description, /ordinary tools first; this helper runs only the dev server/);
+  assert.match(server.description, /No installs, scans, infrastructure or generic jobs/);
+  const guidance = readFileSync(resolve(workflow, "../AGENTS.md"), "utf8");
+  assert.match(guidance, /managed-Git Build\/UI just-in-time preparation/);
+  assert.match(guidance, /helper-owned post-return local-merge ignored-file disposal/);
 });
 
 test("UI prompt retains inspected-command authority, live gate, cleanup and manual fallback", async (t) => {
