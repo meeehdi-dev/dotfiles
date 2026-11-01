@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import crypto, { randomUUID } from "node:crypto";
 import { syncBuiltinESMExports } from "node:module";
@@ -1047,7 +1047,7 @@ test("Finalize delivers bounded decision consolidation and ordered cleanup, not 
     /Only the task-scoped staging, signed commit, normal SSH push and gh PR sequence below is a Git\/publication exception/,
     /Suggest exactly one single-line Conventional Commit subject for the complete task from its start/,
     /Finish with the summary path, cleanup results or exact remaining artifacts\/limitations/,
-    /For documentation-only Finalize, remain in this session unless explicitly asked to exit/,
+    /For documentation-only Finalize in Git, remain in this session unless explicitly asked to exit/,
   ]) assert.match(prompt, contract);
   assert.ok(prompt.indexOf("Fully read and consolidate") < prompt.indexOf("Write the complete summary"));
   assert.ok(prompt.indexOf("Write the complete summary") < prompt.indexOf("Only after successful verification delete"));
@@ -1506,14 +1506,13 @@ for (const mode of modes.filter((mode) => mode !== "plan")) test(`unmanaged ${mo
   assert.deepEqual(snapshot(source), before);
 });
 
-test("detached source HEAD works, but unborn/non-Git/missing-Git and ephemeral entry stop safely", async (t) => {
+test("detached source HEAD works, but unborn/missing-Git and ephemeral Git entry stop safely", async (t) => {
   const source = freshSource("detached"); git(source, "checkout", "--detach");
   const h = await harness({ directory: source }); t.after(() => h.close());
   await h.command("plan", "detached task"); assert.ok(taskState(h)); assert.match(notifications(h), /detached HEAD/);
   const unborn = join(temp, "unborn"); mkdirSync(unborn); git(unborn, "init", "--initial-branch=main");
-  const nongit = join(temp, "not-git"); mkdirSync(nongit);
   const clean = freshSource("ephemeral");
-  for (const [directory, persistent] of [[unborn, true], [nongit, true], [clean, false]]) {
+  for (const [directory, persistent] of [[unborn, true], [clean, false]]) {
     const stopped = await harness({ directory, persistent }); t.after(() => stopped.close());
     await stopped.command("plan", "task"); assert.equal(stopped.sessions.length, 1); assert.equal(stopped.current.sent.length, 0);
     assert.match(notifications(stopped), /could not start/);
@@ -1572,6 +1571,181 @@ test("invalid metadata, branch/repository/session mismatches, and legacy state p
   }
 });
 
+function nonGitDirectory(label = "config spaces $()") {
+  const directory = join(temp, `${label}-${randomUUID()}`);
+  mkdirSync(directory, { recursive: true });
+  return realpathSync(directory);
+}
+
+for (const mode of modes) test(`non-Git ${mode} entry starts in place with session-only identity`, async (t) => {
+  const directory = nonGitDirectory();
+  writeFileSync(join(directory, "config"), "preserve real files");
+  const h = await harness({ directory }); t.after(() => h.close());
+  assert.deepEqual(await h.task(), { existing: "untouched" });
+  assert.deepEqual([...h.current.extension.commands.keys()], ["work"]);
+  await h.command(mode, "/explicit old plans/keep-this-name.md");
+  const data = taskState(h), prompt = h.current.prompts[0].workflow;
+  assert.equal(h.sessions.length, 2, notifications(h));
+  assert.equal(h.current.ctx.cwd, directory);
+  assert.equal(data.kind, "directory"); assert.equal(data.root, directory); assert.equal(data.originalCwd, directory);
+  assert.deepEqual(Object.keys(data).sort(), ["id", "kind", "originalCwd", "projectKey", "root"]);
+  assert.match(data.projectKey, /config-spaces-.*-[0-9a-f]{12}$/);
+  assert.equal(h.current.selections.length, 0);
+  assert.ok(prompt.includes(`/explicit old plans/keep-this-name.md`));
+  assert.ok(prompt.includes(`Default plan: ~/.pi/plans/${data.projectKey}/${data.id}.md`));
+  assert.match(prompt, /Workspace kind: non-Git, in-place/);
+  assert.match(prompt, /No Git baseline or browser file review/);
+  assert.doesNotMatch(prompt, /Canonical repository:|Plannotator code-review target:/);
+  if (mode === "review") {
+    const menu = prompt.match(/No actionable findings outside Git[^\n]+/)?.[0];
+    assert.ok(menu); assert.doesNotMatch(menu, /Review code in Plannotator/);
+    assert.match(menu, /exactly these two actions/);
+    assert.match(prompt, /ask in chat if file scope is unclear/);
+    assert.match(prompt, /exhaustive diff-based change detection is unavailable/);
+  }
+  assert.deepEqual(readdirSync(directory), ["config"]);
+  assert.equal(readFileSync(join(directory, "config"), "utf8"), "preserve real files");
+  const help = (await h.task("Explain workflow help")).workflow;
+  assert.match(help, /Outside Git, clean standalone\/whole-plan Review offers exactly: Approve code and go to UI; Approve code, skip UI, and go to Finalize/);
+  assert.match(help, /No browser file\/code review outside Git/);
+});
+
+test("non-Git handoffs/replanning/resume/tree keep exact identity and references without rediscovery", async (t) => {
+  const directory = nonGitDirectory(), alias = join(temp, `alias-${randomUUID()}`);
+  symlinkSync(directory, alias);
+  const h = await harness({ directory: alias }); t.after(() => h.close());
+  await h.command("review", "/old-name/plan.md");
+  const data = taskState(h);
+  assert.equal(h.current.ctx.cwd, directory, "symlink launch canonicalizes actual cwd");
+  const input = "/old-name/plan.md", notes = "Artifact override: /shared/elsewhere.md; predecessor: /old/review.md; authorized loop NG-1";
+  for (const mode of modes) {
+    await h.call({ mode, input, notes });
+    assert.deepEqual(taskState(h), data); assert.deepEqual(state(h), { mode, input, notes });
+    assert.equal(h.current.ctx.cwd, directory);
+    assert.ok(h.current.prompts[0].workflow.includes(notes));
+  }
+  const records = structuredClone(h.current.records);
+  await h.resume(records);
+  assert.equal(h.current.sent.length, 0); assert.deepEqual(taskState(h), data);
+  await h.tree([]); assert.deepEqual(await h.task(), { existing: "untouched" });
+  await h.tree(records); assert.equal(h.current.sent.length, 1, "tree does not dispatch");
+  assert.ok((await h.task()).workflow.includes(notes));
+  const unrelated = await harness({ directory }); t.after(() => unrelated.close());
+  await unrelated.command("build", input);
+  assert.notEqual(taskState(unrelated).id, data.id);
+  assert.equal(taskState(unrelated).projectKey, data.projectKey);
+  const sameName = join(nonGitDirectory("other-parent"), directory.split("/").at(-1)); mkdirSync(sameName);
+  const other = await harness({ directory: sameName }); t.after(() => other.close());
+  await other.command("finalize", input);
+  assert.notEqual(taskState(other).projectKey, data.projectKey);
+  assert.deepEqual(readdirSync(directory), []);
+});
+
+for (const damage of ["id", "kind", "root", "projectKey", "branch", "missing-task", "repository-appeared", "outside-cwd"]) test(`saved non-Git ${damage} pauses rather than replacing/adopting identity`, async (t) => {
+  const directory = nonGitDirectory(), h = await harness({ directory }); t.after(() => h.close());
+  await h.command("build", "plan.md");
+  const records = structuredClone(h.current.records), saved = records.find((entry) => entry.customType === "workflow-phase").data;
+  if (damage === "id") saved.task.id = "not-a-uuid";
+  if (damage === "kind") saved.task.kind = "unknown";
+  if (damage === "root") saved.task.root += "/..";
+  if (damage === "projectKey") saved.task.projectKey = "wrong-0123456789ab";
+  if (damage === "branch") saved.task.branch = "fake";
+  if (damage === "missing-task") delete saved.task;
+  if (damage === "repository-appeared") git(directory, "init", "--initial-branch=main");
+  await h.resume(records);
+  if (damage === "outside-cwd") h.current.ctx.cwd = nonGitDirectory("outside");
+  assert.equal(h.current.sent.length, 0);
+  assert.match((await h.task()).workflow, /Workflow paused:/);
+  assert.match((await h.task("Explain status and recovery")).workflow, /Workflow paused:/);
+  const count = h.sessions.length;
+  await h.command("review", "plan.md"); assert.equal(h.sessions.length, count);
+  await h.command("return"); assert.equal(h.sessions.length, count);
+});
+
+test("non-Git discovery rejects broken metadata, missing Git, process errors and aborts", async (t) => {
+  for (const damage of ["broken-file", "broken-directory", "missing-git", "process", "abort"]) {
+    const directory = nonGitDirectory(), h = await harness({ directory }); t.after(() => h.close());
+    if (damage === "broken-file") writeFileSync(join(directory, ".git"), "gitdir: missing\n");
+    if (damage === "broken-directory") mkdirSync(join(directory, ".git"));
+    if (damage === "abort") h.current.ctx.signal = AbortSignal.abort();
+    const path = process.env.PATH;
+    try {
+      if (damage === "missing-git") process.env.PATH = join(temp, "no-executables");
+      if (damage === "process") {
+        const bin = nonGitDirectory("fake-git");
+        writeFileSync(join(bin, "git"), "#!/bin/sh\necho 'fatal: permission denied' >&2\nexit 128\n", { mode: 0o755 });
+        process.env.PATH = bin;
+      }
+      await h.command("plan", "task");
+    } finally { process.env.PATH = path; }
+    assert.equal(h.sessions.length, 1, damage); assert.equal(taskState(h), undefined);
+    assert.match(notifications(h), /could not start plan/);
+  }
+});
+
+test("Git's explicit filesystem-boundary diagnostic permits non-Git entry, but an ancestor marker blocks fallback", async (t) => {
+  const bin = nonGitDirectory("mount-git"), directory = nonGitDirectory("mount-root");
+  writeFileSync(join(bin, "git"), "#!/bin/sh\necho 'fatal: not a git repository (or any parent up to mount point /fixture)' >&2\necho 'Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).' >&2\nexit 128\n", { mode: 0o755 });
+  const h = await harness({ directory }); t.after(() => h.close());
+  const path = process.env.PATH;
+  try { process.env.PATH = bin; await h.command("build", "plan.md"); }
+  finally { process.env.PATH = path; }
+  assert.equal(taskState(h)?.kind, "directory", notifications(h));
+  const parent = nonGitDirectory("broken-parent"), child = join(parent, "child"); mkdirSync(child); mkdirSync(join(parent, ".git"));
+  const broken = await harness({ directory: child }); t.after(() => broken.close());
+  await broken.command("plan", "task");
+  assert.equal(broken.sessions.length, 1); assert.match(notifications(broken), /Broken Git metadata/);
+});
+
+test("non-Git helper/command bridge exit starts ordinary Pi without status or publication context", async (t) => {
+  const directory = nonGitDirectory(), h = await harness({ directory }); t.after(() => h.close());
+  await h.command("finalize", "/explicit/plan.md");
+  writeFileSync(join(directory, "actual-config"), "retained");
+  const count = h.sessions.length, url = "https://github.example.invalid/o/r/pull/1";
+  await assert.rejects(() => h.call({ publicationUrl: url }, undefined, "workflow_exit"), /Non-Git tasks cannot accept publication/);
+  assert.equal(h.sessions.length, count);
+  assert.equal(h.current.sent.length, 1, "invalid publication is rejected before queuing the command bridge");
+  // A Git wrapper fails if exit asks for status; read-only repository classification remains required.
+  const bin = nonGitDirectory("status-guard"), gitPath = execFileSync("/usr/bin/which", ["git"], { encoding: "utf8" }).trim();
+  writeFileSync(join(bin, "git"), `#!/bin/sh\nfor arg do\n  if [ "$arg" = status ]; then echo STATUS_FORBIDDEN >&2; exit 99; fi\ndone\nexec '${gitPath.replaceAll("'", "'\\''")}' "$@"\n`, { mode: 0o755 });
+  const path = process.env.PATH;
+  try {
+    process.env.PATH = bin;
+    assert.equal((await h.call({}, undefined, "workflow_exit")).terminate, true);
+  } finally { process.env.PATH = path; }
+  assert.equal(h.sessions.length, count + 1, notifications(h));
+  assert.equal(h.current.ctx.cwd, directory); assert.equal(state(h), undefined);
+  assert.deepEqual(h.current.active, normalTools); assert.equal(h.current.sent.length, 0);
+  const notice = SessionManager.open(h.current.entryFile).getEntries().find((entry) => entry.customType === "workflow-notice").content;
+  assert.doesNotMatch(notice, /Pending files|clean|dirty|Published PR/);
+  assert.deepEqual(await h.task(), { existing: "untouched" });
+  assert.equal(readFileSync(join(directory, "actual-config"), "utf8"), "retained");
+});
+
+for (const failure of ["create", "cancel", "prompt"]) test(`non-Git entry/handoff ${failure} preserves files and recovery`, async (t) => {
+  const directory = nonGitDirectory(), h = await harness({ directory, failure }); t.after(() => h.close());
+  writeFileSync(join(directory, "config"), "preserve");
+  await h.command("build", "old-plan.md");
+  assert.equal(h.sessions.flatMap((session) => session.prompts).length, 0);
+  assert.match(notifications(h), /Retained workspace:.*[\s\S]*Ask in chat to start build with input:\nold-plan.md/);
+  h.setFailure(undefined); await h.command("build", "old-plan.md");
+  const data = taskState(h); h.setFailure(failure);
+  await h.call({ mode: "review", input: "old-plan.md", notes: "NG-1 authorized loop" });
+  assert.deepEqual(taskState(h), data);
+  assert.match(notifications(h), /NG-1 authorized loop/);
+  assert.equal(readFileSync(join(directory, "config"), "utf8"), "preserve");
+});
+
+for (const failure of ["switch", "cancel"]) test(`non-Git exit ${failure} stays recoverable without dispatch`, async (t) => {
+  const directory = nonGitDirectory(), h = await harness({ directory }); t.after(() => h.close());
+  await h.command("finalize", "plan.md"); const data = taskState(h), count = h.sessions.length;
+  h.setFailure(failure); await h.command("return");
+  assert.equal(h.sessions.length, count); assert.deepEqual(taskState(h), data);
+  assert.match(notifications(h), /Workflow return failed:.*[\s\S]*Actual cwd before return:/);
+  h.setFailure(undefined); await h.command("return");
+  assert.equal(state(h), undefined); assert.equal(h.current.sent.length, 0);
+});
+
 const serverTool = "workflow_ui_server";
 test("owned server tool is UI-only, validates task/cwd, and supplied user URLs take no ownership", async (t) => {
   const h = await harness(); t.after(() => h.close());
@@ -1625,6 +1799,28 @@ for (const departure of ["handoff", "publication-return", "exit", "tree", "reloa
     assert.ok(Date.now() < until, "owned synthetic child must stop");
     await delay(25);
   }
+  if (state(h)?.mode === "ui") assert.equal((await h.call({ action: "status" }, undefined, serverTool)).details.owned, false);
+  else assert.ok(!h.current.active.includes(serverTool));
+});
+
+for (const departure of ["handoff", "exit", "tree", "reload", "shutdown"]) test(`non-Git UI containment and owned cleanup on ${departure}`, async (t) => {
+  const directory = nonGitDirectory(), app = join(directory, "app"), outside = nonGitDirectory("outside-app");
+  mkdirSync(app); symlinkSync(outside, join(directory, "escape"));
+  const h = await harness({ directory }); t.after(() => h.close());
+  await h.command("ui", "plan.md");
+  await h.task("Use my user-managed http://localhost:49882/route");
+  assert.equal((await h.call({ action: "status" }, undefined, serverTool)).details.owned, false);
+  for (const cwd of [outside, join(directory, "escape")]) {
+    await assert.rejects(() => h.call({ action: "start", command: process.execPath, cwd }, undefined, serverTool), /inside the task/);
+  }
+  const script = "console.log('http://localhost:49882/route'); setInterval(()=>{},1000);";
+  const result = await h.call({ action: "start", command: process.execPath, args: ["-e", script], cwd: app }, undefined, serverTool);
+  assert.equal(result.details.owned, true); assert.equal(result.details.url, "http://localhost:49882/route");
+  if (departure === "handoff") await h.call({ mode: "finalize", input: "plan.md" });
+  if (departure === "exit") await h.call({}, undefined, "workflow_exit");
+  if (departure === "tree") await h.tree([]);
+  if (departure === "reload") await h.resume(structuredClone(h.current.records));
+  if (departure === "shutdown") await h.shutdown();
   if (state(h)?.mode === "ui") assert.equal((await h.call({ action: "status" }, undefined, serverTool)).details.owned, false);
   else assert.ok(!h.current.active.includes(serverTool));
 });

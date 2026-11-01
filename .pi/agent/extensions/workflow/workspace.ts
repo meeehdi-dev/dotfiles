@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
@@ -8,23 +8,36 @@ import { SessionManager, type ExtensionCommandContext } from "@earendil-works/pi
 
 const exec = promisify(execFile);
 const METADATA = "workflow-task.json";
-export type Task = {
+type DirectoryTask = { kind: "directory"; id: string; projectKey: string; originalCwd: string; root: string };
+type GitTask = {
+  kind?: "git";
   id: string; projectKey: string; repository: string; sourceRoot: string; originalCwd: string;
   root: string; branch: string; commit: string;
 };
+export type Task = GitTask | DirectoryTask;
 const paths = ["repository", "sourceRoot", "originalCwd", "root"] as const;
 export function task(value: unknown): Task {
-  const data = value as Task;
-  if (!data || typeof data.id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(data.id) ||
+  const data = value as GitTask;
+  if ((value as DirectoryTask)?.kind === "directory") {
+    const directory = value as DirectoryTask;
+    if (typeof directory.id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(directory.id) ||
+        typeof directory.root !== "string" || directory.projectKey !== directoryProjectKey(directory.root) || directory.originalCwd !== directory.root ||
+        !isAbsolute(directory.root) || resolve(directory.root) !== directory.root ||
+        ["repository", "sourceRoot", "branch", "commit"].some((key) => key in directory)) {
+      throw new Error("Invalid non-Git workflow task association; ask for recovery direction.");
+    }
+    return { kind: "directory", id: directory.id, projectKey: directory.projectKey, originalCwd: directory.originalCwd, root: directory.root };
+  }
+  if (!data || (data.kind !== undefined && data.kind !== "git") || typeof data.id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(data.id) ||
       data.branch !== `pi/${data.id}` || typeof data.projectKey !== "string" || !/^[\w.-]+-[0-9a-f]{12}$/.test(data.projectKey) ||
       typeof data.commit !== "string" || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(data.commit) ||
       paths.some((key) => typeof data[key] !== "string" || !isAbsolute(data[key]) || resolve(data[key]) !== data[key])) {
     throw new Error("Invalid workflow task association; select the correct task worktree, or ask for legacy-task recovery.");
   }
-  return Object.fromEntries(["id", "projectKey", ...paths, "branch", "commit"].map((key) => [key, data[key as keyof Task]])) as Task;
+  return Object.fromEntries([...(data.kind ? ["kind"] : []), "id", "projectKey", ...paths, "branch", "commit"].map((key) => [key, data[key as keyof GitTask]])) as GitTask;
 }
 export async function git(cwd: string, args: string[], signal?: AbortSignal) {
-  const result = await exec("git", ["--no-optional-locks", "-C", cwd, ...args], { encoding: "utf8", maxBuffer: 1024 * 1024, signal });
+  const result = await exec("git", ["--no-optional-locks", "-C", cwd, ...args], { encoding: "utf8", maxBuffer: 1024 * 1024, signal, env: { ...process.env, LC_ALL: "C" } });
   return result.stdout.endsWith("\n") ? result.stdout.slice(0, -1) : result.stdout;
 }
 async function identity(cwd: string, signal?: AbortSignal) {
@@ -33,7 +46,46 @@ async function identity(cwd: string, signal?: AbortSignal) {
   const admin = realpathSync(await git(cwd, ["rev-parse", "--absolute-git-dir"], signal));
   return { root, repository, admin };
 }
+function directoryProjectKey(root: string) {
+  return `${basename(root).replace(/[^\w.-]/g, "-")}-${createHash("sha256").update(root).digest("hex").slice(0, 12)}`;
+}
+
+// Only Git's explicit non-repository result permits in-place entry, never a broken .git marker.
+export async function nonGit(cwd: string, signal?: AbortSignal) {
+  try { await git(cwd, ["rev-parse", "--show-toplevel"], signal); return false; }
+  catch (error) {
+    const failure = error as { code?: number; stderr?: string };
+    const message = failure.stderr ?? "";
+    if (failure.code !== 128 || (!/^fatal: not a git repository \(or any of the parent directories\): \.git\s*$/.test(message) &&
+        !/^fatal: not a git repository \(or any parent up to mount point [^\n]+\)\nStopping at filesystem boundary \(GIT_DISCOVERY_ACROSS_FILESYSTEM not set\)\.\s*$/.test(message))) throw error;
+    let current = realpathSync(cwd);
+    if (!statSync(current).isDirectory()) throw new Error(`Not a directory: ${current}`);
+    while (true) {
+      try { lstatSync(join(current, ".git")); throw new Error(`Broken Git metadata at ${current}; ask for recovery, not in-place fallback.`); }
+      catch (marker) { if ((marker as NodeJS.ErrnoException).code !== "ENOENT") throw marker; }
+      const parent = dirname(current);
+      if (parent === current) break;
+      current = parent;
+    }
+    signal?.throwIfAborted();
+    return true;
+  }
+}
 export async function association(cwd: string, expected?: Task, signal?: AbortSignal): Promise<Task | undefined> {
+  if (expected) expected = task(expected);
+  const outside = await nonGit(cwd, signal);
+  if (expected?.kind === "directory") {
+    const location = relative(expected.root, realpathSync(cwd));
+    if (!outside || realpathSync(expected.root) !== expected.root || !statSync(expected.root).isDirectory() ||
+        location === ".." || location.startsWith(`..${sep}`) || isAbsolute(location)) {
+      throw new Error(`Non-Git workflow directory mismatch or repository appeared at ${cwd}; ask for direction before continuing.`);
+    }
+    return expected;
+  }
+  if (outside) {
+    if (expected) throw new Error(`Expected managed Git task at ${cwd}; ask for recovery before continuing.`);
+    return;
+  }
   const info = await identity(cwd, signal);
   let value: unknown;
   try { value = JSON.parse(readFileSync(join(info.admin, METADATA), "utf8")); }
@@ -42,6 +94,7 @@ export async function association(cwd: string, expected?: Task, signal?: AbortSi
     throw new Error(`Cannot read workflow task association at ${join(info.admin, METADATA)}: ${String(error)}`);
   }
   const data = task(value);
+  if (data.kind === "directory") throw new Error("Git metadata cannot describe a non-Git task.");
   if (data.root !== info.root || data.repository !== info.repository ||
       await git(cwd, ["symbolic-ref", "--quiet", "--short", "HEAD"], signal) !== data.branch ||
       (expected && JSON.stringify(data) !== JSON.stringify(task(expected)))) {
@@ -60,6 +113,11 @@ export async function association(cwd: string, expected?: Task, signal?: AbortSi
 export async function workspace(ctx: ExtensionCommandContext, mode: string, expected?: Task) {
   const existing = await association(ctx.cwd, expected, ctx.signal);
   if (existing) return { task: existing, cwd: realpathSync(ctx.cwd) };
+  if (await nonGit(ctx.cwd, ctx.signal)) {
+    const root = realpathSync(ctx.cwd);
+    const data: DirectoryTask = { kind: "directory", id: randomUUID(), projectKey: directoryProjectKey(root), originalCwd: root, root };
+    return { task: data, cwd: root };
+  }
   if (mode !== "plan") throw new Error("No managed task worktree. Enter the existing task worktree and retry; for a new task start /work. Legacy tasks need explicit user direction, not automatic migration.");
   if (!ctx.sessionManager.getSessionFile()) throw new Error("Workspace switching needs a persistent session. Relaunch Pi in persistent mode and run /work; no worktree was created.");
   const source = await identity(ctx.cwd, ctx.signal);
@@ -80,7 +138,7 @@ export async function workspace(ctx: ExtensionCommandContext, mode: string, expe
   const project = basename(source.repository) === ".git" ? basename(dirname(source.repository)) : basename(source.repository);
   const projectKey = `${project.replace(/[^\w.-]/g, "-")}-${createHash("sha256").update(source.repository).digest("hex").slice(0, 12)}`;
   const root = join(homedir(), ".pi", "worktrees", projectKey, id);
-  const data: Task = { id, projectKey, repository: source.repository, sourceRoot: source.root, originalCwd, root, branch: `pi/${id}`, commit };
+  const data: GitTask = { id, projectKey, repository: source.repository, sourceRoot: source.root, originalCwd, root, branch: `pi/${id}`, commit };
   mkdirSync(dirname(root), { recursive: true });
   try {
     await git(source.root, ["worktree", "add", "-b", data.branch, root, commit], ctx.signal);

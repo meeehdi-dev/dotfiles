@@ -42,8 +42,9 @@ function contrastForeground(color: Color) {
 }
 const recoveryRequest = ({ mode, input }: Phase) => `Ask in chat to start ${mode} with input:\n${input || "not supplied — clarify in chat"}`;
 
-function publicationUrl(value: unknown, mode?: Mode): string | undefined {
+function publicationUrl(value: unknown, mode?: Mode, data?: Task): string | undefined {
   if (value === undefined) return;
+  if (data?.kind === "directory") throw new Error("Non-Git tasks cannot accept publication return context.");
   if (mode !== "finalize" || typeof value !== "string") throw new Error("Publication return context is Finalize-only and needs a verified HTTPS PR URL.");
   const url = new URL(value);
   if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || !/^\/[^/]+\/[^/]+\/pull\/[1-9]\d*$/.test(url.pathname)) {
@@ -53,7 +54,7 @@ function publicationUrl(value: unknown, mode?: Mode): string | undefined {
 }
 
 function taskGuidance(data: Task) {
-  return `Task: ${data.id}\nProject key: ${data.projectKey}\nCanonical repository: ${data.repository}\nTask checkout / Plannotator code-review target: ${data.root}\nDefault plan: ~/.pi/plans/${data.projectKey}/${data.id}.md\nDefault Plan feedback: ~/.pi/plans/${data.projectKey}/${data.id}-<topic>.md\nDefault Review/UI feedback: ~/.pi/reviews/${data.projectKey}/${data.id}-<topic>-<UTC timestamp>.md\nThese defaults do not replace exact references or per-artifact overrides. Pass the task checkout explicitly as Plannotator code review's target, even when launched in an application subdirectory; never review the source checkout by default.`;
+  return `Task: ${data.id}\nProject key: ${data.projectKey}\n${data.kind === "directory" ? `Workspace kind: non-Git, in-place\nCanonical directory: ${data.root}\nNo Git baseline or browser file review; edits affect actual files without isolation or rollback.` : `Canonical repository: ${data.repository}\nTask checkout / Plannotator code-review target: ${data.root}`}\nDefault plan: ~/.pi/plans/${data.projectKey}/${data.id}.md\nDefault Plan feedback: ~/.pi/plans/${data.projectKey}/${data.id}-<topic>.md\nDefault Review/UI feedback: ~/.pi/reviews/${data.projectKey}/${data.id}-<topic>-<UTC timestamp>.md\nThese defaults do not replace exact references or per-artifact overrides.${data.kind === "directory" ? " Identity lives only in the session; resume it to continue this task. Never infer identity from an old plan filename." : " Pass the task checkout explicitly as Plannotator code review's target, even when launched in an application subdirectory; never review the source checkout by default."}`;
 }
 
 function phase(value: unknown): Phase | undefined {
@@ -123,9 +124,10 @@ export default async function workflowModes(pi: ExtensionAPI) {
       await server.stop();
       instructions(state.mode);
       const current = restore(ctx);
+      if (current && !current.task) throw new Error("Legacy/unassociated workflow session; ask for recovery direction, not automatic migration.");
       const target = await workspace(ctx, state.mode, current?.task);
       state = { ...state, task: target.task };
-      recovery = `Task ${target.task.id}: ${target.task.branch}\nRetained workspace: ${target.task.root}\nLaunch cwd: ${target.cwd}`;
+      recovery = `Task ${target.task.id}: ${target.task.kind === "directory" ? "non-Git, in-place" : target.task.branch}\nRetained workspace: ${target.task.root}\nLaunch cwd: ${target.cwd}`;
       const request = `Begin ${state.mode} now; do not ask for another start confirmation.\n\n${state.input.trim() ? `User input (task/report or plan/reference):\n${state.input}` : "Ask the user for the task or plan/reference you need."}${state.notes ? `\n\nHandoff notes:\n${state.notes}` : ""}`;
       // Session replacement reloads extensions: persist plain data and use only the fresh context afterward.
       const withSession = async (next: ReplacedSessionContext) => {
@@ -168,7 +170,7 @@ export default async function workflowModes(pi: ExtensionAPI) {
       await ctx.waitForIdle();
       ctx.signal?.throwIfAborted();
       const state = restore(ctx);
-      const pr = publicationUrl(published, state?.mode);
+      const pr = publicationUrl(published, state?.mode, state?.task);
       if (pr) recovery += `\nReported published PR: ${pr}`;
       if (state && !state.task) throw new Error("Legacy/unassociated workflow session; ask for recovery direction, not automatic migration.");
       const data = await association(actualCwd, state?.task, ctx.signal);
@@ -176,7 +178,7 @@ export default async function workflowModes(pi: ExtensionAPI) {
       recovery += `\nRetained task workspace: ${data.root}\nOriginal launch cwd: ${data.originalCwd}`;
       if (!ctx.sessionManager.getSessionFile()) throw new Error("Return needs a persistent session; use the manual launch route.");
       await server.stop();
-      const pending = await git(data.root, ["status", "--porcelain=v1", "--untracked-files=all"], ctx.signal);
+      const pending = data.kind !== "directory" && await git(data.root, ["status", "--porcelain=v1", "--untracked-files=all"], ctx.signal);
       const notice = `Returned to ${data.originalCwd}. Ordinary Pi; no work started. Task retained at ${data.root}.${pending ? " Pending files remain there." : ""} ${pr ? `Published PR: ${pr}. CI and merge remain yours; no integration or cleanup performed.` : "Nothing was published, approved, or marked complete."}`;
       const file = entrySession(data.originalCwd, undefined, ctx, notice);
       recovery += `\nReturn session: ${file}`;
@@ -242,13 +244,13 @@ export default async function workflowModes(pi: ExtensionAPI) {
   pi.registerTool({
     name: EXIT, label: "Return to ordinary Pi", defaultActive: false,
     exposure: "model-only", executionMode: "sequential",
-    description: "Return to fresh ordinary Pi at the original launch cwd on explicit exit, or after confirmed authorized Finalize publication. This tool never publishes. Omit publicationUrl for exit without publishing; only Finalize may supply the verified PR URL as display context, not proof/authority. Preserves pending files, branch/worktree, sessions and artifacts. End the turn after calling. On failure preserve any PR URL and retry in chat, resume the workflow session or relaunch manually; never assume return succeeded.",
-    parameters: Type.Object({ publicationUrl: Type.Optional(Type.String({ description: "Finalize-only verified HTTPS PR URL, after reporting successful publication. Display context only." })) }),
+    description: "Return to fresh ordinary Pi at the original launch cwd on explicit exit, after successful non-Git Finalize, or after confirmed authorized Git Finalize publication. This tool never publishes. Omit publicationUrl for exit without publishing; only managed Git Finalize may supply the verified PR URL as display context, not proof/authority. Preserves pending files, branch/worktree, sessions and artifacts. End the turn after calling. On failure preserve any PR URL and retry in chat, resume the workflow session or relaunch manually; never assume return succeeded.",
+    parameters: Type.Object({ publicationUrl: Type.Optional(Type.String({ description: "Managed-Git Finalize-only verified HTTPS PR URL, after reporting successful publication. Display context only." })) }),
     async execute(_id, params, signal, _update, ctx) {
       if (signal?.aborted || ctx.signal?.aborted) throw new Error("Workflow exit cancelled.");
       const state = restore(ctx);
       if (!state) throw new Error("Workflow exit helper is phase-scoped; resume the task's workflow session, or use /work to enter Plan first and request return in chat.");
-      const pr = publicationUrl(params.publicationUrl, state.mode);
+      const pr = publicationUrl(params.publicationUrl, state.mode, state.task);
       const cwd = ctx.cwd;
       try {
         dispatch({ published: pr, signal: signal && ctx.signal ? AbortSignal.any([signal, ctx.signal]) : signal ?? ctx.signal });
@@ -297,22 +299,22 @@ export default async function workflowModes(pi: ExtensionAPI) {
       action: Type.Union([Type.Literal("start"), Type.Literal("status"), Type.Literal("stop")]),
       command: Type.Optional(Type.String({ minLength: 1 })),
       args: Type.Optional(Type.Array(Type.String())),
-      cwd: Type.Optional(Type.String({ description: "Absolute inspected application directory inside this task checkout." })),
+      cwd: Type.Optional(Type.String({ description: "Absolute inspected application directory inside this validated task root." })),
     }),
     async execute(_id, params, signal, _update, ctx) {
       const state = restore(ctx);
       if (state?.mode !== "ui" || !state.task) throw new Error("Owned dev servers are UI-only; use manual startup/URL outside UI.");
       const abort = signal && ctx.signal ? AbortSignal.any([signal, ctx.signal]) : signal ?? ctx.signal;
       abort?.throwIfAborted();
-      // Stop remains available even if checkout identity has since broken.
+      // Stop remains available even if workspace identity has since broken.
       if (params.action === "stop") await server.stop();
       else {
         const data = await association(ctx.cwd, state.task, abort);
-        if (!data) throw new Error("No managed task checkout.");
+        if (!data) throw new Error("No validated task workspace.");
         if (params.action === "start") {
           if (!params.command || !params.cwd || !isAbsolute(params.cwd)) throw new Error("Start requires inspected command and absolute application cwd.");
           const cwd = realpathSync(params.cwd), location = relative(data.root, cwd);
-          if (location === ".." || location.startsWith(`..${sep}`) || isAbsolute(location)) throw new Error("Dev-server cwd must be inside the task checkout.");
+          if (location === ".." || location.startsWith(`..${sep}`) || isAbsolute(location)) throw new Error("Dev-server cwd must be inside the task root.");
           await server.start(params.command, params.args ?? [], cwd, abort);
         } else if (params.action !== "status") throw new Error("Expected start/status/stop.");
       }
@@ -356,6 +358,6 @@ export default async function workflowModes(pi: ExtensionAPI) {
         ctx.ui.notify(`Skill ${name} unavailable; continuing with the phase instructions: ${String(error)}`, "warning");
       }
     }
-    event.systemPromptOptions.sections.workflow = `${skills.join("\n\n")}\n\n${prompt}\n\n${taskGuidance(state.task)}\nTask workspace: ${JSON.stringify(state.task)}\nThis task association is workspace context, not progress or approval. All phases reuse this checkout; worktrees are not a sandbox.\nPhase: ${state.mode}\nInput: ${state.input || "not supplied — ask the user"}${state.notes ? `\nHandoff notes: ${state.notes}` : ""}`;
+    event.systemPromptOptions.sections.workflow = `${skills.join("\n\n")}\n\n${prompt}\n\n${taskGuidance(state.task)}\nTask workspace: ${JSON.stringify(state.task)}\nThis task association is workspace context, not progress or approval. ${state.task.kind === "directory" ? "All phases edit this actual directory in place; no isolation or Git baseline exists." : "All phases reuse this checkout; worktrees are not a sandbox."}\nPhase: ${state.mode}\nInput: ${state.input || "not supplied — ask the user"}${state.notes ? `\nHandoff notes: ${state.notes}` : ""}`;
   });
 }
