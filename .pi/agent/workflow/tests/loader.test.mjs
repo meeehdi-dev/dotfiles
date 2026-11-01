@@ -20,9 +20,7 @@ for (const kind of ["direct", "absolute symlink", "relative symlink"]) {
     const loaded = await loadExtensions([entry], temp, createEventBus(), createExtensionRuntime());
     assert.deepEqual(loaded.errors, []);
     assert.equal(loaded.extensions.length, 1);
-    for (const command of ["plan", "build", "review", "ui", "finalize", "workflow-exit"]) {
-      assert.ok(loaded.extensions[0].commands.has(command), command);
-    }
+    assert.deepEqual([...loaded.extensions[0].commands.keys()], ["work"]);
     assert.ok(loaded.extensions[0].tools.has("workflow_ui_server"));
   });
 }

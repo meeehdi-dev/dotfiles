@@ -60,8 +60,8 @@ export async function association(cwd: string, expected?: Task, signal?: AbortSi
 export async function workspace(ctx: ExtensionCommandContext, mode: string, expected?: Task) {
   const existing = await association(ctx.cwd, expected, ctx.signal);
   if (existing) return { task: existing, cwd: realpathSync(ctx.cwd) };
-  if (mode !== "plan") throw new Error("No managed task worktree. Enter the existing task worktree and retry; for a new task start /plan. Legacy tasks need explicit user direction, not automatic migration.");
-  if (!ctx.sessionManager.getSessionFile()) throw new Error("Workspace switching needs a persistent session. Relaunch Pi in persistent mode and run /plan; no worktree was created.");
+  if (mode !== "plan") throw new Error("No managed task worktree. Enter the existing task worktree and retry; for a new task start /work. Legacy tasks need explicit user direction, not automatic migration.");
+  if (!ctx.sessionManager.getSessionFile()) throw new Error("Workspace switching needs a persistent session. Relaunch Pi in persistent mode and run /work; no worktree was created.");
   const source = await identity(ctx.cwd, ctx.signal);
   const originalCwd = realpathSync(ctx.cwd);
   const commit = await git(ctx.cwd, ["rev-parse", "--verify", "HEAD^{commit}"], ctx.signal);
@@ -70,7 +70,7 @@ export async function workspace(ctx: ExtensionCommandContext, mode: string, expe
   const pending = await git(ctx.cwd, ["status", "--porcelain=v1", "--untracked-files=all"], ctx.signal);
   if (pending) {
     const proceed = "Proceed from committed files only";
-    if (!ctx.hasUI) throw new Error("Source has staged, unstaged, or untracked changes. No task created. Use interactive/RPC /plan to choose committed files only, or enter an existing task worktree; pending files will not be copied.");
+    if (!ctx.hasUI) throw new Error("Source has staged, unstaged, or untracked changes. No task created. Use interactive/RPC /work to choose committed files only, or enter an existing task worktree; pending files will not be copied.");
     const choice = await ctx.ui.select(`Source has pending changes. Start from ${branch} (${commit})? Pending files stay in ${source.root}; nothing is copied, stashed, or staged.`, [proceed, "Cancel"], { signal: ctx.signal });
     ctx.signal?.throwIfAborted();
     if (choice !== proceed) throw new Error("Task creation cancelled; no phase started. Continue in chat when ready.");

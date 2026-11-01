@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -23,7 +23,9 @@ for (const failure of [undefined, "selection-unavailable", "switch-create", "swi
     for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
     rmSync(temp, { recursive: true, force: true });
   });
-  mkdirSync(join(source, ".pi", "extensions"), { recursive: true }); mkdirSync(agentDir);
+  mkdirSync(join(source, ".pi", "extensions"), { recursive: true });
+  mkdirSync(join(agentDir, "workflow"), { recursive: true });
+  for (const name of ["common", "plan", "build"]) cpSync(new URL(`../${name}.md`, import.meta.url), join(agentDir, "workflow", `${name}.md`));
   const git = (...args) => execFileSync("git", ["-C", source, ...args], { encoding: "utf8", env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" } });
   git("init", "--initial-branch=main"); git("config", "user.name", "Runtime Test"); git("config", "user.email", "runtime@example.invalid");
   writeFileSync(join(source, "AGENTS.md"), "COMMITTED TARGET INSTRUCTIONS\n");
@@ -37,6 +39,16 @@ for (const failure of [undefined, "selection-unavailable", "switch-create", "swi
   // Ignored dependencies are not needed. Do not copy dirty instructions into the new checkout.
   writeFileSync(join(source, "AGENTS.md"), "SOURCE PENDING INSTRUCTIONS\n");
   const captured = [], notifications = [];
+  let replacementFinished;
+  const replace = async (operation) => {
+    try { return await operation(); }
+    finally { replacementFinished?.(); }
+  };
+  const call = async (session, name, args) => {
+    const done = new Promise((resolve) => { replacementFinished = resolve; });
+    await session.agent.state.tools.find((tool) => tool.name === name).execute("transport", args);
+    await done;
+  };
   const credentials = new InMemoryCredentialStore();
   let failReplacement = false;
   const createRuntime = async ({ cwd, sessionManager, sessionStartEvent }) => {
@@ -69,8 +81,8 @@ for (const failure of [undefined, "selection-unavailable", "switch-create", "swi
     if (failReplacement && failure?.endsWith("rebind")) throw new Error("TARGET_REBIND_FAILED");
     return session.bindExtensions({ uiContext: ui, commandContextActions: {
     waitForIdle: () => session.waitForIdle(),
-    newSession: (options) => runtime.newSession(withCapture(options)),
-    switchSession: (file, options) => runtime.switchSession(file, withCapture(options)),
+    newSession: (options) => replace(() => runtime.newSession(withCapture(options))),
+    switchSession: (file, options) => replace(() => runtime.switchSession(file, withCapture(options))),
     } });
   };
   runtime.setRebindSession(bind); await bind(runtime.session);
@@ -79,13 +91,13 @@ for (const failure of [undefined, "selection-unavailable", "switch-create", "swi
   if (failure?.startsWith("switch")) failReplacement = true;
   const oldSession = runtime.session, oldContext = oldSession.createReplacedSessionContext();
   assert.match(oldSession.systemPrompt, /SOURCE PENDING INSTRUCTIONS/);
-  await oldSession.prompt("/plan A runtime task");
+  await oldSession.prompt("/work A runtime task");
   if (failure?.startsWith("new") || failure?.startsWith("exit")) {
     assert.equal(captured.length, 1, notifications.join("\n"));
     captured.length = 0;
     failReplacement = true;
     const taskSession = runtime.session;
-    await taskSession.prompt(failure.startsWith("exit") ? "/workflow-exit" : "/build /original-plan.md");
+    await call(taskSession, failure.startsWith("exit") ? "workflow_exit" : "workflow_handoff", failure.startsWith("exit") ? {} : { mode: "build", input: "/original-plan.md" });
     assert.throws(() => taskSession.createReplacedSessionContext().getSystemPromptOptions(), /stale|disposed/);
   }
   if (failure === "selection-unavailable") {
@@ -128,7 +140,7 @@ for (const failure of [undefined, "selection-unavailable", "switch-create", "swi
   assert.equal(resolve(runtime.session.sessionManager.getSessionDir()), join(temp, "custom sessions"));
   const taskRoot = runtime.cwd, taskSession = runtime.session;
   captured.length = 0;
-  await taskSession.prompt("/workflow-exit");
+  await call(taskSession, "workflow_exit", {});
   assert.equal(runtime.cwd, source);
   assert.notEqual(runtime.session, taskSession);
   assert.equal(captured.length, 0, "return starts no model turn or phase dispatch");

@@ -21,7 +21,7 @@ const skillFixtures = ["plannotator", "ponytail", "ponytail-review"].map((name) 
   writeFileSync(filePath, `# ${name}\nFixture instructions for ${name}.\n`);
   return { name, baseDir, filePath };
 });
-for (const mode of modes) cpSync(join(workflow, `${mode}.md`), join(agentDir, "workflow", `${mode}.md`));
+for (const name of ["common", ...modes]) cpSync(join(workflow, `${name}.md`), join(agentDir, "workflow", `${name}.md`));
 const previousAgent = process.env.PI_CODING_AGENT_DIR;
 process.env.PI_CODING_AGENT_DIR = agentDir;
 after(() => {
@@ -153,7 +153,7 @@ async function harness({ entries = [], skills = ["plannotator", "ponytail", "pon
         await event(session, "session_shutdown");
         session.runtime.invalidate(); session.bus.clear();
         const next = await makeSession([], workingDirectory);
-        await options.setup?.({ appendCustomEntry: (customType, data) => next.records.push({ type: "custom", customType, data: structuredClone(data) }) });
+        await options.setup?.({ appendCustomEntry: (customType, data) => next.records.push({ type: "custom", customType, data: JSON.parse(JSON.stringify(data)) }) });
         await options.withSession?.({ ...next.ctx,
           sendUserMessage: async (content, options) => {
             if (failure === "prompt") throw new Error("prompt delivery unavailable");
@@ -187,7 +187,14 @@ async function harness({ entries = [], skills = ["plannotator", "ponytail", "pon
   }
   return {
     sessions, get current() { return current; },
-    command: async (name, input = "") => { await current.extension.commands.get(name).handler(input, current.ctx); await flush(); },
+    // Phase setup uses the public handoff tool; only work is a registered command.
+    async command(name, input = "") {
+      if (name === "plan" || name === "work") {
+        await current.extension.commands.get("work").handler(input, current.ctx); await flush();
+      } else {
+        await this.call(name === "return" ? {} : { mode: name, input }, undefined, name === "return" ? "workflow_exit" : "workflow_handoff");
+      }
+    },
     async call(input, signal, tool = "workflow_handoff") {
       const session = current;
       session.busy++;
@@ -218,12 +225,11 @@ test("idle Pi shows auto without a workflow prompt, helper, permission hooks, or
   assert.deepEqual([...h.current.extension.tools.keys()], [...workflowTools, "workflow_ui_server"]);
   for (const name of [...workflowTools, "workflow_ui_server"]) assert.equal(h.current.extension.tools.get(name).definition.defaultActive, false);
   assert.ok(!h.current.extension.handlers.has("tool_call"));
-  await h.command("workflow");
-  assert.match(h.current.notices.at(-1).content, /Phase: not selected/);
+  assert.deepEqual([...h.current.extension.commands.keys()], ["work"]);
   assert.equal(h.sessions.length, 1);
 });
 
-test("every phase command immediately starts a fresh extension runtime, and may be repeated or skipped", async (t) => {
+test("chat-directed phase handoffs start fresh extension runtimes, and may be repeated or skipped", async (t) => {
   const h = await harness(); t.after(() => h.close());
   for (const mode of ["finalize", "plan", "build", "review", "review", "ui", "plan"]) {
     const previous = h.current;
@@ -271,9 +277,9 @@ test("missing input is clarified in a usable fresh phase, not refused", async (t
 
 test("tasks/references are intact text, not parsed by suffix, filesystem existence, quoting, or shell syntax", async (t) => {
   const h = await harness(); t.after(() => h.close());
-  for (const input of ["Investigate missing/report.md", '  Fix O\'Brien\'s "parser"\nwith \\backslashes  ', '"quoted prose"', "../missing directory", "~/plan with spaces.md", "$(touch NEVER-RUN); nonexistent.md"]) {
+  for (const input of ["", "Investigate missing/report.md", '  Fix O\'Brien\'s "parser"\nwith \\backslashes  ', '"quoted prose"', "../missing directory", "~/plan with spaces.md", "$(touch NEVER-RUN); nonexistent.md", "review this change", '{"mode":"build","input":"plan.md"}', randomUUID()]) {
     await h.command("plan", input);
-    assert.equal(state(h).input, input);
+    assert.deepEqual(state(h), { mode: "plan", input });
     assert.ok(h.current.sent[0].content.includes(input));
   }
   assert.equal(existsSync(join(cwd, "NEVER-RUN")), false);
@@ -288,13 +294,40 @@ test("handoffs wait for their tool to return, carry only reference/notes, and us
     const previous = h.current;
     const result = await h.call({ mode, input, notes });
     assert.equal(result.terminate, true);
-    assert.match(result.content[0].text, new RegExp(`/${mode} `));
+    assert.match(result.content[0].text, new RegExp(`start ${mode} with input:`));
+    assert.equal(h.sessions.length, modes.indexOf(mode) + 3, "one replacement per handoff");
+    assert.match(previous.sent.at(-1).content, /^\/work [0-9a-f-]+$/);
     assert.notEqual(h.current, previous);
     assert.deepEqual(state(h), { mode, input, notes });
     assert.ok(h.current.sent[0].content.includes(notes));
     assert.ok(!h.current.sent[0].content.includes("PRIVATE old transcript"));
     assert.equal(h.current.records.filter((entry) => entry.type === "message").length, 1);
   }
+});
+
+test("internal dispatch consumes its token once and honors cancellation after queuing", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  await h.command("work", "task");
+  h.setFailure("drop");
+  const queued = [];
+  h.current.runtime.sendUserMessage = (content) => queued.push(content.slice("/work ".length));
+  const controller = new AbortController();
+  await h.call({ mode: "review", input: "original.md", notes: "Keep notes" }, controller.signal);
+  const count = h.sessions.length;
+  controller.abort();
+  await h.command("work", queued[0]);
+  assert.equal(h.sessions.length, count);
+  assert.match(notifications(h), /dispatch cancelled/);
+  await h.command("work", queued[0]);
+  assert.deepEqual(state(h), { mode: "plan", input: queued[0] }, "consumed token is literal text on retry");
+  h.setFailure(undefined);
+  const previous = h.current;
+  await h.call({ mode: "review", input: "original.md", task: { root: "/untrusted" } });
+  const token = previous.sent.at(-1).content.slice("/work ".length);
+  assert.equal(state(h).mode, "review");
+  assert.deepEqual(taskState(h), defaultTask, "model-supplied metadata is not trusted");
+  await h.command("work", token);
+  assert.deepEqual(state(h), { mode: "plan", input: token });
 });
 
 test("feature progress notes survive fresh handoff and restore without automatic dispatch or artifact writes", async (t) => {
@@ -409,18 +442,18 @@ test("authorized loop contracts defer blockers, exhaust independent work, and ke
       assert.match(prompt, /Partial implementation can be reviewed but cannot receive a clean whole-plan verdict/);
       assert.match(prompt, /Whole-plan actionable in-scope findings automatically return to focused Build, then fresh whole-plan Review/);
       assert.match(prompt, /Only a whole-plan review with no unresolved actionable findings, incomplete features, or blockers reaches the normal human approval flow/);
-      assert.match(prompt, /Standalone \/review never infers implementation authority from a plan filename, prior reports, or numbered features/);
+      assert.match(prompt, /Standalone Review never infers implementation authority from a plan filename, prior reports, or numbered features/);
       assert.match(prompt, /it stays read-only and uses the explicit findings-routing choice below/);
       assert.match(prompt, /Review never fixes source itself/);
-      assert.match(prompt, /following findings choice applies only without implementation-loop authority/);
+      assert.match(prompt, /Standalone findings.*only without implementation-loop authority/);
       assert.match(prompt, /Standalone findings: show the report and use workflow_question to ask whether to return to Plan/);
-      assert.match(prompt, /never a clean feature Review or incomplete\/blocked loop/);
+      assert.match(prompt, /Human approval is limited to clean standalone or clean whole-plan Review/);
+      for (const excluded of [/exclude clean feature Review/, /incomplete\/blocked loops/, /UI-correction loops with explicit return-to-UI authority/]) assert.match(prompt, excluded);
     }
   }
-  await h.command("workflow");
-  const help = h.current.notices.at(-1).content;
-  assert.match(help, /per-feature Build ↔ Review → whole-plan Review ↔ focused Build/);
-  assert.match(help, /Standalone \/review stays read-only and asks before findings routing/);
+  const context = (await h.task("Explain workflow status and help")).workflow;
+  assert.match(context, /Phase: review/);
+  assert.match(context, /Standalone Review remains read-only with an explicit findings-routing choice/);
 });
 
 const codeReviewDecision = {
@@ -467,7 +500,8 @@ test("clean-review prompt makes browser review opt-in and preserves approval, sc
   assert.ok(menu);
   assert.deepEqual([...menu.matchAll(/"([^"]+)"/g)].map((match) => match[1]), codeReviewDecision.options);
   for (const contract of [
-    /clean standalone or clean whole-plan Review, never a clean feature Review or incomplete\/blocked loop/,
+    /Human approval is limited to clean standalone or clean whole-plan Review/,
+    /exclude clean feature Review, incomplete\/blocked loops and UI-correction loops/,
     /Never open code review merely because automated review completed/,
     /Resolve the original implementation-plan reference through the supplied reference\/reports before UI\/Finalize routing/,
     /ask in chat if missing or ambiguous, never guess the latest plan or substitute a report/,
@@ -476,24 +510,24 @@ test("clean-review prompt makes browser review opt-in and preserves approval, sc
     /only opts into browser review; it does not approve code or authorize UI\/Finalize/,
     /Before opening, explain the approval gate.*plain close may send no message and they can resume in chat/,
     /Open ordinary Plannotator code review with gate: true.*then end the turn/,
-    /Default is this project's uncommitted changes/,
-    /--diff-type uncommitted.*saved browser preferences can differ/,
-    /Ask the user to verify\/change the comparison/,
-    /explicit branch base use the tool's options.base.*never silently choose a different scope/,
+    /Intended scope is staged, unstaged and new changes/,
+    /tool has no diff-type parameter/,
+    /browser defaults may use trunk\/merge-base or saved preferences, not uncommitted changes/,
+    /verify\/change the comparison in supported browser controls/,
+    /options.base for an explicit base/,
+    /tool cannot express.*ask the user to run \/plannotator-review --diff-type uncommitted/,
+    /Never claim the extension forced a diff type or silently choose a different scope/,
     /Human annotations: save a new standalone feedback report.*preserve the originals/,
     /requests to revalidate, not proven defects or automatically authorized new scope/,
     /workflow_question for Plan \(revalidate feedback\) or proceed without replanning/,
     /proceeding leaves the requests unimplemented/,
     /After explicit browser approval.*workflow_question to ask UI .* or Finalize .*unless the user already explicitly specified the destination/,
-    /Silent close, cancellation, empty feedback without explicit approval, failed browser opening, or unavailable UI is not approval and authorizes no destination/,
-    /without UI, ask the returned question\/options in chat/,
-    /cancelled picker means wait for chat without dispatching or reopening/,
+
     /all known same-task clarification, feature-review, blocker, whole-plan review, and human feedback reports/,
     /forwarding paths from incoming notes/,
     /material decisions, accepted deferrals\/limitations and their documented reasons/,
   ]) assert.match(review, contract);
-  await h.command("workflow");
-  for (const action of codeReviewDecision.options) assert.ok(h.current.notices.at(-1).content.includes(action));
+  for (const action of codeReviewDecision.options) assert.ok(prompt.includes(action));
 });
 
 const decision = { question: "Review is complete. UI review or skip to Finalize?", options: ["UI", "Finalize"] };
@@ -616,6 +650,8 @@ test("every phase loads exactly its skills on entry and resume; missing skills w
     assert.ok(h.current.sent[0].content.startsWith(`Begin ${mode}`));
     assert.equal(h.current.sent[0].options.expandPromptTemplates, false);
     const check = (prompt) => {
+      for (const name of ["common", mode]) assert.ok(prompt.workflow.includes(readFileSync(join(agentDir, "workflow", `${name}.md`), "utf8")), `complete ${name} contract`);
+      for (const other of modes.filter((name) => name !== mode)) assert.ok(!prompt.workflow.includes(readFileSync(join(agentDir, "workflow", `${other}.md`), "utf8")), `no ${other} role contract`);
       assert.deepEqual([...prompt.workflow.matchAll(/<skill name="([^"]+)"/g)].map((match) => match[1]), expected[mode]);
       for (const name of expected[mode]) {
         const skill = skillFixtures.find((item) => item.name === name);
@@ -690,15 +726,15 @@ test("ordinary tool exclusions and newly activated tools are preserved, without 
   assert.deepEqual(h.current.active, ["read", "web_search", "mcp__late", "workflow_external_search", ...workflowTools]);
 });
 
-for (const failure of ["create", "cancel", "prompt"]) test(`handoff ${failure} failure shows the manual command/notes and permits another attempt`, async (t) => {
+for (const failure of ["create", "cancel", "prompt"]) test(`handoff ${failure} failure shows chat recovery/notes and permits another attempt`, async (t) => {
   const h = await harness(); t.after(() => h.close());
   await h.command("build", "plan.md");
   h.setFailure(failure);
   const notes = "Preserve this human guidance";
   const result = await h.call({ mode: "review", input: "plan with spaces.md", notes });
-  assert.ok(result.content[0].text.includes("/review plan with spaces.md"));
+  assert.ok(result.content[0].text.includes("start review with input:\nplan with spaces.md"));
   const notices = h.sessions.flatMap((session) => [...session.notifications.map(({ text }) => text), ...session.notices.map(({ content }) => content)]);
-  assert.ok(notices.some((text) => text.includes("/review plan with spaces.md") && text.includes(notes)));
+  assert.ok(notices.some((text) => text.includes("start review with input:\nplan with spaces.md") && text.includes(notes)));
   assert.equal(h.sessions.length, failure === "prompt" ? 3 : 2);
   h.setFailure(undefined);
   await h.command("review", "plan.md");
@@ -710,14 +746,14 @@ test("dispatch failure or a dropped command retains the manual route without a w
   for (const failure of ["queue", "drop"]) {
     const h = await harness({ failure }); t.after(() => h.close());
     const result = await h.call({ mode: "build", input: "plan.md", notes: "Keep these notes" });
-    assert.ok(result.content[0].text.includes("/build plan.md"));
+    assert.ok(result.content[0].text.includes("start build with input:\nplan.md"));
     assert.ok(result.content[0].text.includes("Keep these notes"));
     assert.equal(result.isError, failure === "queue" ? true : undefined);
     assert.equal(h.sessions.length, 1);
   }
 });
 
-test("RPC/print phase commands and authorized handoffs need no extra dialog", async (t) => {
+test("RPC/print work entry and authorized handoffs need no extra dialog", async (t) => {
   for (const mode of ["rpc", "print"]) {
     const h = await harness({ mode }); t.after(() => h.close());
     await h.command("plan", "Plan this task");
@@ -727,25 +763,81 @@ test("RPC/print phase commands and authorized handoffs need no extra dialog", as
   }
 });
 
-test("cancelled tool calls and malformed internal commands never start a session", async (t) => {
+test("cancelled or malformed handoffs never start a session", async (t) => {
   const h = await harness(); t.after(() => h.close());
   await assert.rejects(() => h.call({ mode: "build", input: "plan.md" }, AbortSignal.abort()), /cancelled/);
-  for (const input of ["", "{}", "null", '{"mode":"shell","input":"bad"}', '{"mode":"build","input":7}', '{"mode":"build","input":"ok","notes":7}']) await h.command("workflow-handoff", input);
+  for (const input of [{}, null, { mode: "shell", input: "bad" }, { mode: "build", input: 7 }, { mode: "build", input: "ok", notes: 7 }]) {
+    await assert.rejects(() => h.call(input), /Expected/);
+  }
   assert.equal(h.sessions.length, 1);
   assert.equal(h.current.sent.length, 0);
 });
 
-test("phase prompts are reread; missing prompt files warn and leave normal Pi usable", async (t) => {
-  const h = await harness(); t.after(() => h.close());
-  const path = join(agentDir, "workflow", "plan.md"), original = readFileSync(path, "utf8");
-  t.after(() => writeFileSync(path, original));
-  await h.command("plan", "task");
-  writeFileSync(path, "# Edited role\nA new user instruction.");
-  assert.match((await h.task()).workflow, /A new user instruction/);
+// Failure/repair uses existing fixture files; no real installation is changed.
+for (const name of ["common", "plan"]) test(`required ${name} instructions pause entry and later requests; repair permits explicit retry`, async (t) => {
+  const path = join(agentDir, "workflow", `${name}.md`), original = readFileSync(path, "utf8");
+  t.after(() => { rmSync(path, { recursive: true, force: true }); writeFileSync(path, original); });
+  const source = freshSource(`missing-${name}`), before = snapshot(source);
+  const h = await harness({ directory: source }); t.after(() => h.close());
+  const worktrees = git(source, "worktree", "list", "--porcelain");
   rmSync(path);
-  assert.match((await h.task()).workflow, /Help the user with the plan phase/);
-  assert.match(h.current.notifications.at(-1).text, /prompt unavailable/);
-  assert.ok(h.current.active.includes("write"));
+  await h.command("work", "task");
+  assert.equal(h.sessions.length, 1);
+  assert.equal(h.current.sent.length, 0);
+  assert.ok(notifications(h).includes(path));
+  assert.match(notifications(h), /Required workflow instructions unavailable.*ENOENT/);
+  assert.equal(git(source, "worktree", "list", "--porcelain"), worktrees);
+  assert.deepEqual(snapshot(source), before);
+  assert.deepEqual(await h.task("Discuss repair"), { existing: "untouched" });
+  writeFileSync(path, original);
+  await h.command("work", "explicit retry");
+  assert.equal(state(h).mode, "plan");
+  const records = structuredClone(h.current.records);
+  writeFileSync(path, `${original}\nREREAD-MARKER-${name}\n`);
+  assert.ok((await h.task()).workflow.includes(`REREAD-MARKER-${name}`));
+  // A directory at the file path is unreadable even when tests run with elevated permissions.
+  rmSync(path); mkdirSync(path);
+  await h.resume(records);
+  assert.equal(h.current.sent.length, 0, "restoration starts no work");
+  const paused = (await h.task("Continue")).workflow;
+  assert.ok(paused.includes(path));
+  assert.match(paused, /Workflow paused:.*EISDIR/);
+  assert.match(paused, /Do not execute phase work or mutate Git/);
+  assert.match(paused, /Chat and recovery\/return remain available/);
+  assert.doesNotMatch(paused, /# Plan|Help the user with|Phase: plan/);
+  assert.ok(h.current.active.includes("write"), "no permission interceptor");
+  rmSync(path, { recursive: true }); writeFileSync(path, original);
+  const repaired = (await h.task("Explicit retry after repair")).workflow;
+  assert.ok(repaired.includes(original));
+  assert.doesNotMatch(repaired, /Workflow paused:/);
+});
+
+test("selected handoff instructions are checked before replacement and again before dispatch", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  await h.command("work", "task");
+  const path = join(agentDir, "workflow", "review.md"), original = readFileSync(path, "utf8");
+  t.after(() => writeFileSync(path, original));
+  rmSync(path);
+  const count = h.sessions.length;
+  await h.call({ mode: "review", input: "/original-plan.md" });
+  assert.equal(h.sessions.length, count, "missing selected role prevents replacement");
+  assert.ok(notifications(h).includes(path));
+  assert.equal(state(h).mode, "plan");
+  writeFileSync(path, original);
+  const newSession = h.current.ctx.newSession;
+  h.current.ctx.newSession = async (options) => {
+    rmSync(path); // Simulate installation damage after entry validation.
+    return newSession(options);
+  };
+  await h.call({ mode: "review", input: "/original-plan.md" });
+  assert.equal(h.sessions.length, count + 1);
+  assert.equal(h.current.sent.length, 0, "no phase work delivered after file loss");
+  assert.ok(h.current.notices[0].content.includes(path));
+  assert.match(h.current.notices[0].content, /Required workflow instructions unavailable/);
+  writeFileSync(path, original);
+  await h.call({ mode: "review", input: "/original-plan.md" });
+  assert.equal(state(h).mode, "review");
+  assert.ok(h.current.prompts[0].workflow.includes(original));
 });
 
 test("artifact defaults are grouped home guidance with per-type project overrides, not file writers", async (t) => {
@@ -773,10 +865,10 @@ test("artifact defaults are grouped home guidance with per-type project override
     assert.doesNotMatch(prompt, /(?<!~\/)\.pi\/(?:plans|reviews)\//);
   }
   for (const [mode, path] of [["plan", "~/.pi/plans/<project-key>/<task-id>.md"], ["review", "~/.pi/reviews/<project-key>/<task-id>-<topic>-<UTC timestamp>.md"]]) {
-    const prompt = readFileSync(join(workflow, `${mode}.md`), "utf8");
+    const prompt = readFileSync(join(workflow, "common.md"), "utf8");
     assert.ok(prompt.includes(path));
-    assert.match(prompt, /explicit user\/task or applicable project-instructed location for that artifact type/);
-    assert.match(prompt, /instruction-only, not enforced/);
+    assert.match(prompt, /take precedence per artifact type/);
+    assert.match(prompt, /instruction-only defaults, not enforced/);
   }
   assert.equal(existsSync(join(cwd, ".pi/plans/task.md")), false);
   assert.deepEqual([...h.current.extension.tools.keys()], [...workflowTools, "workflow_ui_server"]);
@@ -793,8 +885,7 @@ test("task artifact defaults remain distinct and review targets the checkout roo
   for (const h of [a, b]) {
     const data = taskState(h), plan = `~/.pi/plans/${data.projectKey}/${data.id}.md`;
     assert.ok(h.current.prompts[0].workflow.includes(`Default plan: ${plan}`));
-    await h.command("workflow");
-    const help = h.current.notices.at(-1).content;
+    const help = (await h.task("Explain task status")).workflow;
     for (const text of [data.repository, data.id, plan, `Task checkout / Plannotator code-review target: ${data.root}`]) assert.ok(help.includes(text));
   }
   const input = "/explicit old plans/original.md", predecessor = "/shared reports/previous.md";
@@ -809,23 +900,21 @@ test("task artifact defaults remain distinct and review targets the checkout roo
     if (mode === "review") assert.match(prompt, /explicitly passing the validated task checkout root as target \(not the source checkout or application subdirectory\)/);
   }
   const fresh = await harness({ directory: join(first.root, "sub dir") }); t.after(() => fresh.close());
-  await fresh.command("workflow");
-  assert.ok(fresh.current.notices.at(-1).content.includes(`Default plan: ~/.pi/plans/${first.projectKey}/${first.id}.md`));
-  assert.equal(fresh.current.sent.length, 0, "help discovers association without starting a phase");
+  await fresh.command("work", "Explain task status");
+  assert.ok(fresh.current.prompts[0].workflow.includes(`Default plan: ~/.pi/plans/${first.projectKey}/${first.id}.md`));
+  assert.equal(state(fresh).mode, "plan", "fresh ordinary Pi enters Plan, not a remembered phase");
   assert.equal(existsSync(join(temp, ".pi", "plans")), false, "defaults do not create artifacts");
 });
 
-test("workflow help does not invent artifact identity for unmanaged or legacy sessions", async (t) => {
+test("status chat leaves ordinary Pi untouched and pauses unassociated workflow sessions", async (t) => {
   const source = freshSource("help-unmanaged");
   const h = await harness({ directory: source }); t.after(() => h.close());
-  await h.command("workflow");
-  assert.match(h.current.notices.at(-1).content, /No managed task worktree/);
-  assert.doesNotMatch(h.current.notices.at(-1).content, /Default plan:/);
+  assert.deepEqual(await h.task("Explain workflow status"), { existing: "untouched" });
   await h.tree([{ type: "custom", customType: "workflow-phase", data: { mode: "review", input: "/exact/legacy.md" } }]);
-  await h.command("workflow");
-  assert.match(h.current.notices.at(-1).content, /Workflow paused:.*Legacy\/unassociated/);
-  assert.doesNotMatch(h.current.notices.at(-1).content, /Default plan:/);
-  assert.equal(h.sessions.length, 1); assert.equal(h.current.sent.length, 0);
+  const prompt = (await h.task("Explain workflow status")).workflow;
+  assert.match(prompt, /Workflow paused:.*Legacy\/unassociated/);
+  assert.doesNotMatch(prompt, /Default plan:/);
+  assert.equal(h.sessions.length, 1);
 });
 
 test("phase authority narrowly permits setup, UI lifecycle and authorized Finalize publication", async (t) => {
@@ -911,7 +1000,7 @@ test("Finalize delivers bounded decision consolidation and ordered cleanup, not 
   await h.command("finalize", join(cwd, "implementation-plan.md"));
   const prompt = h.current.prompts[0].workflow;
   for (const contract of [
-    /Direct \/finalize or an authorized handoff is sufficient instruction to start/,
+    /direct chat request for Finalize or an authorized handoff is sufficient instruction to start/,
     /resolve its actual implementation plan through its references; ask if the target plan is ambiguous or missing/,
     /Keep the existing implementation-plan path as the surviving summary/,
     /concrete set of eligible source paths before editing: only the current task's/,
@@ -929,7 +1018,7 @@ test("Finalize delivers bounded decision consolidation and ordered cleanup, not 
     /Exclude implementation checklists, session routing, review ceremony, raw test output/,
     /Do not leave links to artifacts being deleted/,
     /preserve input reports and earlier review reports in Plan, Build, Review, and UI/,
-    /Finalize alone may replace the current task's implementation plan/,
+    /Only Finalize may consolidate and delete identified task artifacts under its verification contract/,
     /Fully read and consolidate all eligible inputs before replacing the plan/,
     /Write the complete summary at the target plan path, then read it back and verify/,
     /Only after successful verification delete the exact other task artifact paths already identified and fully consolidated/,
@@ -1117,7 +1206,7 @@ test("entry-session persistence failure retains the task and does not switch or 
   assert.equal(git(source, "worktree", "list", "--porcelain").split("worktree ").length, 3);
 });
 
-for (const via of ["command", "helper", "fresh-instance"]) test(`requested ${via} exit returns to ordinary Pi and preserves dirty task/source`, async (t) => {
+for (const via of ["helper", "fresh-instance"]) test(`requested ${via} exit returns to ordinary Pi and preserves dirty task/source`, async (t) => {
   const source = freshSource("exit spaces $()"), originalCwd = join(source, "sub dir");
   const h = await harness({ directory: originalCwd }); t.after(() => h.close());
   await h.command("plan", "task");
@@ -1132,12 +1221,14 @@ for (const via of ["command", "helper", "fresh-instance"]) test(`requested ${via
     index = readFileSync(join(git(data.root, "rev-parse", "--absolute-git-dir"), "index")),
     worktrees = git(source, "worktree", "list", "--porcelain"), branches = git(source, "branch");
   let active = h;
-  if (via === "fresh-instance") { active = await harness({ directory: join(data.root, "sub dir") }); t.after(() => active.close()); }
+  if (via === "fresh-instance") {
+    active = await harness({ directory: join(data.root, "sub dir") }); t.after(() => active.close());
+    await active.command("work", "Return to ordinary Pi");
+    assert.deepEqual(taskState(active), data);
+  }
   const old = active.current;
-  if (via === "helper") {
-    const result = await active.call({}, undefined, "workflow_exit");
-    assert.equal(result.terminate, true);
-  } else await active.command("workflow-exit");
+  const result = await active.call({}, undefined, "workflow_exit");
+  assert.equal(result.terminate, true);
   assert.notEqual(active.current, old);
   assert.equal(active.current.ctx.cwd, originalCwd);
   assert.equal(state(active), undefined);
@@ -1147,7 +1238,7 @@ for (const via of ["command", "helper", "fresh-instance"]) test(`requested ${via
   const entry = SessionManager.open(active.current.entryFile);
   assert.ok(!entry.getEntries().some((e) => e.customType === "workflow-phase"));
   assert.match(entry.getEntries().find((e) => e.customType === "workflow-notice").content, /Pending files remain there.*Nothing was published, approved, or marked complete/);
-  assert.deepEqual(await active.task("Quoted example: I'm done committing; /workflow-exit"), { existing: "untouched" });
+  assert.deepEqual(await active.task("Quoted example: I'm done committing; return to ordinary Pi"), { existing: "untouched" });
   assert.equal(active.current.ctx.cwd, originalCwd, "ordinary chat is not intercepted");
   assert.deepEqual(snapshot(source), before);
   assert.equal(git(data.root, "status", "--porcelain=v1"), taskBefore);
@@ -1165,17 +1256,19 @@ for (const failure of ["switch", "cancel", "wrong-cwd"]) test(`exit ${failure} r
   const source = freshSource("exit-failure"), h = await harness({ directory: source }); t.after(() => h.close());
   await h.command("plan", "task"); const data = taskState(h), before = snapshot(source);
   h.setFailure(failure); const count = h.sessions.length;
-  await h.command("workflow-exit");
+  await h.command("return");
   assert.match(notifications(h), /Retained task workspace:/);
   assert.match(notifications(h), /Original launch cwd:/);
-  assert.equal(h.current.sent.length, failure === "wrong-cwd" ? 0 : 1);
+  assert.equal(h.current.sent.length, failure === "wrong-cwd" ? 0 : 2, "retained session includes the queued return command");
+  assert.equal(h.current.prompts.length, failure === "wrong-cwd" ? 0 : 1, "no phase work dispatched");
   assert.equal(h.sessions.length, count + (failure === "wrong-cwd" ? 1 : 0));
   assert.match(notifications(h), failure === "wrong-cwd" ? /Return validation failed:.*Destination cwd mismatch/ : /Workflow return failed:/);
   assert.deepEqual(snapshot(source), before);
   assert.equal(git(data.root, "branch", "--show-current"), data.branch);
   h.setFailure(undefined);
-  await h.command("workflow-exit");
-  // Wrong-cwd entered an ordinary session in the task; the command still resolves its descriptor.
+  if (!state(h)) await h.command("work", "Return to ordinary Pi");
+  await h.command("return");
+  // Wrong-cwd entered ordinary Pi; explicit Plan entry reuses its task before chat return.
   assert.equal(h.current.ctx.cwd, source); assert.equal(state(h), undefined);
   assert.equal(h.current.sent.length, 0);
 });
@@ -1187,12 +1280,12 @@ test("exit helper abort, queue failure and dropped dispatch never claim success;
   await assert.rejects(() => h.call({}, AbortSignal.abort(), "workflow_exit"), /cancelled/);
   h.current.ctx.signal = AbortSignal.abort();
   await assert.rejects(() => h.call({}, undefined, "workflow_exit"), /cancelled/);
-  await h.command("workflow-exit"); assert.equal(h.sessions.length, count);
+  await assert.rejects(() => h.command("return"), /cancelled/); assert.equal(h.sessions.length, count);
   h.current.ctx.signal = undefined;
   for (const failure of ["queue", "drop"]) {
     h.setFailure(failure); const result = await h.call({}, undefined, "workflow_exit");
     assert.equal(result.isError, failure === "queue" ? true : undefined);
-    assert.match(result.content[0].text, /\/workflow-exit/); assert.equal(h.sessions.length, count);
+    assert.match(result.content[0].text, /chat/); assert.equal(h.sessions.length, count);
   }
 });
 
@@ -1210,13 +1303,13 @@ test("exit refuses missing/mismatched source and unassociated/legacy state witho
       const data = taskState(h), other = freshSource("wrong-original"); data.sourceRoot = other; data.originalCwd = other;
       writeFileSync(join(git(data.root, "rev-parse", "--absolute-git-dir"), "workflow-task.json"), JSON.stringify(data));
     }
-    if (damage === "legacy") await h.tree([{ type: "custom", customType: "workflow-phase", data: { mode: "build", input: "old.md" } }]);
-    const count = h.sessions.length; await h.command("workflow-exit");
+    if (["legacy", "unmanaged"].includes(damage)) await h.tree([{ type: "custom", customType: "workflow-phase", data: { mode: "build", input: "old.md" } }]);
+    const count = h.sessions.length; await h.command("return");
     assert.equal(h.sessions.length, count); assert.match(notifications(h), /Workflow return failed:/);
   }
 });
 
-for (const via of ["command", "helper"]) test(`exit ${via} refuses an unrelated repository at the original launch subdirectory`, async (t) => {
+test("exit helper refuses an unrelated repository at the original launch subdirectory", async (t) => {
   const source = freshSource("exit-nested-source"), originalCwd = join(source, "sub dir");
   const h = await harness({ directory: originalCwd }); t.after(() => h.close());
   await h.command("plan", "task");
@@ -1230,10 +1323,8 @@ for (const via of ["command", "helper"]) test(`exit ${via} refuses an unrelated 
   const before = snapshot(source), taskStatus = git(data.root, "status", "--porcelain=v1"),
     index = readFileSync(join(admin, "index")), metadata = readFileSync(join(admin, "workflow-task.json")),
     worktrees = git(source, "worktree", "list", "--porcelain"), branches = git(source, "branch"), count = h.sessions.length;
-  if (via === "helper") {
-    const result = await h.call({}, undefined, "workflow_exit");
-    assert.equal(result.terminate, true);
-  } else await h.command("workflow-exit");
+  const result = await h.call({}, undefined, "workflow_exit");
+  assert.equal(result.terminate, true);
   assert.equal(h.sessions.length, count, "refuse replacement before loading the unrelated repository");
   assert.equal(h.current, active); assert.deepEqual(taskState(h), data);
   assert.match(notifications(h), /Workflow return failed:.*Original workflow directory\/repository mismatch/);
@@ -1257,11 +1348,11 @@ test("all phases expose explicit return guidance without publication/completion 
     assert.match(h.current.prompts[0].workflow, /quoted examples or a bare exit never authorize publication/);
     assert.match(h.current.prompts[0].workflow, /it marks nothing approved or complete/);
     const count = h.sessions.length;
-    await h.task("Explain this quoted example, do not act: I'm done committing; /workflow-exit");
+    await h.task("Explain this quoted example, do not act: I'm done committing; return to ordinary Pi");
     assert.equal(h.sessions.length, count, "no global phrase interceptor");
     assert.equal(state(h).mode, mode);
   }
-  await h.command("workflow"); assert.match(h.current.notices.at(-1).content, /\/workflow-exit returns to the original launch cwd/);
+  assert.match((await h.task("Explain return")).workflow, /\/work always starts Plan, never a remembered phase/);
 });
 
 // Synthetic URL transport only: the extension neither publishes nor verifies publication.
@@ -1303,17 +1394,15 @@ test("published return context is Finalize-only and rejects malformed or credent
   for (const mode of ["plan", "build", "review", "ui"]) {
     await h.command(mode, "plan.md"); const count = h.sessions.length;
     await assert.rejects(() => h.call({ publicationUrl: url }, undefined, "workflow_exit"), /Finalize-only/);
-    await h.command("workflow-exit", JSON.stringify(url)); assert.equal(h.sessions.length, count);
-    assert.match(notifications(h), /Finalize-only/);
+    assert.equal(h.sessions.length, count);
   }
   await h.command("finalize", "plan.md"); const count = h.sessions.length;
   for (const publicationUrl of [null, 12, "not a URL", "http://github.example.invalid/o/r/pull/1", "https://user:secret@github.example.invalid/o/r/pull/1", `${url}?token=secret`, `${url}#secret`, "https://github.example.invalid/o/r/issues/1", "https://github.example.invalid/o/r/pull/0"]) {
     await assert.rejects(() => h.call({ publicationUrl }, undefined, "workflow_exit"));
     assert.equal(h.sessions.length, count);
   }
-  await h.command("workflow-exit", "invalid JSON"); assert.equal(h.sessions.length, count);
   await assert.rejects(() => h.call({ publicationUrl: url }, AbortSignal.abort(), "workflow_exit"), /cancelled/);
-  await h.command("workflow-exit");
+  await h.command("return");
   const notice = SessionManager.open(h.current.entryFile).getEntries().find((entry) => entry.customType === "workflow-notice").content;
   assert.match(notice, /Nothing was published/); assert.doesNotMatch(notice, /Published PR:/);
 });
@@ -1408,11 +1497,11 @@ test("concurrent tasks do not collide; replanning, handoffs, fresh instances, an
   assert.equal(readFileSync(join(first.root, "pending-task-file"), "utf8"), "pending");
 });
 
-for (const mode of modes.filter((mode) => mode !== "plan")) test(`unmanaged /${mode} pauses without creating or switching a workspace`, async (t) => {
+for (const mode of modes.filter((mode) => mode !== "plan")) test(`unmanaged ${mode} handoff pauses without creating or switching a workspace`, async (t) => {
   const source = freshSource("unmanaged"), before = snapshot(source);
   const h = await harness({ directory: source }); t.after(() => h.close());
   await h.command(mode, "existing-plan.md");
-  assert.equal(h.sessions.length, 1); assert.equal(h.current.sent.length, 0);
+  assert.equal(h.sessions.length, 1); assert.equal(h.current.prompts.length, 0);
   assert.match(notifications(h), /No managed task worktree.*Legacy tasks need explicit user direction/);
   assert.deepEqual(snapshot(source), before);
 });
@@ -1474,10 +1563,8 @@ test("invalid metadata, branch/repository/session mismatches, and legacy state p
     if (damage === "legacy") delete records.find((e) => e.customType === "workflow-phase").data.task;
     await h.resume(records);
     assert.equal(h.current.sent.length, 0);
-    await h.command("workflow");
-    assert.match(h.current.notices.at(-1).content, /Workflow paused:/);
-    assert.doesNotMatch(h.current.notices.at(-1).content, /Default plan:|Plannotator code-review target:/);
-    const prompt = (await h.task()).workflow;
+    const prompt = (await h.task("Explain status and recovery")).workflow;
+    assert.doesNotMatch(prompt, /Default plan:|Plannotator code-review target:/);
     assert.match(prompt, /Workflow paused:/);
     assert.match(prompt, /Do not execute phase work or mutate Git/);
     const count = h.sessions.length;
@@ -1557,7 +1644,7 @@ test("UI prompt retains inspected-command authority, live gate, cleanup and manu
     /plannotator annotate on the URL with gate: true, then end the turn/,
     /cannot force --app/,
     /Do not silently substitute a static page/,
-    /plain browser close may send no message/,
+    /plain close may send no message/,
     /same-user agents\/configured credentials/,
     /never claim cleanup happened when it failed/,
   ]) assert.match(prompt, contract);

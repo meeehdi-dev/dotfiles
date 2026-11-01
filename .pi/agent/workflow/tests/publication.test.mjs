@@ -10,7 +10,7 @@ const publication = finalize.slice(finalize.indexOf("## Authorized publication")
 const boundaries = {
   "authority and prerequisite checks precede publication": [
     /explicit human code\/UI approval or direct publication instruction/,
-    /not task metadata, a standalone Review, a documentation-only \/finalize, or automated review success/,
+    /not task metadata, a standalone Review, a documentation-only Finalize, or automated review success/,
     /without a new routine publication gate/,
     /Stop if consolidation, required bookkeeping or scoped formatting verification is incomplete\/failed/,
     /Stop any owned UI server before publication/,
