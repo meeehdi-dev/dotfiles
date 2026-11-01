@@ -992,6 +992,42 @@ test("Review to UI to Finalize forwards artifact paths and decision guidance thr
   assert.equal(h.current.selections.length, 0, "authorized handoffs add no approval gate");
 });
 
+test("UI feedback routes directly to a focused correction loop or Plan without an ignore picker", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  const input = join(cwd, "implementation-plan.md"), feedback = join(cwd, "ui-feedback.md");
+  const notes = `Explicitly authorized focused UI-correction Build ↔ Review loop; return to UI after clean whole-plan Review. Supplemental acceptance criteria: ${feedback}. Reviewed user-managed URL: http://localhost:3000/settings#profile`;
+  await h.command("ui", input);
+  const ui = h.current.prompts[0].workflow;
+  for (const contract of [
+    /Requested changes \(in annotations or chat\) authorize addressing that feedback/,
+    /small, clear, localized corrections within the existing design/,
+    /automatically call workflow_handoff for Build with the original implementation-plan path/,
+    /feedback report as supplemental acceptance criteria/,
+    /preserve the reviewed URL\/route and ownership context/,
+    /hand off directly to Plan with the feedback report/,
+    /Never infer approval from comments, even when submitted with approval/,
+  ]) assert.match(ui, contract);
+  assert.doesNotMatch(ui, /workflow_question to ask whether to return to Plan/);
+  await h.call({ mode: "build", input, notes });
+  assert.match(h.current.prompts[0].workflow, /Do not expand this into next-feature work/);
+  assert.match(h.current.prompts[0].workflow, /carry its acceptance criteria and explicit return-to-UI instruction through every handoff/);
+  await h.call({ mode: "review", input, notes });
+  const review = h.current.prompts[0].workflow;
+  assert.match(review, /read the linked UI feedback as supplemental acceptance criteria/);
+  assert.match(review, /actionable in-scope findings return automatically to focused Build/);
+  assert.match(review, /After clean whole-plan Review, follow the explicit return-to-UI instruction automatically/);
+  assert.match(review, /Do not insert the normal code-approval picker or go to Finalize/);
+  await h.call({ mode: "build", input, notes });
+  await h.call({ mode: "review", input, notes });
+  await h.call({ mode: "ui", input, notes });
+  assert.deepEqual(state(h), { mode: "ui", input, notes });
+  assert.ok(h.current.prompts[0].workflow.includes(notes));
+  await h.call({ mode: "plan", input: feedback, notes: `Original plan: ${input}; needs a consequential user decision` });
+  assert.match(h.current.prompts[0].workflow, /grill consequential missing details/);
+  assert.equal(state(h).input, feedback);
+  assert.ok(h.sessions.every((session) => session.selections.length === 0));
+});
+
 test("short prompts retain selected role policies, with no deleted helper references", () => {
   const read = (mode) => readFileSync(join(workflow, `${mode}.md`), "utf8");
   assert.match(read("plan"), /independently classify every issue/i);
@@ -1001,7 +1037,7 @@ test("short prompts retain selected role policies, with no deleted helper refere
   assert.match(read("review"), /workflow_question to ask whether to return to Plan to revalidate findings or proceed/);
   assert.match(read("review"), /workflow_question to ask UI .* or Finalize/);
   assert.match(read("review"), /original implementation-plan reference; a Plan route instead receives the findings\/feedback report/);
-  assert.match(read("ui"), /workflow_question to ask whether to return to Plan to revalidate feedback or proceed to Finalize/);
+  assert.match(read("ui"), /Do not ask whether to return to Plan or leave the requests unimplemented/);
   assert.match(read("ui"), /workflow_question to ask whether to retry live review, skip to Finalize, or change direction/);
   assert.match(read("ui"), /Explicit approval of the live UI/);
   assert.match(read("build"), /call workflow_handoff for Review with the same absolute plan path/);
