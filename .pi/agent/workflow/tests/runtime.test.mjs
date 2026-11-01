@@ -13,7 +13,9 @@ const { InMemoryCredentialStore } = await import(pathToFileURL(resolve(piRoot, "
 const extension = fileURLToPath(new URL("../../extensions/workflow-modes.ts", import.meta.url));
 
 // Public Pi runtime integration, no model requests, browser, interactive host, or external services.
-for (const failure of [undefined, "selection-unavailable", "switch-create", "switch-rebind", "new-create", "new-rebind", "exit-create", "exit-rebind"]) test(`public runtime workspace entry: ${failure ?? "cwd, resources, tools, and selected model"}`, async (t) => {
+for (const inPlace of [false, true]) for (const failure of (inPlace
+  ? [undefined, "new-create", "new-rebind", "new-cancel", "exit-create", "exit-rebind", "exit-cancel"]
+  : [undefined, "selection-unavailable", "switch-create", "switch-rebind", "new-create", "new-rebind", "exit-create", "exit-rebind"])) test(`public runtime ${inPlace ? "non-Git" : "Git"} workspace entry: ${failure ?? "cwd, resources, tools, and selected model"}`, async (t) => {
   const temp = realpathSync(mkdtempSync(join(tmpdir(), "pi-workflow-runtime-")));
   const previous = { HOME: process.env.HOME, PI_CODING_AGENT_DIR: process.env.PI_CODING_AGENT_DIR };
   process.env.HOME = temp;
@@ -25,7 +27,7 @@ for (const failure of [undefined, "selection-unavailable", "switch-create", "swi
   });
   mkdirSync(join(source, ".pi", "extensions"), { recursive: true }); mkdirSync(agentDir);
   const git = (...args) => execFileSync("git", ["-C", source, ...args], { encoding: "utf8", env: { ...process.env, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1" } });
-  git("init", "--initial-branch=main"); git("config", "user.name", "Runtime Test"); git("config", "user.email", "runtime@example.invalid");
+  if (!inPlace) { git("init", "--initial-branch=main"); git("config", "user.name", "Runtime Test"); git("config", "user.email", "runtime@example.invalid"); }
   writeFileSync(join(source, "AGENTS.md"), "COMMITTED TARGET INSTRUCTIONS\n");
   writeFileSync(join(source, "tracked"), "committed target content\n");
   writeFileSync(join(source, ".pi", "extensions", "probe.ts"), `export default function (pi) {
@@ -33,18 +35,20 @@ for (const failure of [undefined, "selection-unavailable", "switch-create", "swi
       async execute(_id, _args, _signal, _update, ctx) { return { content: [{ type: "text", text: ctx.cwd }], details: undefined }; }
     });
   }\n`);
-  git("add", "."); git("-c", "commit.gpgsign=false", "commit", "-m", "fixture");
+  if (!inPlace) { git("add", "."); git("-c", "commit.gpgsign=false", "commit", "-m", "fixture"); }
   // Ignored dependencies are not needed. Do not copy dirty instructions into the new checkout.
   writeFileSync(join(source, "AGENTS.md"), "SOURCE PENDING INSTRUCTIONS\n");
   const captured = [], notifications = [];
   const credentials = new InMemoryCredentialStore();
+  // Like persisted host settings, retain explicit model/thinking selections across runtime rebuilds.
+  const settingsManager = sdk.SettingsManager.inMemory({ defaultProjectTrust: "always", defaultTools: ["read", "cwd_probe"], defaultProvider: "anthropic", defaultModel: "claude-sonnet-4-5", defaultThinkingLevel: "low" });
   let failReplacement = false;
   const createRuntime = async ({ cwd, sessionManager, sessionStartEvent }) => {
     if (failReplacement && failure?.endsWith("create")) throw new Error("TARGET_REBUILD_FAILED");
     const modelRuntime = await sdk.ModelRuntime.create({ credentials, modelsPath: join(agentDir, "models.json"), refreshOnCreate: false });
     await modelRuntime.setRuntimeApiKey("anthropic", "synthetic-test-key");
     const services = await sdk.createAgentSessionServices({ cwd, agentDir, modelRuntime,
-      settingsManager: sdk.SettingsManager.inMemory({ defaultProjectTrust: "always", defaultTools: ["read", "cwd_probe"], defaultProvider: "anthropic", defaultModel: "claude-sonnet-4-5", defaultThinkingLevel: "low" }),
+      settingsManager,
       resourceLoaderOptions: { additionalExtensionPaths: [extension], noSkills: true, noThemes: true, noPromptTemplates: true },
     });
     return { ...(await sdk.createAgentSessionFromServices({ services, sessionManager, sessionStartEvent,
@@ -55,7 +59,7 @@ for (const failure of [undefined, "selection-unavailable", "switch-create", "swi
   t.after(() => runtime.dispose());
   const ui = {
     ...runtime.session.createReplacedSessionContext().ui,
-    theme: { colors: { accent: { kind: "rgb", r: 100, g: 100, b: 100 } }, style: (text) => text },
+    theme: { colors: Object.fromEntries(["accent", "warning", "muted", "success"].map((name) => [name, { kind: "rgb", r: 100, g: 100, b: 100 }])), style: (text) => text },
     notify: (text) => notifications.push(text), setStatus: () => {},
     select: async (_question, options) => options[0],
   };
@@ -69,13 +73,13 @@ for (const failure of [undefined, "selection-unavailable", "switch-create", "swi
     if (failReplacement && failure?.endsWith("rebind")) throw new Error("TARGET_REBIND_FAILED");
     return session.bindExtensions({ uiContext: ui, commandContextActions: {
     waitForIdle: () => session.waitForIdle(),
-    newSession: (options) => runtime.newSession(withCapture(options)),
-    switchSession: (file, options) => runtime.switchSession(file, withCapture(options)),
+    newSession: (options) => failReplacement && failure === "new-cancel" ? { cancelled: true } : runtime.newSession(withCapture(options)),
+    switchSession: (file, options) => failReplacement && failure === "exit-cancel" ? { cancelled: true } : runtime.switchSession(file, withCapture(options)),
     } });
   };
   runtime.setRebindSession(bind); await bind(runtime.session);
-  await runtime.session.setModel(runtime.services.modelRuntime.getModel("anthropic", "claude-opus-4-5"));
-  runtime.session.setThinkingLevel("high");
+  await runtime.session.setModel(runtime.services.modelRuntime.getModel("anthropic", "claude-opus-4-5"), { persist: inPlace });
+  runtime.session.setThinkingLevel("high", { persist: inPlace });
   if (failure?.startsWith("switch")) failReplacement = true;
   const oldSession = runtime.session, oldContext = oldSession.createReplacedSessionContext();
   assert.match(oldSession.systemPrompt, /SOURCE PENDING INSTRUCTIONS/);
@@ -86,7 +90,15 @@ for (const failure of [undefined, "selection-unavailable", "switch-create", "swi
     failReplacement = true;
     const taskSession = runtime.session;
     await taskSession.prompt(failure.startsWith("exit") ? "/workflow-exit" : "/build /original-plan.md");
-    assert.throws(() => taskSession.createReplacedSessionContext().getSystemPromptOptions(), /stale|disposed/);
+    if (!failure.endsWith("cancel")) assert.throws(() => taskSession.createReplacedSessionContext().getSystemPromptOptions(), /stale|disposed/);
+  }
+  if (failure?.endsWith("cancel")) {
+    assert.match(notifications.join("\n"), /cancelled/);
+    assert.equal(captured.length, 0);
+    assert.ok(runtime.session.sessionManager.getBranch().some((entry) => entry.customType === "workflow-phase"));
+    assert.equal(runtime.cwd, source);
+    assert.equal(runtime.session.model.id, "claude-opus-4-5");
+    return;
   }
   if (failure === "selection-unavailable") {
     assert.equal(captured.length, 0);
@@ -105,7 +117,8 @@ for (const failure of [undefined, "selection-unavailable", "switch-create", "swi
     return;
   }
   assert.notEqual(runtime.session, oldSession);
-  assert.notEqual(runtime.cwd, source);
+  if (inPlace) assert.equal(runtime.cwd, source);
+  else assert.notEqual(runtime.cwd, source);
   assert.equal(captured.length, 1, notifications.join("\n"));
   assert.equal(captured[0].cwd, runtime.cwd);
   assert.match(captured[0].content, /Begin plan now/);
@@ -114,10 +127,10 @@ for (const failure of [undefined, "selection-unavailable", "switch-create", "swi
   assert.equal(runtime.session.model.id, "claude-opus-4-5");
   assert.equal(runtime.session.thinkingLevel, "high");
   const entryNotice = runtime.session.messages.find((message) => message.role === "custom" && message.customType === "workflow-notice");
-  assert.match(entryNotice.content, /Task workspace:/);
+  if (!inPlace) assert.match(entryNotice.content, /Task workspace:/);
   assert.ok(!runtime.session.messages.some((message) => message.role === "assistant"));
-  assert.match(runtime.session.systemPrompt, /COMMITTED TARGET INSTRUCTIONS/);
-  assert.doesNotMatch(runtime.session.systemPrompt, /SOURCE PENDING INSTRUCTIONS/);
+  assert.match(runtime.session.systemPrompt, inPlace ? /SOURCE PENDING INSTRUCTIONS/ : /COMMITTED TARGET INSTRUCTIONS/);
+  if (!inPlace) assert.doesNotMatch(runtime.session.systemPrompt, /SOURCE PENDING INSTRUCTIONS/);
   const read = await runtime.session.agent.state.tools.find((tool) => tool.name === "read").execute("read-check", { path: "tracked" });
   assert.notEqual(read.isError, true); assert.equal(read.content[0].text, "committed target content\n");
   const probe = await runtime.session.agent.state.tools.find((tool) => tool.name === "cwd_probe").execute("cwd-check", {});
@@ -126,7 +139,18 @@ for (const failure of [undefined, "selection-unavailable", "switch-create", "swi
   assert.throws(() => oldContext.getSystemPromptOptions(), /stale/);
   assert.equal(readFileSync(join(source, "AGENTS.md"), "utf8"), "SOURCE PENDING INSTRUCTIONS\n");
   assert.equal(resolve(runtime.session.sessionManager.getSessionDir()), join(temp, "custom sessions"));
-  const taskRoot = runtime.cwd, taskSession = runtime.session;
+  const taskRoot = runtime.cwd;
+  const identity = runtime.session.sessionManager.getBranch().find((entry) => entry.customType === "workflow-phase").data.task;
+  captured.length = 0;
+  if (inPlace) {
+    await runtime.session.prompt("/build /old-name/explicit-plan.md");
+    assert.equal(captured.length, 1);
+    assert.match(captured[0].content, /\/old-name\/explicit-plan.md/);
+    assert.deepEqual(runtime.session.sessionManager.getBranch().find((entry) => entry.customType === "workflow-phase").data.task, identity);
+    assert.equal(runtime.session.model.id, "claude-opus-4-5");
+    assert.equal(runtime.session.thinkingLevel, "high");
+  }
+  const taskSession = runtime.session;
   captured.length = 0;
   await taskSession.prompt("/workflow-exit");
   assert.equal(runtime.cwd, source);

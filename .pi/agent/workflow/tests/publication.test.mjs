@@ -114,6 +114,20 @@ for (const [name, contracts] of Object.entries(boundaries)) test(`publication co
   for (const contract of contracts) assert.match(publication, contract);
 });
 
+test("non-Git completion returns only after consolidation/checks, without publication", () => {
+  const completion = finalize.slice(finalize.indexOf("## Non-Git completion"), finalize.indexOf("## Authorized publication"));
+  for (const contract of [
+    /same bounded consolidation, bookkeeping and scoped documentation verification/,
+    /without any Git status\/diff\/commit, push, PR, signing or authentication work/,
+    /After successful consolidation and checks, report/,
+    /automatically call workflow_exit once without publicationUrl and end the turn/,
+    /Incomplete or failed consolidation, required bookkeeping, cleanup or formatting verification stays in this session for recovery/,
+    /explicit exit remains available independently/,
+    /Never accept publication context or adopt a repository that appeared later/,
+  ]) assert.match(completion, contract);
+  assert.match(publication, /^## Authorized publication — managed Git tasks only/);
+});
+
 test("publication ordering keeps documentation checks, state verification and return in sequence", () => {
   const steps = ["After any documentation/bookkeeping edits", "## Authorized publication", "1. **Authority", "2. **Inspect", "3. **One signed", "4. **GPG recovery", "5. **Resume", "6. **Resolve destination", "7. **Normal SSH push", "8. **Find or create", "9. **Report, then return"];
   let previous = -1;
