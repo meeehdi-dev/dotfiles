@@ -22,6 +22,26 @@ alias rm "rm -I"
 # ssh
 alias ssh='ghostty +ssh --'
 
+# Warm credentials manually; the hour count applies only to SSH, not GPG's cache.
+function work
+    set -l hours 1
+    if test (count $argv) -gt 0
+        set hours $argv[1]
+    end
+    if test (count $argv) -gt 1; or not string match -rq '^0*[1-9][0-9]*$' -- "$hours"
+        printf 'Usage: work [positive whole-number hours]\n' >&2
+        return 1
+    end
+
+    set -l signing_key (command git config --get user.signingkey)
+    if test $status -ne 0; or test -z "$signing_key"
+        printf 'work: Git user.signingkey is required\n' >&2
+        return 1
+    end
+    command ssh-add -t "$hours"h "$HOME/.ssh/id_ed25519"; or return $status
+    printf 'work credential warm-up\n' | command gpg --local-user "$signing_key" --sign --output /dev/null
+end
+
 # bat
 alias cat bat
 
