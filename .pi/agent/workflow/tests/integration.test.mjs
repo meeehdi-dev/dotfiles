@@ -917,7 +917,7 @@ test("status chat leaves ordinary Pi untouched and pauses unassociated workflow 
   assert.equal(h.sessions.length, 1);
 });
 
-test("phase authority narrowly permits setup, UI lifecycle and authorized Finalize publication", async (t) => {
+test("phase authority defaults permit narrow automation and honor specific blocked-situation direction", async (t) => {
   const h = await harness(); t.after(() => h.close());
   for (const mode of modes) {
     await h.command(mode, "/exact/original.md");
@@ -928,10 +928,25 @@ test("phase authority narrowly permits setup, UI lifecycle and authorized Finali
     assert.match(prompt, /UI alone may use workflow_ui_server for an inspected existing dev command in this task checkout/);
     assert.match(prompt, /A standalone Review or documentation-only Finalize grants no publication authority/);
     assert.match(prompt, /no general Git, service, credential, destructive, installation, or deployment authority/);
+    for (const contract of [
+      /All phase, routing, scope and procedural restrictions.*are defaults when no specific contrary user direction exists/,
+      /follow the user's specific instruction within its stated scope in any phase/,
+      /do not veto it by phase name, force a phase detour, or reconfirm an already clear instruction/,
+      /Normal approvals, independent read-only Review and automatic routing remain unchanged otherwise/,
+      /outside \/work these defaults add no gates to ordinary requests/,
+      /not higher-priority policies, missing capabilities, actual command failures, or security and data-loss protections/,
+      /Keep helper identity, containment and outcome checks intact/,
+      /explain its concrete limitation and use ordinary tools where appropriate/,
+      /Forward the exact applicable exception and scope in existing handoff notes/,
+      /Apply the shared explicit-direction precedence rule to this phase's defaults; preserve safety and helper integrity checks/,
+    ]) assert.match(prompt, contract);
   }
   const agents = readFileSync(resolve(workflow, "../AGENTS.md"), "utf8");
   assert.match(agents, /setup is not general agent Git-write authority/);
   assert.match(agents, /Never alter unrelated work or rewrite history without specific authority/);
+  assert.match(agents, /a phase name alone does not veto specific task authority/);
+  assert.match(agents, /phase, routing, scope and procedural restrictions are defaults/);
+  assert.doesNotMatch(agents, /only if the active workflow phase permits them/);
 });
 
 test("Plan limits scope and conditionally grills through Plannotator without changing final approval", () => {
@@ -1422,7 +1437,23 @@ for (const scenario of ["success", "ignored", "unmerged", "tracked", "staged", "
   git(data.root, "add", "tracked");
   git(data.root, "-c", "commit.gpgsign=false", "commit", "-m", "fixture task");
   const head = git(data.root, "rev-parse", "HEAD");
+  let sourceWork;
+  const pendingSource = () => ({
+    staged: git(source, "diff", "--cached", "--binary"),
+    unstaged: git(source, "diff", "--binary"),
+    indexEntry: git(source, "ls-files", "--stage", "--", "sub dir/tracked"),
+    edited: readFileSync(join(source, "sub dir", "tracked"), "utf8"),
+    untracked: readFileSync(join(source, "untracked-source"), "utf8"),
+  });
+  if (scenario === "dirty-source") {
+    writeFileSync(join(source, "sub dir", "tracked"), "staged source work\n");
+    git(source, "add", "--", "sub dir/tracked");
+    writeFileSync(join(source, "sub dir", "tracked"), "unstaged source work\n");
+    writeFileSync(join(source, "untracked-source"), "untracked source work\n");
+    sourceWork = pendingSource();
+  }
   if (scenario !== "unmerged") git(source, "merge", "--ff-only", data.branch);
+  if (sourceWork) assert.deepEqual(pendingSource(), sourceWork, "actual fast-forward preserves pre-existing source work");
   writeFileSync(join(source, ".git", "info", "exclude"), ".env.local\nlocal-cache/\n");
   writeFileSync(join(source, ".env.local"), "source original\n");
   if (scenario !== "success") {
@@ -1436,7 +1467,6 @@ for (const scenario of ["success", "ignored", "unmerged", "tracked", "staged", "
     if (scenario === "staged") git(data.root, "add", "tracked");
   }
   if (scenario === "untracked") writeFileSync(join(data.root, "pending"), "pending task work\n");
-  if (scenario === "dirty-source") writeFileSync(join(source, "tracked"), "pending source work\n");
   if (scenario === "wrong-branch") git(source, "checkout", "-b", "other-base");
   if (scenario === "changed-after-return") {
     const switchSession = h.current.ctx.switchSession;
@@ -1451,13 +1481,14 @@ for (const scenario of ["success", "ignored", "unmerged", "tracked", "staged", "
   await h.call({ mergedInto: "main" }, undefined, "workflow_exit");
   assert.equal(git(source, "rev-parse", data.branch), head, "task branch always survives");
   assert.equal(readFileSync(join(source, ".env.local"), "utf8"), "source original\n", "source originals always survive");
-  if (["success", "ignored"].includes(scenario)) {
+  if (["success", "ignored", "dirty-source"].includes(scenario)) {
     assert.equal(h.current.ctx.cwd, source); assert.equal(state(h), undefined);
     assert.equal(existsSync(data.root), false);
     assert.equal(git(source, "worktree", "list", "--porcelain").includes(data.root), false);
     assert.match(notifications(h), /Removed merged task worktree/);
     assert.match(notifications(h), /push remains manual/);
     assert.equal(git(source, "rev-parse", "HEAD"), head);
+    if (sourceWork) assert.deepEqual(pendingSource(), sourceWork, "return and cleanup preserve source index and files");
   } else {
     assert.equal(existsSync(data.root), true, "failed validation/replacement must preserve the task checkout");
     assert.match(notifications(h), /Return validation failed|Workflow return failed/);
@@ -1473,8 +1504,29 @@ for (const scenario of ["success", "ignored", "unmerged", "tracked", "staged", "
     }
     if (["tracked", "staged"].includes(scenario)) assert.equal(readFileSync(join(data.root, "tracked"), "utf8"), "pending task work\n");
     if (scenario === "untracked") assert.equal(readFileSync(join(data.root, "pending"), "utf8"), "pending task work\n");
-    if (scenario === "dirty-source") assert.equal(readFileSync(join(source, "tracked"), "utf8"), "pending source work\n");
   }
+});
+
+test("overlapping source edit makes Git refuse the merge and retains local work and task", async (t) => {
+  const source = freshSource("overlapping-merge"), h = await harness({ directory: source }); t.after(() => h.close());
+  await h.command("plan", "task"); const data = taskState(h);
+  await h.command("finalize", "/exact/plan.md");
+  writeFileSync(join(data.root, "tracked"), "task edit\n");
+  git(data.root, "add", "tracked");
+  git(data.root, "-c", "commit.gpgsign=false", "commit", "-m", "fixture task");
+  writeFileSync(join(source, "tracked"), "overlapping source edit\n");
+  const before = snapshot(source), taskHead = git(data.root, "rev-parse", "HEAD");
+  assert.throws(() => git(source, "merge", "--ff-only", "--", data.branch), (error) => {
+    assert.match(String(error.stderr), /local changes.*would be overwritten by merge/s);
+    return true;
+  });
+  assert.deepEqual(snapshot(source), before, "Git refusal preserves source work and index");
+  await h.call({ mergedInto: "main" }, undefined, "workflow_exit");
+  assert.equal(h.current.ctx.cwd, data.root, "unmerged task cannot return with cleanup context");
+  assert.equal(existsSync(data.root), true);
+  assert.equal(git(data.root, "rev-parse", "HEAD"), taskHead);
+  assert.deepEqual(snapshot(source), before);
+  assert.match(notifications(h), /Workflow return failed/);
 });
 
 test("local-merge cleanup context requires Git Finalize and excludes PR context", async (t) => {

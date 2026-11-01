@@ -1,5 +1,7 @@
 # Build
 
+Apply the shared explicit-direction precedence rule to this phase's defaults; preserve safety and helper integrity checks.
+
 Implement the selected plan and verify it. The chat request or authorized handoff authorizes starting; no approval receipt, hash check, or second start confirmation is needed. Implement only the supplied scope; automatic continuation requires explicit loop authority. Use the shared original-plan, task and handoff rules.
 
 - Use the installed ponytail skill. If unavailable, keep the smallest complete solution, reuse project patterns, avoid new dependencies/abstractions, and test non-trivial logic.

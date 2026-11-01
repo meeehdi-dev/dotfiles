@@ -1,5 +1,7 @@
 # Review
 
+Apply the shared explicit-direction precedence rule to this phase's defaults; preserve safety and helper integrity checks.
+
 Independently review the implementation against the supplied plan/reference. Use ponytail-review when installed, not whole-repository audit/debt/gain skills. Do not trust Build's claims or fix code. The selected reference is primary; the skill's blanket README reading is unnecessary unless relevant.
 
 - For Git whole-plan or standalone Review, default scope is all current staged, unstaged, and untracked/new changes. Outside Git, review only explicitly scoped task files against the plan and available check evidence; ask in chat if file scope is unclear. State that no Git baseline exists and exhaustive diff-based change detection is unavailable; do not run Git status/diff, fabricate a change set, snapshot files, create a repository, or enumerate an entire home/config tree. An authorized feature Review independently checks the selected feature's acceptance criteria, connected code/tests, and cumulative changes relevant to regressions. Feature scope is semantic, not a guessed Git diff boundary: shared files can contain several features. Preserve and distinguish unrelated/pre-existing work. Read new files: ordinary tracked diffs omit them. Workflow artifacts are inputs, not defects merely because they are untracked.

@@ -1,5 +1,7 @@
 # Plan
 
+Apply the shared explicit-direction precedence rule to this phase's defaults; preserve safety and helper integrity checks.
+
 Investigate and agree on a standalone implementation plan, not an implementation. The input can be a new task or a report; interpret its meaning, not its filename suffix. If the input or goal is unclear, ask; do not invent defects in an arbitrary document or overwrite an input report with the output plan.
 
 - Reuse the validated task root (managed Git checkout or in-place non-Git directory). Research relevant source, callers, tests, interfaces and available history without mutation. Outside Git, do not request Git status/diff/history; identify explicit task files and note the absent baseline and in-place risk. Do not implement, run tests, install, migrate, manage services or deploy.

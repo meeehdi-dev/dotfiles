@@ -176,7 +176,6 @@ export default async function workflowModes(pi: ExtensionAPI) {
     if (await git(data.sourceRoot, ["branch", "--show-current"], signal) !== base) throw new Error("Source checkout is not on the selected local base branch.");
     const head = await git(data.root, ["rev-parse", "--verify", "HEAD^{commit}"], signal);
     await git(data.sourceRoot, ["merge-base", "--is-ancestor", head, "HEAD"], signal);
-    if (await git(data.sourceRoot, ["status", "--porcelain=v1", "--untracked-files=all"], signal)) throw new Error("Local base checkout has pending files; preserve the worktree and ask for direction.");
     if (await git(data.root, ["status", "--porcelain=v1", "--untracked-files=all"], signal)) {
       throw new Error("Task worktree has tracked or non-ignored pending files; preserve it and resolve cleanup in chat.");
     }

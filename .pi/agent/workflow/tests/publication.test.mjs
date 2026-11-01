@@ -121,7 +121,18 @@ test("local merge is local-only, verified, and cleans up only after return", () 
   for (const contract of [
     /local-merge choice follows \*\*Local merge\*\* below and skips steps 6–9 entirely: no push, remote\/gh calls or SSH authentication/,
     /metadata records the starting commit, not the original branch name/,
-    /Require a clean source checkout and no merge\/rebase\/cherry-pick\/revert in progress in either checkout/,
+    /Require no merge\/rebase\/cherry-pick\/revert in progress in either checkout/,
+    /pause for direction on pre-existing operations, not merely pending source files/,
+    /record source HEAD\/branch, staged and unstaged binary-safe diffs, index entries/,
+    /untracked paths with content hashes, file types and modes sufficient to verify preservation/,
+    /Do not stage, commit, stash, reset or discard unrelated source work/,
+    /Do not attempt a non-fast-forward merge commit with unrelated staged content/,
+    /No automatic rebase, squash, unsigned merge, reset, autostash, force or conflict resolution/,
+    /Git's actual overwrite\/conflict refusal is a concrete blocker/,
+    /no unresolved entries or in-progress merge\/rebase\/cherry-pick\/revert operations/,
+    /Compare the recorded pre-merge evidence with the resulting source index, working-tree edits and untracked files/,
+    /empty source status is not required/,
+    /Unexpected changes or uncertain preservation pause completion/,
     /no staged\/unstaged tracked changes or non-ignored untracked files/,
     /All ignored task files, including modified environment copies, dependencies, caches and local databases, are explicitly disposable on this route without per-file confirmation/,
     /source originals stay untouched/,
@@ -140,6 +151,8 @@ test("local merge is local-only, verified, and cleans up only after return", () 
     /Cleanup failure after return reports retained resources and possible partial ignored-file deletion/,
     /never uses --force/,
   ]) assert.match(publication, contract);
+  assert.doesNotMatch(publication, /Require a clean source checkout|source status is clean/);
+  assert.match(finalize, /Apply the shared explicit-direction precedence rule to this phase's defaults/);
 });
 
 test("non-Git completion returns only after consolidation/checks, without publication", () => {
