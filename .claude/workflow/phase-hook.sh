@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# PreToolUse hook (matcher Skill|Agent): records the workflow phase per session for statusline.sh.
+# PreToolUse (matcher Skill|Agent) and UserPromptSubmit hook: records the workflow phase per session
+# for statusline.sh. A typed /work is expanded as a slash command, never a Skill call, so its prompt starts tracking.
 # Never blocks a tool: always exits 0.
 input=$(cat)
-read -r session name < <(jq -r '[.session_id // "", .tool_input.skill // .tool_input.subagent_type // ""] | @tsv' <<<"$input" 2>/dev/null)
+read -r session name < <(jq -r '[.session_id // "", .tool_input.skill // .tool_input.subagent_type // (if (.prompt // "") | test("^/work(\\s|$)") then "work" else "" end)] | @tsv' <<<"$input" 2>/dev/null)
 case "$name" in
   work|workflow-plan) phase=plan ;;
   workflow-build|wf-builder) phase=build ;;

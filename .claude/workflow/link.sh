@@ -3,7 +3,7 @@
 # - Links workflow/, agents/wf-*.md, skills/work, skills/workflow-*, rules/agents.md (relative
 #   links, like stow). Never replaces a real file or folder, or a symlink pointing elsewhere (even dangling).
 # - Removes dangling symlinks in skills/, agents/, rules/ whose chain ends inside dotfiles (old skills/plan).
-# - Merges into settings.json with jq: the phase hook, statusLine, worktree.baseRef "head",
+# - Merges into settings.json with jq: the phase hooks (PreToolUse, UserPromptSubmit), statusLine, worktree.baseRef "head",
 #   the ponytail marketplace and enabledPlugins entry. Other keys are kept; writes only on change.
 #   A key the user set differently, or invalid JSON, skips that whole config dir.
 # - Hides the ponytail band above the prompt: writes .ponytail-band=off when missing
@@ -59,21 +59,24 @@ for cfg in "$@"; do
 done
 
 hook='{"matcher":"Skill|Agent","hooks":[{"type":"command","command":"bash ~/.claude/workflow/phase-hook.sh"}]}'
+prompt_hook='{"hooks":[{"type":"command","command":"bash ~/.claude/workflow/phase-hook.sh"}]}'
 statusline='{"type":"command","command":"bash ~/.claude/workflow/statusline.sh"}'
 market='{"source":{"source":"github","repo":"DietrichGebert/ponytail"}}'
 # Prints {conflicts, settings}. A conflict is a workflow key already set to something else.
 merge='
   def has_path(p): try (getpath(p) != null) catch true;
-  def mine: [.hooks.PreToolUse[]? | select(any(.hooks[]?; (.command? // "") | tostring | test("workflow/phase-hook\\.sh")))];
+  def mine(ev): [.hooks[ev][]? | select(any(.hooks[]?; (.command? // "") | tostring | test("workflow/phase-hook\\.sh")))];
   { conflicts: [
-      (if (mine | length) > 0 and (mine | index([$hook]) == null) then "hooks.PreToolUse (phase-hook)" else empty end),
+      (if (mine("PreToolUse") | length) > 0 and (mine("PreToolUse") | index([$hook]) == null) then "hooks.PreToolUse (phase-hook)" else empty end),
+      (if (mine("UserPromptSubmit") | length) > 0 and (mine("UserPromptSubmit") | index([$ph]) == null) then "hooks.UserPromptSubmit (phase-hook)" else empty end),
       (if has_path(["statusLine"]) and .statusLine != $sl then "statusLine" else empty end),
       (if has_path(["worktree","baseRef"]) and .worktree.baseRef != "head" then "worktree.baseRef" else empty end),
       (if has_path(["extraKnownMarketplaces","ponytail"]) and .extraKnownMarketplaces.ponytail != $mk then "extraKnownMarketplaces.ponytail" else empty end),
       (if has_path(["enabledPlugins","ponytail@ponytail"]) and .enabledPlugins["ponytail@ponytail"] != true then "enabledPlugins.ponytail@ponytail" else empty end)
     ],
     settings: (
-      (if (mine | length) > 0 then . else .hooks.PreToolUse += [$hook] end)
+      (if (mine("PreToolUse") | length) > 0 then . else .hooks.PreToolUse += [$hook] end)
+      | (if (mine("UserPromptSubmit") | length) > 0 then . else .hooks.UserPromptSubmit += [$ph] end)
       | .statusLine //= $sl
       | .worktree.baseRef //= "head"
       | .extraKnownMarketplaces.ponytail //= $mk
@@ -88,7 +91,7 @@ for cfg in "$@"; do
   if [ -L "$file" ]; then echo "skip $cfg: settings.json is a symlink"; status=1; continue; fi
   if [ -e "$file" ]; then cur=$(cat "$file") || { echo "skip $cfg: cannot read settings.json"; status=1; continue; }
   else cur='{}'; fi
-  out=$(jq -e --argjson hook "$hook" --argjson sl "$statusline" --argjson mk "$market" \
+  out=$(jq -e --argjson hook "$hook" --argjson ph "$prompt_hook" --argjson sl "$statusline" --argjson mk "$market" \
     'if type == "object" then . else error("not an object") end | '"$merge" <<<"$cur" 2>/dev/null) \
     || { echo "skip $cfg: settings.json is not a JSON object, or a workflow key has an unexpected type"; status=1; continue; }
   conflicts=$(jq -r '.conflicts | join(", ")' <<<"$out")
