@@ -16,7 +16,8 @@ pass() { printf 'ok   %s\n' "$1"; }
 fail() { printf 'FAIL %s\n' "$1"; [ -z "${2:-}" ] || printf '%s\n' "$2" | sed 's/^/     /'; fails=$((fails + 1)); }
 
 OUT= RC=0
-run() { OUT=$(printf '%s' "$1" | bash "$SCRIPT"); RC=$?; }
+CACHE="$T/statusline-rate-limits.json"
+run() { rm -f -- "$CACHE"; OUT=$(printf '%s' "$1" | bash "$SCRIPT"); RC=$?; }
 plain() { printf '%s' "$OUT" | sed $'s/\033\\[[0-9;]*m//g'; }
 # is <name> <json> <expected stripped output>
 is() {
@@ -37,7 +38,7 @@ case "$rest" in *'38;5'* | *'48;5'*) fail "no 256-color codes in the usage segme
 run "{\"rate_limits\":{\"five_hour\":$(win 50 600)}}"
 case "$OUT" in *$'\033[33m'*) fail "no yellow above 10% left" ;; *) pass "no yellow above 10% left" ;; esac
 
-baseline=$(printf '{}' | bash "$SCRIPT")
+rm -f -- "$CACHE"; baseline=$(printf '{}' | bash "$SCRIPT")
 run '{"rate_limits":null}'
 if [ "$OUT" = "$baseline" ]; then pass "null rate_limits prints exactly the badge"; else fail "null rate_limits prints exactly the badge" "$(plain)"; fi
 is "missing rate_limits" '{"session_id":"abc"}' "$BADGE"
@@ -59,6 +60,11 @@ for pb in plan:75 ui:75 build:214 review:246 finalize:71; do
   case "$OUT" in $'\033[48;5;'"${pb#*:}m"$'\033[38;5;16m '"$p "$'\033[0m'*) pass "phase badge colors: $p" ;; *) fail "phase badge colors: $p" ;; esac
 done
 case "$baseline" in $'\033[48;5;238m\033[38;5;252m auto \033[0m') pass "auto badge unchanged" ;; *) fail "auto badge unchanged" ;; esac
+
+run "{\"rate_limits\":{\"five_hour\":$(win 10 $((44 * 60 + 30))),\"seven_day\":$(win 5 -10)}}"
+got=$(printf '{"session_id":"abc"}' | bash "$SCRIPT" | sed $'s/\033\\[[0-9;]*m//g')
+if [ "$got" = "$BADGE │ 5h ███████░ 90% left ↻45m" ]; then pass "startup without rate_limits shows cached, unexpired windows"
+else fail "startup without rate_limits shows cached, unexpired windows" "got: [$got]"; fi
 
 echo
 if [ "$fails" -eq 0 ]; then echo "all statusline.sh tests passed"; else echo "$fails statusline.sh test(s) failed"; exit 1; fi

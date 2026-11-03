@@ -15,6 +15,16 @@ case "$phase" in
 esac
 printf '\033[48;5;%sm\033[38;5;%sm %s \033[0m' "$bg" "$fg" "$phase"
 
+# rate_limits only arrives after the session's first API response: cache the last one so startup shows it too.
+cache="$root/statusline-rate-limits.json"
+if jq -e '.rate_limits | type == "object"' <<<"$input" >/dev/null 2>&1; then
+  jq -c '.rate_limits' <<<"$input" >"$cache.$$" 2>/dev/null && mv -f "$cache.$$" "$cache"
+elif [ -s "$cache" ]; then
+  # cached windows past their reset are stale, so they are dropped
+  input=$(jq -c --slurpfile c "$cache" '.rate_limits = ($c[0] | with_entries(select(
+    (.value.resets_at | type) == "number" and .value.resets_at > now)))' <<<"$input" 2>/dev/null)
+fi
+
 # Usage windows as pi's chatgpt-usage footer, in basic ANSI only (dim, default fg, yellow warning).
 # One line per valid window: label, used cells (of 8), % left, warning (1/0), minutes to reset (rounded up).
 windows=$(jq -r '
