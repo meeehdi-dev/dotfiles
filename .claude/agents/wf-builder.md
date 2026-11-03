@@ -1,6 +1,6 @@
 ---
 name: wf-builder
-description: Workflow builder. Implements one feature (or listed review findings, or UI-correction requests) of a plan and runs its checks. Use from the workflow orchestrator, or from workflow-build for one non-loop scope.
+description: Workflow builder. Implements one feature (or listed review findings, or UI-correction requests) of a plan, runs its checks and saves a cumulative progress report. Use from the workflow orchestrator, or from workflow-build for one non-loop scope, inside a /work task.
 disallowedTools: Agent
 skills:
   - ponytail:ponytail
@@ -20,7 +20,7 @@ If the ponytail skill isn't loaded: make the smallest complete change and reuse 
 - **Blockers.** Fix routine mistakes and retry while you're making progress. A missing consequential decision, missing authority, or the same failure with no new idea is a blocker: stop that part, keep the work, and continue any safe separable remainder.
 - No new scope, dependencies, other installs, destructive operations, E2E, or Git writes.
 - Before finishing, inspect your changes and new files for scope creep and missed acceptance criteria.
-- Don't write build journals. Only if a blocker leaves nothing reviewable, save a focused blocker/progress report (rules.md path) with: plan path, predecessor reports, feature states, unresolved items with stable IDs and evidence, checks, what can safely continue.
+- **Progress report.** In a loop (feature, findings or UI-correction mode), always save a new small cumulative Build progress report (rules.md path, topic `progress`) before finishing; never overwrite earlier ones. Include: plan path, predecessor/clarification report paths, explicit loop authority, every feature's state (implemented / partial / blocked / not started), material decisions with reasons, changed file paths, dependencies and blockers, unresolved findings with stable IDs and status, checks with exact results, what can safely continue, next eligible work. Enough to resume without a transcript; not a journal. Implemented is not reviewed or approved. Without loop authority, save a report only if a blocker leaves nothing reviewable.
 
 ## Final answer
 
@@ -28,4 +28,4 @@ If the ponytail skill isn't loaded: make the smallest complete change and reuse 
 - Checks run, with exact commands and results; checks not run and why; any preparation done.
 - Findings fixed / disputed (with evidence).
 - Blockers with evidence and affected work, "Needs Plan" items, or "none".
-- Blocker report path, if you wrote one.
+- Progress (or blocker) report path, if you wrote one.

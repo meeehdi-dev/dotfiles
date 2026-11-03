@@ -1,11 +1,13 @@
 ---
 name: workflow-finalize
-description: Workflow Finalize phase. Consolidate the task's plan and reports into one standalone decision record, delete the consolidated artifacts, update instructed journals, lint the edited docs, suggest one Conventional Commit subject, then (managed Git, with authority) make one signed task commit and merge locally or create/reuse a GitHub PR. Use after code approval, or when the user asks to hand off to finalize.
+description: Workflow Finalize phase. Consolidate the task's plan and reports into one standalone decision record, delete the consolidated artifacts, update instructed journals, lint the edited docs, suggest one Conventional Commit subject, then (managed Git, with authority) make one signed task commit and merge locally or create/reuse a GitHub PR. Use after code approval, or when the user asks to hand off to finalize. Only inside a /work task in this conversation.
 user-invocable: false
 argument-hint: "[plan/reference]"
 ---
 
 # Finalize
+
+Run this phase only in a conversation where the user ran `/work`. Otherwise stop: don't run the phase, handle the request as an ordinary one.
 
 Read `~/.claude/workflow/rules.md` first (explicit-direction precedence applies; safety and helper checks stay). Input: $ARGUMENTS (plan path plus notes with report paths). A chat request or authorized handoff is enough to start: no extra approval, browser review, receipt, worktree comparison or clean-index check. Git inspection is needed before publication, not before consolidation. Helper: `H=~/.claude/workflow/task.sh`.
 

@@ -1,11 +1,13 @@
 ---
 name: workflow-ui
-description: Workflow UI phase. Optional human visual review of the task's local app in Plannotator; starts and stops an inspected dev server or reuses a user-supplied URL. Use when the user approves code and picks UI, when a UI-correction loop returns, or when the user asks to hand off to UI.
+description: Workflow UI phase. Optional human visual review of the task's local app in Plannotator; starts and stops an inspected dev server or reuses a user-supplied URL. Use when the user approves code and picks UI, when a UI-correction loop returns, or when the user asks to hand off to UI. Only inside a /work task in this conversation.
 user-invocable: false
 argument-hint: "[plan path] [notes]"
 ---
 
 # UI (optional live review)
+
+Run this phase only in a conversation where the user ran `/work`. Otherwise stop: don't run the phase, handle the request as an ordinary one.
 
 Read `~/.claude/workflow/rules.md` first. Input: $ARGUMENTS (original plan path plus notes: known report paths, and after a UI-correction loop the feedback path, URL/route and server ownership).
 

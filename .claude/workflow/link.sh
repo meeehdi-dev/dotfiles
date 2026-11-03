@@ -6,6 +6,8 @@
 # - Merges into settings.json with jq: the phase hook, statusLine, worktree.baseRef "head",
 #   the ponytail marketplace and enabledPlugins entry. Other keys are kept; writes only on change.
 #   A key the user set differently, or invalid JSON, skips that whole config dir.
+# - Hides the ponytail band above the prompt: writes .ponytail-band=off when missing
+#   (an existing value is kept; `/ponytail band` toggles it).
 # Usage: link.sh [config dirs…]   (default: ~/.claude ~/.claude-lvmh ~/.claude-vo2)
 set -u
 [ $# -gt 0 ] || set -- "$HOME/.claude" "$HOME/.claude-lvmh" "$HOME/.claude-vo2"
@@ -111,6 +113,8 @@ for cfg in "$@"; do
       ln -s "$(rel "$path" "$(cd "$dir" && pwd -P)")" "$dest" && echo "linked $dest" || status=1
     done
   done
+
+  [ -e "$cfg/.ponytail-band" ] || { printf 'off\n' >"$cfg/.ponytail-band" && echo "hid ponytail band in $cfg"; } || status=1
 
   # Write settings only when they change in meaning.
   new=$(jq '.settings' <<<"$out")

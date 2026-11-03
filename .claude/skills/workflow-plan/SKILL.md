@@ -1,11 +1,13 @@
 ---
 name: workflow-plan
-description: Workflow Plan phase. Investigate a task or a findings/feedback report, settle consequential questions in Plannotator, and save a standalone plan with numbered features for gated approval. Use from /work, or when Review/UI routes back to Plan to replan within the same task.
+description: Workflow Plan phase. Investigate a task or a findings/feedback report, settle consequential questions in Plannotator, and save a standalone plan with numbered features for gated approval. Use from /work, or when Review/UI routes back to Plan to replan within the same task. Only inside a /work task in this conversation.
 user-invocable: false
 argument-hint: "[task or report] [task identity notes]"
 ---
 
 # Plan
+
+Run this phase only in a conversation where the user ran `/work`. Otherwise stop: don't run the phase, handle the request as an ordinary one.
 
 Read `~/.claude/workflow/rules.md` first. Input: $ARGUMENTS (task or report plus task identity notes; empty → ask in chat).
 
@@ -23,7 +25,7 @@ Produce an agreed standalone implementation plan, not an implementation. Explici
    - scope / non-goals, current-state evidence and references, decisions and reasons;
    - **numbered features with stable IDs (F1, F2…), acceptance criteria per feature, ordered steps with affected files/interfaces, explicit dependencies**; not a feature per file or test, no separately approved sub-plans;
    - validation commands and cases, risks and stop conditions;
-   - a short Build handoff: "Approved → workflow-build with this plan; the per-feature loop is authorized for in-scope work."
+   - a short Build handoff: "Approved → workflow-build with this plan; approval authorizes building all planned features (fresh builder per feature with progress reports, no per-feature Review), then whole-plan Review and automatic in-scope correction rounds until clean or blocked. Not code/UI approval or publication."
    Map report findings to steps or agreed exclusions. Resolve consequential decisions first.
 7. **Approval, separate from grilling.** Open the plan gated in Plannotator, end the turn, wait. Annotations → revise and reopen. Resolve conflicts and unanswered consequential questions.
-8. **Explicit approval** (browser or chat) → invoke the `workflow-build` skill once with the absolute plan path, the approval as loop authorization, clarification paths and any approval notes. Silence, a closed tab or an error → `AskUserQuestion` (retry / stop / change direction) once the conversation resumes. Don't implement here.
+8. **Explicit approval** (browser or chat) → invoke the `workflow-build` skill once with the absolute plan path, clarification paths and any approval notes. State in the notes that plan approval authorizes the loop: all planned features in fresh builders with saved cumulative progress reports, starting with the first eligible feature, no per-feature Review or continuation confirmation, then whole-plan Review and automatic in-scope correction rounds until clean or blocked; not code/UI approval or publication. Silence, a closed tab or an error → `AskUserQuestion` (retry / stop / change direction) once the conversation resumes. Don't implement here.

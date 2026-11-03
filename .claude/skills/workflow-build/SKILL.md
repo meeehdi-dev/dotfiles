@@ -1,11 +1,13 @@
 ---
 name: workflow-build
-description: Workflow Build phase. Runs the per-feature build/independent-review loop and the whole-plan review loop (or a focused UI-correction loop) for an approved plan in fresh subagents, then routes to human approval, UI or Plan. Use after a plan is approved, from UI with a correction loop, or when the user asks to hand off to build.
+description: Workflow Build phase. Builds each planned feature in a fresh builder subagent (no review in between), then runs the whole-plan review loop (or a focused UI-correction loop) for an approved plan in fresh subagents, then routes to human approval, UI or Plan. Use after a plan is approved, from UI with a correction loop, or when the user asks to hand off to build. Only inside a /work task in this conversation.
 user-invocable: false
 argument-hint: "[plan path]"
 ---
 
 # Build (orchestration)
+
+Run this phase only in a conversation where the user ran `/work`. Otherwise stop: don't run the phase, handle the request as an ordinary one.
 
 Read `~/.claude/workflow/rules.md` first. Input: $ARGUMENTS (absolute plan path plus notes; ask if missing).
 

@@ -14,5 +14,7 @@ esac
 # session_id comes from Claude Code; refuse anything that could escape the state dir
 [[ "$session" =~ ^[A-Za-z0-9_-]+$ ]] || exit 0
 dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/workflow-state"
+# only /work starts tracking a session; other phases outside /work leave the badge on auto
+[ "$name" = work ] || [ -f "$dir/$session" ] || exit 0
 mkdir -p "$dir" && printf '%s\n' "$phase" > "$dir/$session"
 exit 0

@@ -1,9 +1,10 @@
 # Workflow rules (shared by every workflow skill and agent)
 
-Plan → per-feature Build ↔ Review → whole-plan Review ↔ focused Build → optional UI → Finalize.
-Clean feature reviews advance automatically; humans approve only after a clean whole-plan or standalone review. Focused UI feedback loops Build ↔ Review back to UI; decisions go to Plan.
+Plan → Build F1 → fresh Build F2 → … → whole-plan Review ↔ focused Build → optional UI → Finalize.
+Features are built one per fresh builder with no review in between; humans approve only after a clean whole-plan or standalone review. Focused UI feedback loops Build ↔ Review back to UI; decisions go to Plan.
 The workflow guides; it never restricts Claude Code or overrides the user's change of direction. Instructions plus one helper (`~/.claude/workflow/task.sh`); no receipts, state machine or locks.
 
+- **Only after `/work`.** The workflow applies only in a conversation where the user ran `/work`. Otherwise requests are ordinary: never invoke `workflow-*` skills or `wf-*` agents, and none of these rules add gates.
 - `/work [task or report]` is the only entry command and always starts Plan (literal argument; bare `/work` asks in chat). Other phases, standalone Review and return: ask in chat or via handoff.
 - Plan, UI and Finalize run in the main session; Build and Review in fresh subagents (`wf-orchestrator` → `wf-builder` / `wf-reviewer`); wait for their completion notification. Handoffs pass paths and notes, never the transcript.
 - Unreadable rules or phase skill: pause, report the path. Missing optional skill (plannotator, ponytail): use the fallback, say so.
@@ -20,7 +21,7 @@ The workflow guides; it never restricts Claude Code or overrides the user's chan
 ## Artifacts
 
 - Root: `${CLAUDE_CONFIG_DIR:-$HOME/.claude}`. Expand `~` before using file tools.
-- Plans `<root>/plans/<key>/<id>.md`; Plan feedback/clarifications `<root>/plans/<key>/<id>-<topic>.md`; review, blocker, UI and feedback reports `<root>/reviews/<key>/<id>-<topic>-<UTC timestamp>.md`.
+- Plans `<root>/plans/<key>/<id>.md`; Plan feedback/clarifications `<root>/plans/<key>/<id>-<topic>.md`; Build progress, review, blocker, UI and feedback reports `<root>/reviews/<key>/<id>-<topic>-<UTC timestamp>.md`.
 - Key and id come from the validated task, never the worktree basename or prose.
 - Explicit user/task paths or project instructions override per artifact type; existing directories or old files don't. Keep exact references. Clarify conflicting targets; pick a new name if a report's default exists. These are instruction-only defaults, not enforced.
 - Artifacts must stand alone without the conversation. Read before revising. Preserve input and earlier reports; only Finalize consolidates and deletes them.
@@ -28,7 +29,7 @@ The workflow guides; it never restricts Claude Code or overrides the user's chan
 ## Plans and progress
 
 - One original plan with numbered features and stable IDs (F1, F2…), acceptance criteria per feature, ordered steps, explicit dependencies. A single-feature or unnumbered plan is one unit.
-- The original plan stays primary and unchanged. Every Build/Review agent reads it in full, plus instructions and the latest same-task reports. Review reports are the cumulative progress snapshot (no state store, no build journal).
+- The original plan stays primary and unchanged. Every Build/Review agent reads it in full, plus instructions and the latest same-task reports. Small Build progress reports carry progress between features, Review reports after the build (no state store, no build journal, no transcript). The latest report stands alone for current progress; predecessor links keep the evidence.
 - Handoff notes carry: explicit loop authorization, feature ID or "whole-plan", next action, absolute plan/report paths, material decisions, accepted limitations, and any explicit-direction exception with its scope.
 - Resuming dispatches nothing. Never guess completion: reconcile progress from code, checks and reports. Partial work is not complete or reviewed.
 - Before routing to UI/Finalize, resolve the original plan; if missing or ambiguous, ask, never substitute a later plan or report.
@@ -36,7 +37,7 @@ The workflow guides; it never restricts Claude Code or overrides the user's chan
 ## Authority
 
 - Phase, routing, scope and procedural rules are defaults. At an unexpected blocker, a specific user instruction wins within its stated scope in any phase: no phase-name veto, detour or reconfirmation. It grants no unrelated scope or future permission and never overrides higher-priority policy, real failures, security/data-loss protections or the helper's checks. If the helper can't do it, explain why and use ordinary tools; no generic bypasses; never call a technical failure a workflow prohibition. Exceptions go in handoff notes, never new persistent metadata. Normal approvals, read-only Review and automatic routing are otherwise unchanged; outside `/work` these defaults add no gates.
-- Loop authorization must be explicit (plan approval or the user's words), never inferred from a filename, report or numbered features. It covers automatic in-scope feature/fix/next and whole-plan correction transitions. Standalone Review stays read-only and asks how to route findings.
+- Loop authorization must be explicit (plan approval or the user's words), never inferred from a filename, report or numbered features. Plan approval authorizes building all planned features (fresh builder per feature, no per-feature Review), then whole-plan Review and automatic in-scope correction/review rounds until clean or blocked. It is not code/UI approval or publication authority. A direct Build request without it covers only its supplied scope. Standalone Review stays read-only and asks how to route findings.
 - Without specific authority: no new scope/design, dependencies, installs, lockfile/snapshot updates, migrations, destructive actions, E2E or deployment. Never remove security, validation, accessibility or data-loss protections.
 - Git is read-only except: `/work` task setup, authorized disposable test fixtures, and Finalize's task-only publication. Plan is non-mutating, Review read-only. Task creation, standalone Review and docs-only Finalize grant no publication or other Git/service/credential/install authority.
 - Finalize asks "Merge in-place (local only, no push)" or "Create or reuse a PR on GitHub" unless already chosen; both make one signed task-only commit. Local: only the verified merge into the source base and helper cleanup, no push or gh. PR: push only the task branch over SSH, create/reuse an explicit-destination PR. Locked GPG/SSH or missing gh auth: the user recovers in their terminal. Never handle secrets, change credentials/config, go unsigned, force-push, fork, poll CI, merge on GitHub, delete branches, or stash/reset/discard source work.
@@ -73,7 +74,7 @@ A missing consequential decision, unavailable required authority/input, or demon
 
 ## Clean result → human approval
 
-Human approval follows only a clean standalone or whole-plan review (outside Git without browser code review). The procedure lives once, in `workflow-review`'s "Clean result → human approval"; `workflow-build` follows it there.
+Human approval follows only a clean standalone or whole-plan review, never a finished build (outside Git without browser code review). The procedure lives once, in `workflow-review`'s "Clean result → human approval"; `workflow-build` follows it there.
 
 ## Not applicable in Claude Code
 

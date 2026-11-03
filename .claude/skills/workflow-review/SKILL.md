@@ -1,11 +1,13 @@
 ---
 name: workflow-review
-description: Workflow standalone Review. Independent read-only review of the current changes against a plan/reference in a fresh subagent, then findings routing or human approval. Use when the user asks to hand off to review or review the work against a plan.
+description: Workflow standalone Review. Independent read-only review of the current changes against a plan/reference in a fresh subagent, then findings routing or human approval. Use when the user asks to hand off to review or review the work against a plan. Only inside a /work task in this conversation.
 user-invocable: false
 argument-hint: "[plan/reference]"
 ---
 
 # Review (standalone)
+
+Run this phase only in a conversation where the user ran `/work`. Otherwise stop: don't run the phase, handle the request as an ordinary one.
 
 Read `~/.claude/workflow/rules.md` first. Input: $ARGUMENTS (plan/reference, optional base; ask if missing or if the scope is ambiguous, never guess `main` or the latest plan).
 
@@ -21,7 +23,7 @@ Standalone review is read-only and carries no loop authority, whatever the plan 
 
 ## Clean result → human approval
 
-Used by this skill and `workflow-build`. Only a clean standalone or whole-plan review reaches this; never a clean feature review, a blocked loop, or a UI-correction loop (that returns to UI).
+Used by this skill and `workflow-build`. Only a clean standalone or whole-plan review reaches this; never a finished build without whole-plan review, a blocked loop, or a UI-correction loop (that returns to UI).
 
 1. Resolve the original implementation plan from the input and reports; if missing or ambiguous, ask in chat.
 2. `AskUserQuestion` with exactly, in order: "Review code in Plannotator", "Approve code and go to UI", "Approve code, skip UI, and go to Finalize". Outside Git, only the last two (no browser code or file review).

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# statusLine: workflow phase badge for this session, then the ponytail badge if installed.
+# statusLine: workflow phase badge for this session.
 root="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 session=$(jq -r '.session_id // ""')
 phase=""
@@ -13,5 +13,4 @@ case "$phase" in
   *) phase=auto bg=238 fg=252 ;;
 esac
 printf '\033[48;5;%sm\033[38;5;%sm %s \033[0m' "$bg" "$fg" "$phase"
-[ -f "$root/ponytail-statusline.sh" ] && printf ' %s' "$(bash "$root/ponytail-statusline.sh")"
 exit 0
