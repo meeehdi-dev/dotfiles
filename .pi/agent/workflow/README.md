@@ -1,6 +1,6 @@
 # Personal Pi workflow
 
-**Plan → per-feature Build ↔ independent Review → whole-plan Review ↔ focused Build → optional UI → Finalize.** Agent guidance, not a permission sandbox or executable scheduler.
+**Plan → Build feature 1 → fresh Build feature 2 → … → whole-plan Review ↔ focused Build → optional UI → Finalize.** Agent guidance, not a permission sandbox or executable scheduler.
 
 ## Usage
 
@@ -8,7 +8,7 @@
 
 Request phases, standalone read-only Review, help/status or return without publishing in chat. Authorized handoffs use fresh sessions without copying the previous conversation. Repeating/skipping phases remains possible. `workflow_handoff` takes `mode`, `input` and optional concise `notes`; `workflow_question` offers finite choices without dispatching; `workflow_exit` returns without publishing. Only UI gets `workflow_ui_server`. Handoff/exit use a transient one-shot token through the sole command because Pi's session APIs are command-only, not a persistent queue or public action grammar.
 
-An authorized loop implements one eligible feature at a time, independently reviews/fixes it, advances in plan order, defers evidenced blockers while independent work remains, then independently reviews the whole plan. Clean feature Review is not human approval. In Git, clean standalone/whole-plan Review offers opt-in gated code review, direct UI approval, or approval to skip UI and Finalize. Focused UI feedback loops return to UI; consequential feedback returns to Plan. Finalize consolidates only this task's artifacts after summary readback/format verification and publishes only with established authority. See the contracts below for routing and safety details.
+Implementation-plan approval authorizes all planned features and final in-scope correction/review rounds, not publication. Build implements and checks one eligible feature per fresh session, saves a small cumulative progress report, then hands off directly to Build for the next feature in plan order. No independent Review runs between features. Reports retain feature states, decisions/reasons, changed paths, checks, blockers/dependencies and next work; the original plan stays unchanged and earlier reports survive until Finalize. Defer evidenced blockers while independent work remains, then independently review the whole plan, even if partial. Final actionable findings cycle through focused Build → whole-plan Review until clean or concretely blocked. Build completion is not independent review or human approval. In Git, clean standalone/whole-plan Review offers opt-in gated code review, direct UI approval, or approval to skip UI and Finalize. Focused UI feedback loops return to UI; consequential feedback returns to Plan. Finalize consolidates only this task's artifacts after summary readback/format verification and publishes only with established authority. See the contracts below for routing and safety details.
 
 Normal phase, routing, scope and procedural guidance remains the default. At an unexpected blocker, a specific user instruction takes precedence in every phase within its stated scope, without a phase-name veto, mandatory detour or repeated confirmation. It does not authorize unrelated work or silent destruction, override higher-priority policies, or disable helper identity/data-loss checks. Explain concrete helper or command limitations and use ordinary tools where appropriate; forward the exact exception and scope in existing handoff notes. Outside `/work`, these defaults add no gates to ordinary requests.
 
@@ -18,7 +18,7 @@ Keep the installed entry path `~/.pi/agent/extensions/workflow-modes.ts`, both h
 
 - [Shared rules](common.md): authority, artifacts, original-plan context, decisions, handoffs and recovery.
 - [Plan](plan.md): non-mutating research, conditional Plannotator clarification and separate plan approval.
-- [Build](build.md): selected feature, checks and deferred blockers.
+- [Build](build.md): selected feature, checks, cumulative progress and fresh Build continuation.
 - [Review](review.md): independent read-only review, cumulative reports, automatic loops and human routing.
 - [UI](ui.md): live review, owned server lifecycle and focused feedback corrections.
 - [Finalize](finalize.md): bounded consolidation, bookkeeping, signed commit, local merge or SSH push/gh PR, and recovery.

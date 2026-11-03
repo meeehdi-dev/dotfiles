@@ -333,19 +333,19 @@ test("internal dispatch consumes its token once and honors cancellation after qu
 test("feature progress notes survive fresh handoff and restore without automatic dispatch or artifact writes", async (t) => {
   const h = await harness(); t.after(() => h.close());
   const input = join(cwd, "feature-loop-plan.md");
-  const reports = [join(cwd, "feature-1-review.md"), join(cwd, "clarifications.md")];
-  const notes = `Authorized implementation loop; Feature 1; next: independent Review. Latest progress: ${reports[0]}; clarification: ${reports[1]}. Feature 1 implemented, not reviewed; Features 2/3 pending. Checks: focused suite passed.`;
+  const reports = [join(cwd, "feature-1-build-progress.md"), join(cwd, "clarifications.md")];
+  const notes = `Plan approval authorizes implementation loop; Feature 2; next: fresh Build. Latest progress: ${reports[0]}; clarification: ${reports[1]}. Feature 1 implemented, not independently reviewed; Features 2/3 pending. Checks: focused suite passed.`;
   await h.command("build", input);
   await h.task("PRIVATE implementation transcript");
   const before = h.current;
-  await h.call({ mode: "review", input, notes });
+  await h.call({ mode: "build", input, notes });
   assert.notEqual(h.current.extension, before.extension);
-  assert.deepEqual(state(h), { mode: "review", input, notes });
+  assert.deepEqual(state(h), { mode: "build", input, notes });
   assert.ok(h.current.prompts[0].workflow.includes(notes));
   assert.ok(!h.current.sent[0].content.includes("PRIVATE implementation transcript"));
   const records = structuredClone(h.current.records);
   await h.resume(records);
-  assert.deepEqual(state(h), { mode: "review", input, notes });
+  assert.deepEqual(state(h), { mode: "build", input, notes });
   assert.equal(h.current.sent.length, 0);
   assert.equal(h.current.prompts.length, 0);
   const restored = (await h.task()).workflow;
@@ -357,17 +357,16 @@ test("feature progress notes survive fresh handoff and restore without automatic
 });
 
 // These scripted transitions verify transport and injected contracts, not model scheduling decisions.
-test("feature Build → Review → fix → Review → next Build keeps original plan and cumulative references", async (t) => {
+test("feature Build → fresh Build → fresh Build → whole-plan Review keeps original plan and cumulative references", async (t) => {
   const h = await harness(); t.after(() => h.close());
   const input = join(cwd, "loop-plan.md");
   const clarification = join(cwd, "clarification.md");
-  const first = join(cwd, "feature-1-findings.md"), second = join(cwd, "feature-1-clean.md");
+  const first = join(cwd, "feature-1-progress.md"), second = join(cwd, "feature-2-progress.md"), third = join(cwd, "feature-3-progress.md");
   await h.command("build", input);
   const steps = [
-    ["review", `Feature 1 implemented, not reviewed; next: independent feature Review. Clarification: ${clarification}.`],
-    ["build", `Feature 1; next: validate/fix F1-R1. Latest: ${first}; clarification: ${clarification}. Feature 2 pending.`],
-    ["review", `Feature 1; next: independently recheck F1-R1 correction. Latest: ${first}; clarification: ${clarification}. Feature 2 pending.`],
-    ["build", `Feature 2; next: implement only next eligible feature. Feature 1 independently reviewed clean; F1-R1 resolved. Latest: ${second}; predecessor: ${first}; clarification: ${clarification}.`],
+    ["build", `Feature 2; next: implement next eligible feature. Feature 1 implemented, not independently reviewed. Latest: ${first}; clarification: ${clarification}.`],
+    ["build", `Feature 3; next: implement next eligible feature. Features 1/2 implemented, not independently reviewed. Latest: ${second}; predecessor: ${first}; clarification: ${clarification}.`],
+    ["review", `Whole-plan Review; eligible feature builds exhausted. Features 1/2/3 implemented, not independently reviewed. Latest: ${third}; predecessors: ${first}, ${second}; clarification: ${clarification}.`],
   ];
   for (const [mode, context] of steps) {
     const notes = `Explicitly authorized implementation loop. ${context}`;
@@ -383,7 +382,7 @@ test("feature Build → Review → fix → Review → next Build keeps original 
   }
   assert.equal(h.sessions.flatMap((session) => session.selections).length, 0);
   assert.equal(h.sessions.flatMap((session) => session.notices).length, 0);
-  for (const path of [input, clarification, first, second]) assert.equal(existsSync(path), false);
+  for (const path of [input, clarification, first, second, third]) assert.equal(existsSync(path), false);
 });
 
 test("whole-plan Review → focused Build → whole-plan Review preserves blocker/finding context", async (t) => {
@@ -410,7 +409,6 @@ test("authorized loop contracts defer blockers, exhaust independent work, and ke
     await h.command(mode, join(cwd, "original-plan.md"));
     const prompt = h.current.prompts[0].workflow;
     for (const contract of [
-      /first eligible feature in plan order unless dependency\/blocker evidence requires another/,
       /same unsuccessful approach without new evidence is not progress; there is no numerical retry cap/,
       /missing consequential decision, unavailable required authority\/input, or demonstrated inability to make further progress/,
       /(?:whole-plan|final-review) corrections are exhausted/,
@@ -418,7 +416,10 @@ test("authorized loop contracts defer blockers, exhaust independent work, and ke
       /new scope still needs (?:explicit )?approval/,
     ]) assert.match(prompt, contract);
     if (mode === "build") {
-      assert.match(prompt, /implement only the selected eligible feature and its necessary checks, not all remaining features/);
+      assert.match(prompt, /first eligible feature in plan order unless dependency\/blocker evidence requires another/);
+      assert.match(prompt, /implement only the selected eligible feature and its necessary checks in this session/);
+      assert.match(prompt, /continue remaining features through fresh Build sessions, not per-feature Review/);
+      assert.match(prompt, /eligible feature work remaining, hand off to fresh Build for the next eligible feature; do not route to Review between features/);
       assert.match(prompt, /Validate incoming Review findings against the code/);
       assert.match(prompt, /disputed or unsupported findings with evidence rather than blindly applying them/);
       // F1 blocked, independent F2 continues; dependent F3 must wait.
@@ -431,13 +432,14 @@ test("authorized loop contracts defer blockers, exhaust independent work, and ke
       assert.match(prompt, /after whole-plan corrections request fresh whole-plan Review, including affected feature criteria/);
       assert.match(prompt, /Do not independently start reviewing, open a browser, or insert routine approval questions during the loop/);
     } else {
-      assert.match(prompt, /Feature scope is semantic, not a guessed Git diff boundary/);
-      assert.match(prompt, /selected feature's acceptance criteria, connected code\/tests, and cumulative changes relevant to regressions/);
-      assert.match(prompt, /automatically call workflow_handoff for fresh Build of that feature with the same absolute original plan path and exact report\/finding references/);
-      assert.match(prompt, /No Plan picker, browser, or routine approval question interrupts feature\/fix\/next transitions/);
-      assert.match(prompt, /not human-approved or whole-plan approved, then hand off directly to Build/);
+      assert.match(prompt, /Review begins only after eligible feature builds are exhausted, not between features/);
+      assert.match(prompt, /same absolute original plan path and exact report\/finding references/);
+      assert.match(prompt, /Build must validate findings against code/);
+      assert.match(prompt, /No Plan picker, browser, or routine approval question interrupts final correction\/review rounds/);
+      assert.doesNotMatch(prompt, /Clean feature Review:|Actionable in-scope feature findings:|After feature Review/);
       assert.match(prompt, /Defer blockers while continuing all safe independent work, including a separable remainder of a partially blocked feature; never mark partial work reviewed/);
-      assert.match(prompt, /After feature Review, once eligible feature work\/reviews are exhausted, call workflow_handoff for fresh whole-plan Review/);
+      assert.match(prompt, /Review the whole plan after eligible feature builds are exhausted, using the original plan and latest cumulative Build progress report/);
+      assert.match(prompt, /Build checks are evidence, not independent feature reviews/);
       assert.match(prompt, /Map every requirement to implementation and checks; inspect cross-feature integration, regressions, missed scope, and unresolved blockers/);
       assert.match(prompt, /Partial implementation can be reviewed but cannot receive a clean whole-plan verdict/);
       assert.match(prompt, /Whole-plan actionable in-scope findings automatically return to focused Build, then fresh whole-plan Review/);
@@ -448,7 +450,7 @@ test("authorized loop contracts defer blockers, exhaust independent work, and ke
       assert.match(prompt, /Standalone findings.*only without implementation-loop authority/);
       assert.match(prompt, /Standalone findings: show the report and use workflow_question to ask whether to return to Plan/);
       assert.match(prompt, /Human approval is limited to clean standalone or clean whole-plan Review/);
-      for (const excluded of [/exclude clean feature Review/, /incomplete\/blocked loops/, /UI-correction loops with explicit return-to-UI authority/]) assert.match(prompt, excluded);
+      for (const excluded of [/exclude incomplete\/blocked loops/, /UI-correction loops with explicit return-to-UI authority/]) assert.match(prompt, excluded);
     }
   }
   const context = (await h.task("Explain workflow status and help")).workflow;
@@ -501,7 +503,7 @@ test("clean-review prompt makes browser review opt-in and preserves approval, sc
   assert.deepEqual([...menu.matchAll(/"([^"]+)"/g)].map((match) => match[1]), codeReviewDecision.options);
   for (const contract of [
     /Human approval is limited to clean standalone or clean whole-plan Review/,
-    /exclude clean feature Review, incomplete\/blocked loops and UI-correction loops/,
+    /exclude incomplete\/blocked loops and UI-correction loops/,
     /Never open code review merely because automated review completed/,
     /Resolve the original implementation-plan reference through the supplied reference\/reports before UI\/Finalize routing/,
     /ask in chat if missing or ambiguous, never guess the latest plan or substitute a report/,
@@ -523,7 +525,7 @@ test("clean-review prompt makes browser review opt-in and preserves approval, sc
     /proceeding leaves the requests unimplemented/,
     /After explicit browser approval.*workflow_question to ask UI .* or Finalize .*unless the user already explicitly specified the destination/,
 
-    /all known same-task clarification, feature-review, blocker, whole-plan review, and human feedback reports/,
+    /all known same-task clarification, Build progress, earlier feature-review, blocker, whole-plan review, and human feedback reports/,
     /forwarding paths from incoming notes/,
     /material decisions, accepted deferrals\/limitations and their documented reasons/,
   ]) assert.match(review, contract);
@@ -971,6 +973,10 @@ test("Plan limits scope and conditionally grills through Plannotator without cha
   assert.match(plan, /Workflow navigation still uses workflow_question for finite choices and chat for free-form direction/);
   assert.match(plan, /Opening or answering a grilling document neither approves the implementation plan nor authorizes Build/);
   assert.match(plan, /Explicit browser or chat approval: call workflow_handoff for Build/);
+  assert.match(plan, /Explicitly state in notes that plan approval authorizes the implementation loop for all planned features/);
+  assert.match(plan, /fresh Build → Build sessions with saved cumulative progress reports between features, then whole-plan Review/);
+  assert.match(plan, /automatic focused in-scope correction\/review rounds until clean or concretely blocked/);
+  assert.match(plan, /This is not code\/UI approval or publication authority/);
 });
 
 test("feature identity and cumulative progress contracts preserve original plans and older-plan compatibility", async (t) => {
@@ -997,8 +1003,11 @@ test("feature identity and cumulative progress contracts preserve original plans
       /single-feature or older unnumbered plan is one implementation unit/,
     ]) assert.match(prompt, contract);
     if (mode === "build") {
-      assert.match(prompt, /If a blocker prevents a normal Review handoff, save a focused standalone blocker\/progress report under the shared review-report path rules/);
-      assert.match(prompt, /cumulative feature states, dependencies and blockers, unresolved requirements\/findings with stable IDs and status, evidence and actual checks, what can safely continue, and next eligible work/);
+      assert.match(prompt, /Before each feature-boundary or correction handoff, save a new small cumulative Build progress report under the shared review-report path rules/);
+      assert.match(prompt, /cumulative feature states, material decisions and reasons, changed file paths, dependencies and blockers, unresolved requirements\/findings with stable IDs and status, evidence and actual checks, what can safely continue, and next eligible work/);
+      assert.match(prompt, /Completed Build work is implemented, not independently reviewed or human-approved/);
+      assert.match(prompt, /including the saved progress report's absolute path/);
+      assert.match(prompt, /latest report must stand alone for current progress/);
       assert.match(prompt, /partial feature is not complete or reviewed/);
     } else {
       assert.match(prompt, /report is also the cumulative progress snapshot/);
@@ -1078,7 +1087,7 @@ test("Review to UI to Finalize forwards artifact paths and decision guidance thr
   const reports = [join(cwd, "review.md"), join(cwd, "ui-feedback.md")];
   await h.command("review", input);
   const review = h.current.prompts[0].workflow;
-  assert.match(review, /notes for UI or Finalize, carry concise absolute paths to all known same-task clarification, feature-review, blocker, whole-plan review, and human feedback reports/);
+  assert.match(review, /notes for UI or Finalize, carry concise absolute paths to all known same-task clarification, Build progress, earlier feature-review, blocker, whole-plan review, and human feedback reports/);
   assert.match(review, /forwarding paths from incoming notes/);
   assert.match(review, /accepted deferrals\/limitations and their documented reasons/);
   assert.match(review, /original implementation-plan reference; a Plan route instead receives the findings\/feedback report/);
@@ -1144,7 +1153,8 @@ test("short prompts retain selected role policies, with no deleted helper refere
   assert.match(read("ui"), /Do not ask whether to return to Plan or leave the requests unimplemented/);
   assert.match(read("ui"), /workflow_question to ask whether to retry live review, skip to Finalize, or change direction/);
   assert.match(read("ui"), /Explicit approval of the live UI/);
-  assert.match(read("build"), /call workflow_handoff for Review with the same absolute plan path/);
+  assert.match(read("build"), /call workflow_handoff with the same absolute plan path/);
+  assert.match(read("build"), /Once eligible feature work is exhausted, request fresh whole-plan Review/);
   assert.match(read("ui"), /cannot force --app/);
   assert.match(read("ui"), /live and may change real data/);
   assert.match(read("finalize"), /If no journals are required, skip journal writes/);
