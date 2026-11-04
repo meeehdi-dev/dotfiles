@@ -57,6 +57,8 @@ for (const inPlace of [false, true]) for (const failure of (inPlace
   let failReplacement = false;
   const createRuntime = async ({ cwd, sessionManager, sessionStartEvent }) => {
     if (failReplacement && failure?.endsWith("create")) throw new Error("TARGET_REBUILD_FAILED");
+    if (failure === "selection-unavailable" && cwd !== source) await credentials.delete("openai-codex");
+    else await credentials.modify("openai-codex", () => ({ type: "oauth", access: "synthetic-access", refresh: "synthetic-refresh", expires: Date.now() + 3600000, accountId: "fixture" }));
     const modelRuntime = await sdk.ModelRuntime.create({ credentials, modelsPath: join(agentDir, "models.json"), refreshOnCreate: false });
     await modelRuntime.setRuntimeApiKey("anthropic", "synthetic-test-key");
     const services = await sdk.createAgentSessionServices({ cwd, agentDir, modelRuntime,
@@ -109,12 +111,12 @@ for (const inPlace of [false, true]) for (const failure of (inPlace
     assert.equal(captured.length, 0);
     assert.ok(runtime.session.sessionManager.getBranch().some((entry) => entry.customType === "workflow-phase"));
     assert.equal(runtime.cwd, source);
-    assert.equal(runtime.session.model.id, "claude-opus-4-5");
+    assert.equal(runtime.session.model.id, "gpt-6.1-sol");
     return;
   }
   if (failure === "selection-unavailable") {
     assert.equal(captured.length, 0);
-    assert.match(notifications.join("\n"), /Selected model\/thinking could not be restored/);
+    assert.match(notifications.join("\n"), /Model selection\/authentication failed/);
     assert.match(notifications.join("\n"), /Retained workspace:/);
     return;
   }
@@ -134,10 +136,11 @@ for (const inPlace of [false, true]) for (const failure of (inPlace
   assert.equal(captured.length, 1, notifications.join("\n"));
   assert.equal(captured[0].cwd, runtime.cwd);
   assert.match(captured[0].content, /Begin plan now/);
-  assert.equal(captured[0].model, "claude-opus-4-5");
+  assert.equal(captured[0].model, "gpt-6.1-sol");
   assert.equal(captured[0].thinking, "high");
-  assert.equal(runtime.session.model.id, "claude-opus-4-5");
+  assert.equal(runtime.session.model.id, "gpt-6.1-sol");
   assert.equal(runtime.session.thinkingLevel, "high");
+  assert.ok(runtime.session.sessionManager.getBranch().some((entry) => entry.type === "model_change" && entry.modelId === "gpt-6.1-sol"));
   const entryNotice = runtime.session.messages.find((message) => message.role === "custom" && message.customType === "workflow-notice");
   if (!inPlace) assert.match(entryNotice.content, /Task workspace:/);
   assert.ok(!runtime.session.messages.some((message) => message.role === "assistant"));
@@ -159,9 +162,29 @@ for (const inPlace of [false, true]) for (const failure of (inPlace
     assert.equal(captured.length, 1);
     assert.match(captured[0].content, /\/old-name\/explicit-plan.md/);
     assert.deepEqual(runtime.session.sessionManager.getBranch().find((entry) => entry.customType === "workflow-phase").data.task, identity);
-    assert.equal(runtime.session.model.id, "claude-opus-4-5");
-    assert.equal(runtime.session.thinkingLevel, "high");
+    assert.equal(runtime.session.model.id, "gpt-6.1-sol");
+    assert.equal(runtime.session.thinkingLevel, "medium");
   }
+  // Manual phase tuning must not replace the original ordinary-Pi selection.
+  await runtime.session.setModel(runtime.services.modelRuntime.getModel("anthropic", "claude-sonnet-4-5"));
+  runtime.session.setThinkingLevel("low");
+  const manualLeaf = runtime.session.sessionManager.getLeafId();
+  await runtime.session.reload();
+  await runtime.session.navigateTree(manualLeaf, { summarize: false });
+  assert.equal(runtime.session.model.id, "claude-sonnet-4-5");
+  assert.equal(runtime.session.thinkingLevel, "low");
+  assert.equal(settingsManager.getDefaultModel(), inPlace ? "claude-opus-4-5" : "claude-sonnet-4-5");
+  assert.equal(settingsManager.getDefaultThinkingLevel(), inPlace ? "high" : "low");
+  // Flush this provider-free fixture without fabricating an assistant response.
+  const saved = runtime.session.sessionManager;
+  saved.appendCustomMessageEntry("runtime-checkpoint", "Provider-free saved-session fixture.", false);
+  const file = saved.getSessionFile();
+  writeFileSync(file, [saved.getHeader(), ...saved.getEntries()].map((entry) => JSON.stringify(entry)).join("\n") + "\n");
+  captured.length = 0;
+  await runtime.switchSession(file);
+  assert.equal(captured.length, 0, "saved-session resume dispatches nothing");
+  assert.equal(runtime.session.model.id, "claude-sonnet-4-5");
+  assert.equal(runtime.session.thinkingLevel, "low");
   const taskSession = runtime.session;
   captured.length = 0;
   await call(taskSession, "workflow_exit", {});

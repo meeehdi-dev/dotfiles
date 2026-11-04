@@ -161,10 +161,10 @@ export async function workspace(ctx: ExtensionCommandContext, mode: string, expe
 }
 
 // Custom entries alone do not flush a new SessionManager: serialize its public JSONL contract once.
-export function entrySession(cwd: string, state: unknown, ctx: ExtensionCommandContext, notice = `Task workspace: ${cwd}. Fresh workflow session; no source conversation was copied.`) {
+export function entrySession(cwd: string, state: unknown, ctx: ExtensionCommandContext, notice = `Task workspace: ${cwd}. Fresh workflow session; no source conversation was copied.`, selection: { model: { provider: string; id: string } | undefined; thinking: ExtensionCommandContext["thinkingLevel"] } = { model: ctx.model, thinking: ctx.thinkingLevel }) {
   const manager = SessionManager.create(cwd, ctx.sessionManager.getSessionDir());
-  if (ctx.model) manager.appendModelChange(ctx.model.provider, ctx.model.id);
-  if (ctx.thinkingLevel) manager.appendThinkingLevelChange(ctx.thinkingLevel);
+  if (selection.model) manager.appendModelChange(selection.model.provider, selection.model.id);
+  if (selection.thinking) manager.appendThinkingLevelChange(selection.thinking);
   if (state !== undefined) manager.appendCustomEntry("workflow-phase", state);
   // Pi restores model/thinking only when the session has context, not just settings entries.
   manager.appendCustomMessageEntry("workflow-notice", notice, true);
