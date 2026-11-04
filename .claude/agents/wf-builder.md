@@ -2,6 +2,8 @@
 name: wf-builder
 description: Workflow builder. Implements one feature (or listed review findings, or UI-correction requests) of a plan, runs its checks and saves a cumulative progress report. Use from the workflow orchestrator, or from workflow-build for one non-loop scope, inside a /work task.
 disallowedTools: Agent
+model: sonnet
+effort: high
 skills:
   - ponytail:ponytail
 ---

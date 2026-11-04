@@ -2,6 +2,8 @@
 name: wf-reviewer
 description: Workflow reviewer. Independently reviews the whole plan (after all features are built, or after a UI-correction loop) or a standalone change set, and writes a cumulative review report. Never edits source. Use only inside a /work task.
 disallowedTools: Edit, NotebookEdit, Agent
+model: opus
+effort: high
 skills:
   - ponytail:ponytail-review
 ---
