@@ -1,2 +1,6 @@
 --target=~/
 --ignore=(\.git|\.stowrc)
+--ignore=(^|/)tests
+--ignore=\.test\.mjs
+--ignore=^\.claude/worktrees
+--ignore=^\.pi/agent/extensions/workflow
