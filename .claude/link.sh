@@ -6,6 +6,7 @@
 # - Merges into settings.json with jq: the phase hooks (PreToolUse, UserPromptSubmit), statusLine, worktree.baseRef "head",
 #   the ponytail marketplace and enabledPlugins entry. Other keys are kept; writes only on change.
 #   A key the user set differently, or invalid JSON, skips that whole config dir.
+# - Deep-merges settings.base.json (shared settings) into settings.json; a key the dir already has wins.
 # - Hides the ponytail band above the prompt: writes .ponytail-band=off when missing
 #   (an existing value is kept; `/ponytail band` toggles it).
 # Usage: link.sh [config dirs…]   (default: ~/.claude ~/.claude-lvmh ~/.claude-vo2)
@@ -30,8 +31,8 @@ follow() {
   printf '%s\n' "$p"
 }
 
-# Resolve physically, even when run through a stowed link (~/.claude/workflow/link.sh).
-src="$(cd -P "$(dirname "$(follow "${BASH_SOURCE[0]}")")/.." && pwd -P)"
+# Resolve physically, even when run through a stowed link (~/.claude/link.sh).
+src="$(cd -P "$(dirname "$(follow "${BASH_SOURCE[0]}")")" && pwd -P)"
 
 # canon <path>: canonical path of an existing file or folder, following symlinks
 canon() {
@@ -61,6 +62,7 @@ done
 hook='{"matcher":"Skill|Agent","hooks":[{"type":"command","command":"bash ~/.claude/workflow/phase-hook.sh"}]}'
 prompt_hook='{"hooks":[{"type":"command","command":"bash ~/.claude/workflow/phase-hook.sh"}]}'
 statusline='{"type":"command","command":"bash ~/.claude/workflow/statusline.sh"}'
+base=$(cat "$src/settings.base.json") || exit 1
 market='{"source":{"source":"github","repo":"DietrichGebert/ponytail"}}'
 # Prints {conflicts, settings}. A conflict is a workflow key already set to something else.
 merge='
@@ -75,7 +77,8 @@ merge='
       (if has_path(["enabledPlugins","ponytail@ponytail"]) and .enabledPlugins["ponytail@ponytail"] != true then "enabledPlugins.ponytail@ponytail" else empty end)
     ],
     settings: (
-      (if (mine("PreToolUse") | length) > 0 then . else .hooks.PreToolUse += [$hook] end)
+      ($base * .)
+      | (if (mine("PreToolUse") | length) > 0 then . else .hooks.PreToolUse += [$hook] end)
       | (if (mine("UserPromptSubmit") | length) > 0 then . else .hooks.UserPromptSubmit += [$ph] end)
       | .statusLine //= $sl
       | .worktree.baseRef //= "head"
@@ -91,7 +94,7 @@ for cfg in "$@"; do
   if [ -L "$file" ]; then echo "skip $cfg: settings.json is a symlink"; status=1; continue; fi
   if [ -e "$file" ]; then cur=$(cat "$file") || { echo "skip $cfg: cannot read settings.json"; status=1; continue; }
   else cur='{}'; fi
-  out=$(jq -e --argjson hook "$hook" --argjson ph "$prompt_hook" --argjson sl "$statusline" --argjson mk "$market" \
+  out=$(jq -e --argjson hook "$hook" --argjson ph "$prompt_hook" --argjson sl "$statusline" --argjson mk "$market" --argjson base "$base" \
     'if type == "object" then . else error("not an object") end | '"$merge" <<<"$cur" 2>/dev/null) \
     || { echo "skip $cfg: settings.json is not a JSON object, or a workflow key has an unexpected type"; status=1; continue; }
   conflicts=$(jq -r '.conflicts | join(", ")' <<<"$out")
