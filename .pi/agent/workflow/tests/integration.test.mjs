@@ -99,12 +99,14 @@ async function harness({ entries = [], skills = ["plannotator", "ponytail", "pon
     session.prompts.push(before.systemPromptOptions.sections);
     session.records.push({ type: "message", message: { role: "user", content } });
   }
-  async function makeSession(records, workingDirectory = directory) {
+  async function makeSession(records, workingDirectory = directory, startup = {}, selection = {}) {
     const runtime = createExtensionRuntime(), bus = createEventBus();
     const loaded = await loadExtensions([extensionPath], workingDirectory, bus, runtime);
     assert.deepEqual(loaded.errors, [], "the installed Pi loader must accept the extension");
-    const session = { runtime, bus, extension: loaded.extensions[0], records: structuredClone(records), active: [...tools], sent: [], prompts: [], notices: [], notifications: [], statuses: [], selections: [], busy: 0, idle: [] };
+    const session = { runtime, bus, extension: loaded.extensions[0], records: structuredClone(records), active: [...tools], sent: [], prompts: [], notices: [], notifications: [], statuses: [], selections: [], modelChanges: [], thinkingChanges: [], busy: 0, idle: [] };
     session.ctx = {
+      model: selection.model ?? { provider: "test-provider", id: "user-chosen-model" }, thinkingLevel: selection.thinkingLevel ?? "low",
+      modelRegistry: { find: (provider, id) => failure === "missing-model" ? undefined : { provider, id } },
       cwd: workingDirectory, hasUI: mode === "tui" || mode === "rpc", mode, signal: undefined,
       sessionManager: {
         getBranch: () => session.records, getSessionId: () => String(sessions.indexOf(session)),
@@ -131,11 +133,12 @@ async function harness({ entries = [], skills = ["plannotator", "ponytail", "pon
         const manager = SessionManager.open(file);
         await event(session, "session_shutdown");
         session.runtime.invalidate(); session.bus.clear();
-        const next = await makeSession(manager.getBranch(), failure === "wrong-cwd" ? workingDirectory : manager.getCwd());
-        next.entryFile = file;
         const context = manager.buildSessionContext();
-        if (context.model) next.ctx.model = { provider: context.model.provider, id: context.model.modelId };
-        next.ctx.thinkingLevel = context.thinkingLevel;
+        const next = await makeSession(manager.getBranch(), failure === "wrong-cwd" ? workingDirectory : manager.getCwd(),
+          { reason: "resume", previousSessionFile: session.ctx.sessionManager.getSessionFile() },
+          { model: context.model && { provider: context.model.provider, id: context.model.modelId }, thinkingLevel: context.thinkingLevel });
+        next.entryFile = file;
+        if (failure === "restore-selection") next.ctx.model = { provider: "wrong", id: "wrong" };
         await options.withSession?.({ ...next.ctx,
           sendUserMessage: async (content, options) => {
             if (failure === "prompt") throw new Error("prompt delivery unavailable");
@@ -152,8 +155,9 @@ async function harness({ entries = [], skills = ["plannotator", "ponytail", "pon
         if (failure === "cancel") return { cancelled: true };
         await event(session, "session_shutdown");
         session.runtime.invalidate(); session.bus.clear();
-        const next = await makeSession([], workingDirectory);
-        await options.setup?.({ appendCustomEntry: (customType, data) => next.records.push({ type: "custom", customType, data: JSON.parse(JSON.stringify(data)) }) });
+        const records = [];
+        await options.setup?.({ appendCustomEntry: (customType, data) => records.push({ type: "custom", customType, data: JSON.parse(JSON.stringify(data)) }) });
+        const next = await makeSession(records, workingDirectory, { reason: "new", previousSessionFile: session.ctx.sessionManager.getSessionFile() });
         await options.withSession?.({ ...next.ctx,
           sendUserMessage: async (content, options) => {
             if (failure === "prompt") throw new Error("prompt delivery unavailable");
@@ -173,11 +177,22 @@ async function harness({ entries = [], skills = ["plannotator", "ponytail", "pon
         if (failure === "queue") throw new Error("dispatch unavailable");
         if (failure !== "drop") queue(dispatch(session, content, options));
       },
-      setModel: () => assert.fail("Pi owns models"),
-      setThinkingLevel: () => assert.fail("Pi owns thinking"),
+      appendEntry: (customType, data) => session.records.push({ type: "custom", customType, data: structuredClone(data) }),
+      setModel: async (model) => {
+        assert.equal(session, current, "selection uses the live destination API");
+        if (failure === "select-model") return false;
+        session.ctx.model = model;
+        session.modelChanges.push(model);
+        return true;
+      },
+      setThinkingLevel: (level) => {
+        assert.equal(session, current, "thinking uses the live destination API");
+        session.ctx.thinkingLevel = failure === "clamp-thinking" ? "off" : level;
+        session.thinkingChanges.push(level);
+      },
     });
     sessions.push(session); current = session;
-    await event(session, "session_start");
+    await event(session, "session_start", { reason: "startup", ...startup });
     return session;
   }
   await makeSession(entries);
@@ -207,14 +222,82 @@ async function harness({ entries = [], skills = ["plannotator", "ponytail", "pon
     task: async (content = "Continue") => { await dispatch(current, content); return current.prompts.at(-1); },
     tree: async (records) => { current.records = structuredClone(records); await event(current, "session_tree"); },
     shutdown: async () => event(current, "session_shutdown"),
-    resume: async (records) => { const workingDirectory = current.ctx.cwd; await event(current, "session_shutdown"); current.runtime.invalidate(); current.bus.clear(); await makeSession(records, workingDirectory); },
+    resume: async (records) => { const workingDirectory = current.ctx.cwd; await event(current, "session_shutdown"); current.runtime.invalidate(); current.bus.clear(); await makeSession(records, workingDirectory, { reason: "resume" }, { model: current.ctx.model, thinkingLevel: current.ctx.thinkingLevel }); },
+    reload: async () => event(current, "session_start", { reason: "reload" }),
     setFailure(value) { failure = value; },
     async close() { for (const session of sessions) { await event(session, "session_shutdown"); session.runtime.invalidate(); session.bus.clear(); } },
   };
 }
 
-function taskState(h) { return h.current.records.find((entry) => entry.customType === "workflow-phase")?.data?.task; }
-function state(h) { const data = h.current.records.find((entry) => entry.customType === "workflow-phase")?.data; if (!data) return; const { task, ...state } = data; return state; }
+function taskState(h) { return h.current.records.findLast((entry) => entry.customType === "workflow-phase")?.data?.task; }
+function state(h) { const data = h.current.records.findLast((entry) => entry.customType === "workflow-phase")?.data; if (!data) return; const { task, original, entry, ...state } = data; return state; }
+
+test("phase defaults apply once; manual tuning survives prompts, resume, reload and tree; return restores original", async (t) => {
+  const h = await harness({ directory: nonGitDirectory("model-policy") }); t.after(() => h.close());
+  const original = { model: { ...h.current.ctx.model }, thinking: h.current.ctx.thinkingLevel };
+  assert.equal(h.current.modelChanges.length, 0);
+  for (const mode of [...modes, "build", "build", "plan"]) {
+    await h.command(mode, "original.md");
+    assert.deepEqual(h.current.ctx.model, { provider: "openai-codex", id: mode === "ui" ? "gpt-6.1-terra" : "gpt-6.1-sol" });
+    assert.equal(h.current.ctx.thinkingLevel, ["plan", "review"].includes(mode) ? "high" : "medium");
+    assert.equal(h.current.modelChanges.length, 1);
+    assert.deepEqual(h.current.records.findLast((e) => e.customType === "workflow-phase").data.original, original);
+    h.current.ctx.model = { provider: "manual", id: "manual" };
+    h.current.ctx.thinkingLevel = "low";
+    await h.task();
+    await h.reload();
+    await h.tree(h.current.records);
+    assert.equal(h.current.modelChanges.length, 1);
+    await h.resume(h.current.records);
+    assert.equal(h.current.sent.length, 0);
+    assert.equal(h.current.modelChanges.length, 0);
+    assert.equal(h.current.ctx.model.id, "manual");
+    assert.equal(h.current.ctx.thinkingLevel, "low");
+  }
+  await h.command("return");
+  assert.deepEqual(h.current.ctx.model, original.model);
+  assert.equal(h.current.ctx.thinkingLevel, original.thinking);
+  assert.equal(state(h), undefined);
+});
+
+for (const failure of ["missing-model", "select-model", "clamp-thinking"]) test(`phase selection ${failure} prevents kickoff and stays recoverable`, async (t) => {
+  const h = await harness({ directory: nonGitDirectory("model-failure"), failure }); t.after(() => h.close());
+  await h.command("work", "task");
+  assert.equal(h.current.sent.length, 0);
+  assert.match(notifications(h), /phase setup failed|Phase model\/thinking setup failed/);
+  assert.match((await h.task("Discuss recovery")).workflow, /Workflow paused:.*Phase model setup incomplete/);
+  await h.resume(h.current.records);
+  assert.equal(h.current.modelChanges.length, 0, "resume never retries failed setup");
+  h.setFailure(undefined);
+  await h.command("build", "original.md");
+  assert.match(h.current.sent[0].content, /Begin build now/);
+  await h.command("return");
+  assert.equal(h.current.ctx.model.id, "user-chosen-model");
+});
+
+test("legacy phase original settings are never invented across handoffs or return", async (t) => {
+  const h = await harness({ entries: [phaseEntry({ mode: "plan", input: "old.md" })] }); t.after(() => h.close());
+  await h.command("build", "old.md");
+  assert.equal(h.current.records.findLast((e) => e.customType === "workflow-phase").data.original, undefined);
+  const count = h.sessions.length;
+  await h.command("return");
+  assert.equal(h.sessions.length, count);
+  assert.match(notifications(h), /Original model\/thinking evidence is missing.*explicit recovery direction/);
+});
+
+test("failed original selection validation retains ignored merged-worktree data", async (t) => {
+  const source = freshSource("restore-selection"), h = await harness({ directory: source }); t.after(() => h.close());
+  await h.command("work", "task");
+  const data = taskState(h);
+  await h.command("finalize", "original.md");
+  writeFileSync(join(source, ".git", "info", "exclude"), ".env.local\n");
+  writeFileSync(join(data.root, ".env.local"), "disposable only after successful validation\n");
+  h.setFailure("restore-selection");
+  await h.call({ mergedInto: "main" }, undefined, "workflow_exit");
+  assert.match(notifications(h), /Original model\/thinking could not be restored/);
+  assert.equal(readFileSync(join(data.root, ".env.local"), "utf8"), "disposable only after successful validation\n");
+  assert.ok(git(source, "worktree", "list", "--porcelain").includes(data.root));
+});
 
 test("idle Pi shows auto without a workflow prompt, helper, permission hooks, or model changes", async (t) => {
   const h = await harness(); t.after(() => h.close());
@@ -1071,7 +1154,7 @@ test("Finalize delivers bounded decision consolidation and ordered cleanup, not 
     /Only the task-scoped staging, signed commit and selected local-merge or normal SSH push\/gh PR route below are Git-write exceptions/,
     /Suggest exactly one single-line Conventional Commit subject for the complete task from its start/,
     /Finish with the summary path, cleanup results or exact remaining artifacts\/limitations/,
-    /For documentation-only Finalize in Git, remain in this session unless explicitly asked to exit/,
+    /After successful documentation-only, non-Git, PR or local-merge Finalize, report outcomes immediately and remain in the same Finalize session and cwd/,
   ]) assert.match(prompt, contract);
   assert.ok(prompt.indexOf("Fully read and consolidate") < prompt.indexOf("Write the complete summary"));
   assert.ok(prompt.indexOf("Write the complete summary") < prompt.indexOf("Only after successful verification delete"));
@@ -1381,6 +1464,28 @@ test("all phases expose explicit return guidance without publication/completion 
     assert.equal(state(h).mode, mode);
   }
   assert.match((await h.task("Explain return")).workflow, /\/work always starts Plan, never a remembered phase/);
+});
+
+test("Finalize prompt and return tool require manual departure, not automatic completion exit", async (t) => {
+  const h = await harness(); t.after(() => h.close());
+  await h.command("finalize", "plan.md");
+  const active = h.current, count = h.sessions.length;
+  const prompt = (await h.task("Explain completion and manual departure")).workflow;
+  for (const contract of [
+    /After successful documentation-only, non-Git, PR or local-merge Finalize, report outcomes immediately and remain in the same Finalize session and cwd/,
+    /Do not automatically call workflow_exit, replace the session, shut down Pi or initiate another phase/,
+    /Only an explicitly requested workflow return restores the original selection/,
+    /merely quitting Pi performs no cleanup/,
+    /Only on a later explicit request to return with local-merge cleanup, reverify the reported merge outcome/,
+  ]) assert.match(prompt, contract);
+  const definition = active.extension.tools.get("workflow_exit").definition;
+  assert.match(definition.description, /only on explicit workflow return/);
+  assert.match(definition.description, /Successful Finalize stays in its same session\/cwd/);
+  assert.match(definition.description, /normal Pi quit does not call this tool or clean up task files/);
+  assert.match(definition.description, /Use mergedInto only on a later explicit request to return with local-merge cleanup, after reverifying the reported outcome/);
+  assert.doesNotMatch(definition.description, /on explicit exit or successful Finalize/);
+  assert.equal(h.current, active); assert.equal(h.sessions.length, count);
+  assert.equal(state(h).mode, "finalize");
 });
 
 // Synthetic URL transport only: the extension neither publishes nor verifies publication.
@@ -1698,9 +1803,9 @@ test("invalid metadata, branch/repository/session mismatches, and legacy state p
     if (damage === "json") writeFileSync(metadata, "not-json");
     if (damage === "branch") git(data.root, "checkout", "-b", "unexpected-branch");
     if (damage === "repository") writeFileSync(metadata, JSON.stringify({ ...data, repository: source }));
-    if (damage === "session") records.find((e) => e.customType === "workflow-phase").data.task.id = randomUUID();
+    if (damage === "session") records.findLast((e) => e.customType === "workflow-phase").data.task.id = randomUUID();
     if (damage === "missing") rmSync(metadata);
-    if (damage === "legacy") delete records.find((e) => e.customType === "workflow-phase").data.task;
+    if (damage === "legacy") delete records.findLast((e) => e.customType === "workflow-phase").data.task;
     await h.resume(records);
     assert.equal(h.current.sent.length, 0);
     const prompt = (await h.task("Explain status and recovery")).workflow;
@@ -1785,7 +1890,7 @@ test("non-Git handoffs/replanning/resume/tree keep exact identity and references
 for (const damage of ["id", "kind", "root", "projectKey", "branch", "missing-task", "repository-appeared", "outside-cwd"]) test(`saved non-Git ${damage} pauses rather than replacing/adopting identity`, async (t) => {
   const directory = nonGitDirectory(), h = await harness({ directory }); t.after(() => h.close());
   await h.command("build", "plan.md");
-  const records = structuredClone(h.current.records), saved = records.find((entry) => entry.customType === "workflow-phase").data;
+  const records = structuredClone(h.current.records), saved = records.findLast((entry) => entry.customType === "workflow-phase").data;
   if (damage === "id") saved.task.id = "not-a-uuid";
   if (damage === "kind") saved.task.kind = "unknown";
   if (damage === "root") saved.task.root += "/..";

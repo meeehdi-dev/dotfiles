@@ -102,10 +102,11 @@ const boundaries = {
     /a pushed branch stays pushed if PR creation fails, with no rollback claim/,
     /Verify the resulting PR's actual URL\/state\/head\/base before reporting success/,
   ],
-  "verified URL is reported before return; bare exit never publishes": [
+  "verified URL is reported without automatic return; bare exit never publishes": [
     /Report actual commit\/push\/PR state, actual PR URL/,
     /No CI polling, merge, local-main update or branch\/worktree deletion/,
-    /After confirmed publication, call `workflow_exit` once with `publicationUrl`/,
+    /After confirmed publication, remain in the same Finalize session and cwd/,
+    /Only on an explicit workflow return request, optionally pass `publicationUrl` to `workflow_exit` after reverifying that HTTPS PR URL and outcome/,
     /display context only, not proof\/authority or a publication operation/,
     /If exit fails\/cancels, preserve the URL and task recovery paths, report actual cwd and wait for chat/,
     /Explicit exit without publishing remains available at every boundary/,
@@ -134,7 +135,8 @@ test("local merge is local-only, verified, and cleans up only after return", () 
     /empty source status is not required/,
     /Unexpected changes or uncertain preservation pause completion/,
     /no staged\/unstaged tracked changes or non-ignored untracked files/,
-    /All ignored task files, including modified environment copies, dependencies, caches and local databases, are explicitly disposable on this route without per-file confirmation/,
+    /Retain the active task worktree and all ignored task data after merge completion/,
+    /Only on a later explicit request to return with local-merge cleanup are all ignored task files, including modified environment copies, dependencies, caches and local databases, explicitly disposable without per-file confirmation/,
     /source originals stay untouched/,
     /Do not delete files yourself to make it clean/,
     /git merge --ff-only -- <task branch>/,
@@ -143,7 +145,10 @@ test("local merge is local-only, verified, and cleans up only after return", () 
     /conflicts stay for user direction/,
     /git merge-base --is-ancestor <task HEAD> HEAD/,
     /Do not push either branch, fetch\/pull, call gh, poll CI or delete the task branch/,
-    /workflow_exit once with mergedInto set to the verified local base branch \(no publicationUrl\)/,
+    /Remain in the same Finalize session and cwd, retaining the worktree and all ignored data; merely quitting Pi performs no cleanup/,
+    /Only on a later explicit request to return with local-merge cleanup, reverify the reported merge outcome, task\/source identity, base branch, ancestry, source preservation and clean-task checks above, then call workflow_exit once with mergedInto set to the verified local base branch \(no publicationUrl\)/,
+    /On an explicit bare return request, call workflow_exit without arguments instead and retain all task resources/,
+    /Do not add a persistent publication receipt, completion lock or automatic cleanup queue/,
     /returns to the original cwd, then revalidates and runs helper-owned `git clean -fdX` only in the exact validated task root, checks for pending\/ignored leftovers, then uses non-forced `git worktree remove -- <task root>`/,
     /No extra force flag for protected nested repositories/,
     /Never remove the active task worktree yourself before return/,
@@ -155,13 +160,14 @@ test("local merge is local-only, verified, and cleans up only after return", () 
   assert.match(finalize, /Apply the shared explicit-direction precedence rule to this phase's defaults/);
 });
 
-test("non-Git completion returns only after consolidation/checks, without publication", () => {
+test("non-Git completion stays in Finalize after consolidation/checks, without publication", () => {
   const completion = finalize.slice(finalize.indexOf("## Non-Git completion"), finalize.indexOf("## Authorized publication"));
   for (const contract of [
     /same bounded consolidation, bookkeeping and scoped documentation verification/,
     /without any Git status\/diff\/commit, push, PR, signing or authentication work/,
     /After successful consolidation and checks, report/,
-    /automatically call workflow_exit once without publicationUrl and end the turn/,
+    /then remain in the same Finalize session and cwd/,
+    /Call workflow_exit without publication context only on an explicit workflow return request/,
     /Incomplete or failed consolidation, required bookkeeping, cleanup or formatting verification stays in this session for recovery/,
     /explicit exit remains available independently/,
     /Never accept publication context or adopt a repository that appeared later/,
@@ -169,8 +175,26 @@ test("non-Git completion returns only after consolidation/checks, without public
   assert.match(publication, /^## Authorized publication — managed Git tasks only/);
 });
 
-test("publication ordering keeps documentation checks, state verification and return in sequence", () => {
-  const steps = ["After any documentation/bookkeeping edits", "## Authorized publication", "1. **Authority", "2. **Inspect", "3. **One signed", "4. **GPG recovery", "5. **Resume", "6. **Resolve destination", "7. **Normal SSH push", "8. **Find or create", "9. **Report, then return"];
+test("every Finalize completion path stays alive; quit and explicit return are distinct", () => {
+  for (const contract of [
+    /After successful documentation-only, non-Git, PR or local-merge Finalize, report outcomes immediately and remain in the same Finalize session and cwd/,
+    /Do not automatically call workflow_exit, replace the session, shut down Pi or initiate another phase/,
+    /The user may continue the conversation or quit Pi normally; no new quit hook or command is needed/,
+    /quitting neither restores the pre-workflow model\/thinking nor disposes of the task worktree or ignored data/,
+    /Only an explicitly requested workflow return restores the original selection/,
+    /Neither quitting nor returning starts publication/,
+    /Bare return retains all task resources/,
+  ]) assert.match(finalize, contract);
+  for (const path of ["../common.md", "../README.md", "../../AGENTS.md"]) {
+    const text = readFileSync(new URL(path, import.meta.url), "utf8");
+    assert.match(text, /same (?:Finalize )?session and cwd/);
+    assert.match(text, /(?:explicit workflow return|Only explicit workflow return) restores the (?:pre-workflow|original) selection/);
+    assert.doesNotMatch(text, /then automatically calls? `?workflow_exit|and automatically calls? workflow_exit|reports its URL and returns|then return to ordinary Pi/);
+  }
+});
+
+test("publication ordering keeps documentation checks, state verification and reporting in sequence", () => {
+  const steps = ["After any documentation/bookkeeping edits", "## Authorized publication", "1. **Authority", "2. **Inspect", "3. **One signed", "4. **GPG recovery", "5. **Resume", "6. **Resolve destination", "7. **Normal SSH push", "8. **Find or create", "9. **Report and remain in Finalize"];
   let previous = -1;
   for (const step of steps) { const at = finalize.indexOf(step); assert.ok(at > previous, step); previous = at; }
 });

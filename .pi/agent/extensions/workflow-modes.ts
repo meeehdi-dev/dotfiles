@@ -16,7 +16,15 @@ const SKILLS: Record<Mode, string[]> = {
   ui: ["plannotator"],
   finalize: [],
 };
-type Phase = { mode: Mode; input: string; notes?: string; task?: Task };
+type Selection = { model: { provider: string; id: string }; thinking: ExtensionContext["thinkingLevel"] };
+const DEFAULTS: Record<Mode, Selection> = Object.fromEntries(MODES.map((mode) => [mode, {
+  model: { provider: "openai-codex", id: mode === "ui" ? "gpt-6.1-terra" : "gpt-6.1-sol" },
+  thinking: mode === "plan" || mode === "review" ? "high" : "medium",
+}])) as Record<Mode, Selection>;
+type Phase = { mode: Mode; input: string; notes?: string; task?: Task; original?: Selection; entry?: { from?: string; token: string; ready?: boolean; error?: string } };
+function matches(ctx: ExtensionContext, selection: Selection) {
+  return ctx.model?.provider === selection.model.provider && ctx.model?.id === selection.model.id && ctx.thinkingLevel === selection.thinking;
+}
 const STATE = "workflow-phase";
 const TOOL = "workflow_handoff";
 const QUESTION = "workflow_question";
@@ -122,7 +130,7 @@ export default async function workflowModes(pi: ExtensionAPI) {
     const manual = recoveryRequest(state);
     // The UI channel survives replacement; the context getter does not.
     const notify = ctx.ui.notify.bind(ctx.ui);
-    const selection = { model: ctx.model && { provider: ctx.model.provider, id: ctx.model.id }, thinking: ctx.thinkingLevel };
+    const selection = DEFAULTS[state.mode];
     const sourceCwd = ctx.cwd;
     let recovery = `Current workspace: ${sourceCwd}`;
     const fallback = (error: unknown) => `Workflow could not start ${state.mode}: ${String(error)}\n${recovery}\nNo fallback work was started in the source checkout. If replacement failed, relaunch Pi in the retained task workspace; otherwise request a retry in chat there. From fresh ordinary Pi, /work enters Plan first; then request the desired phase in chat, or resume the workflow session.\n${manual}${state.notes ? `\nHandoff notes:\n${state.notes}` : ""}`;
@@ -133,17 +141,21 @@ export default async function workflowModes(pi: ExtensionAPI) {
       instructions(state.mode);
       const current = restore(ctx);
       if (current && !current.task) throw new Error("Legacy/unassociated workflow session; ask for recovery direction, not automatic migration.");
+      if (!current && !ctx.model) throw new Error("No active model to record before workflow entry; select a model and retry.");
+      const original = current ? current.original : { model: { provider: ctx.model!.provider, id: ctx.model!.id }, thinking: ctx.thinkingLevel };
       const target = await workspace(ctx, state.mode, current?.task);
-      state = { ...state, task: target.task };
+      state = { ...state, task: target.task, original,
+        entry: { from: ctx.sessionManager.getSessionFile(), token: randomUUID() },
+      };
       recovery = `Task ${target.task.id}: ${target.task.kind === "directory" ? "non-Git, in-place" : target.task.branch}\nRetained workspace: ${target.task.root}\nLaunch cwd: ${target.cwd}`;
       const request = `Begin ${state.mode} now; do not ask for another start confirmation.\n\n${state.input.trim() ? `User input (task/report or plan/reference):\n${state.input}` : "Ask the user for the task or plan/reference you need."}${state.notes ? `\n\nHandoff notes:\n${state.notes}` : ""}`;
       // Session replacement reloads extensions: persist plain data and use only the fresh context afterward.
       const withSession = async (next: ReplacedSessionContext) => {
         try {
           if (next.cwd !== target.cwd) throw new Error(`Destination cwd mismatch: expected ${target.cwd}, received ${next.cwd}`);
-          if (target.cwd !== sourceCwd && ((selection.model && (next.model?.provider !== selection.model.provider || next.model?.id !== selection.model.id)) ||
-              (selection.thinking !== undefined && next.thinkingLevel !== selection.thinking))) {
-            throw new Error("Selected model/thinking could not be restored. Relaunch Pi in the task workspace with your selected model/settings before retrying.");
+          const entered = restore(next);
+          if (entered?.entry?.token !== state.entry?.token || !entered?.entry?.ready || !matches(next, selection)) {
+            throw new Error(`Phase model/thinking setup failed: ${entered?.entry?.error ?? "destination selection was not applied or does not match"}. Retry the phase in chat or request return.`);
           }
           await association(next.cwd, target.task, next.signal);
           instructions(state.mode);
@@ -184,7 +196,6 @@ export default async function workflowModes(pi: ExtensionAPI) {
   async function exit(ctx: ExtensionCommandContext, published?: unknown, mergedInto?: unknown) {
     const notify = ctx.ui.notify.bind(ctx.ui);
     const actualCwd = ctx.cwd;
-    const selection = { model: ctx.model && { provider: ctx.model.provider, id: ctx.model.id }, thinking: ctx.thinkingLevel };
     let recovery = `Actual cwd before return: ${actualCwd}`;
     try {
       await ctx.waitForIdle();
@@ -195,6 +206,8 @@ export default async function workflowModes(pi: ExtensionAPI) {
       if (base) recovery += `\nReported local merge into: ${base}; nothing pushed.`;
       if (pr) recovery += `\nReported published PR: ${pr}`;
       if (state && !state.task) throw new Error("Legacy/unassociated workflow session; ask for recovery direction, not automatic migration.");
+      const selection = state?.original;
+      if (!selection) throw new Error("Original model/thinking evidence is missing in this older session. Ask for explicit recovery direction; exact restoration cannot be inferred.");
       const data = await association(actualCwd, state?.task, ctx.signal);
       if (!data) throw new Error("No managed task association; ordinary Pi is unchanged.");
       recovery += `\nRetained task workspace: ${data.root}\nOriginal launch cwd: ${data.originalCwd}`;
@@ -203,7 +216,7 @@ export default async function workflowModes(pi: ExtensionAPI) {
       if (base) await verifyLocalMerge(data, base, ctx.signal);
       const pending = data.kind !== "directory" && await git(data.root, ["status", "--porcelain=v1", "--untracked-files=all"], ctx.signal);
       const notice = `Returned to ${data.originalCwd}. Ordinary Pi; no work started. Task retained at ${data.root}.${pending ? " Pending files remain there." : ""} ${pr ? `Published PR: ${pr}. CI and merge remain yours; no integration or cleanup performed.` : base ? `Local merge into ${base} verified; nothing pushed. Task branch retained; worktree cleanup follows return validation.` : "Nothing was published, approved, or marked complete."}`;
-      const file = entrySession(data.originalCwd, undefined, ctx, notice);
+      const file = entrySession(data.originalCwd, undefined, ctx, notice, selection);
       recovery += `\nReturn session: ${file}`;
       ctx.signal?.throwIfAborted();
       const result = await ctx.switchSession(file, { withSession: async (next) => {
@@ -211,9 +224,8 @@ export default async function workflowModes(pi: ExtensionAPI) {
           if (next.cwd !== data.originalCwd) throw new Error(`Destination cwd mismatch: expected ${data.originalCwd}, received ${next.cwd}`);
           await association(data.root, data, next.signal);
           if (restore(next)) throw new Error("Destination still has workflow phase state.");
-          if ((selection.model && (next.model?.provider !== selection.model.provider || next.model?.id !== selection.model.id)) ||
-              (selection.thinking !== undefined && next.thinkingLevel !== selection.thinking)) {
-            throw new Error("Selected model/thinking could not be restored; select your settings before continuing.");
+          if (!matches(next, selection)) {
+            throw new Error(`Original model/thinking could not be restored: expected ${selection.model.provider}/${selection.model.id} (${selection.thinking}); select those settings before continuing. No local cleanup performed.`);
           }
           if (base && data.kind !== "directory") {
             // Never remove the active task checkout before successful session replacement.
@@ -277,10 +289,10 @@ export default async function workflowModes(pi: ExtensionAPI) {
   pi.registerTool({
     name: EXIT, label: "Return to ordinary Pi", defaultActive: false,
     exposure: "model-only", executionMode: "sequential",
-    description: "Return to fresh ordinary Pi at the original launch cwd on explicit exit or successful Finalize. Never commits, merges or pushes. Only managed Git Finalize may supply publicationUrl (verified PR display context) or mergedInto (local base branch after a reported successful merge), never both. With mergedInto, verifies local ancestry and no tracked/non-ignored pending task work, returns first, then revalidates and discards all ignored task files (including modified env/local databases) with git clean -fdX, checks leftovers and removes only that worktree without force; keeps the task branch and source originals. Failed return validation deletes no ignored files; post-return cleanup may partially succeed. Otherwise preserves all task resources. End the turn after calling. On failure inspect actual cwd and retained resources before recovery; never assume return or cleanup succeeded.",
+    description: "Return to fresh ordinary Pi at the original launch cwd only on explicit workflow return, restoring the pre-workflow model/thinking. Successful Finalize stays in its same session/cwd; normal Pi quit does not call this tool or clean up task files. Never commits, merges or pushes. Only managed Git Finalize may supply publicationUrl (verified PR display context) or mergedInto (local base branch after a reported successful merge), never both. Use mergedInto only on a later explicit request to return with local-merge cleanup, after reverifying the reported outcome. With mergedInto, verifies local ancestry and no tracked/non-ignored pending task work, returns first, then revalidates and discards all ignored task files (including modified env/local databases) with git clean -fdX, checks leftovers and removes only that worktree without force; keeps the task branch and source originals. Failed return validation deletes no ignored files; post-return cleanup may partially succeed. Otherwise preserves all task resources. End the turn after calling. On failure inspect actual cwd and retained resources before recovery; never assume return or cleanup succeeded.",
     parameters: Type.Object({
       publicationUrl: Type.Optional(Type.String({ description: "Managed-Git Finalize-only verified HTTPS PR URL, after reporting successful publication. Display context only." })),
-      mergedInto: Type.Optional(Type.String({ description: "Managed-Git Finalize-only local base branch after verified merge. Authorizes all ignored task-file disposal and non-forced worktree removal after successful return validation; retains branch and source originals, never pushes." })),
+      mergedInto: Type.Optional(Type.String({ description: "Managed-Git Finalize-only local base branch after reverified merge and an explicit request to return with local-merge cleanup. Authorizes all ignored task-file disposal and non-forced worktree removal after successful return validation; retains branch and source originals, never pushes." })),
     }),
     async execute(_id, params, signal, _update, ctx) {
       if (signal?.aborted || ctx.signal?.aborted) throw new Error("Workflow exit cancelled.");
@@ -364,13 +376,37 @@ export default async function workflowModes(pi: ExtensionAPI) {
     try { await server.stop(); }
     catch (error) { ctx.ui.notify(`Owned UI-server cleanup failed: ${String(error)}. Manual recovery may be needed; no unrelated process was targeted.`, "warning"); }
   });
-  pi.on("session_start", async (_event, ctx) => { await sync(ctx, restore(ctx)); });
+  pi.on("session_start", async (event, ctx) => {
+    const state = restore(ctx);
+    // A one-shot entry marker plus its departing session identifies our fresh switchSession too.
+    if (state?.entry && state.entry.ready === undefined && state.entry.error === undefined &&
+        (event.reason === "new" || event.reason === "resume") && event.previousSessionFile === state.entry.from) {
+      const entry = { ...state.entry, error: "Phase setup interrupted; retry the phase in chat or request return." };
+      pi.appendEntry(STATE, { ...state, entry });
+      try {
+        if (!state.task) throw new Error("Missing task association");
+        await association(ctx.cwd, state.task, ctx.signal);
+        const selection = DEFAULTS[state.mode];
+        const model = ctx.modelRegistry.find(selection.model.provider, selection.model.id);
+        if (!model) throw new Error(`Model unavailable: ${selection.model.provider}/${selection.model.id}`);
+        if (!await pi.setModel(model)) throw new Error(`Model selection/authentication failed: ${selection.model.provider}/${selection.model.id}`);
+        pi.setThinkingLevel(selection.thinking);
+        if (!matches(ctx, selection)) throw new Error(`Effective model/thinking does not match ${selection.model.id} (${selection.thinking})`);
+        pi.appendEntry(STATE, { ...state, entry: { ...state.entry, ready: true } });
+      } catch (error) {
+        pi.appendEntry(STATE, { ...state, entry: { ...state.entry, error: String(error) } });
+        ctx.ui.notify(`Workflow phase setup failed: ${String(error)}. No kickoff sent. Retry the phase in chat or request return.`, "warning");
+      }
+    }
+    await sync(ctx, restore(ctx));
+  });
   pi.on("session_tree", async (_event, ctx) => { await sync(ctx, restore(ctx)); });
   pi.on("before_agent_start", async (event, ctx) => {
     const state = restore(ctx);
     await sync(ctx, state);
     if (!state) return;
     try {
+      if (state.entry && !state.entry.ready) throw new Error(`Phase model setup incomplete: ${state.entry.error ?? "fresh entry was not completed"}. Retry the phase in chat or request return.`);
       if (!state.task) throw new Error("Legacy/unassociated workflow session: ask for user direction; enter the correct task worktree and resume its workflow session, or start /work to enter Plan first. Do not migrate pending changes automatically.");
       await association(ctx.cwd, task(state.task), ctx.signal);
     } catch (error) {
