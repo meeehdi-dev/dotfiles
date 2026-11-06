@@ -15,6 +15,12 @@ case "$phase" in
 esac
 printf '\033[48;5;%sm\033[38;5;%sm %s \033[0m' "$bg" "$fg" "$phase"
 
+# Context: used % of the window / window size (e.g. 12%/200k, 3%/1M)
+ctx=$(jq -r '.context_window | select((.used_percentage | type) == "number" and (.context_window_size | type) == "number")
+  | "\(.used_percentage | round)%/\(.context_window_size
+      | if . >= 1000000 then "\(. / 100000 | round / 10)M" else "\(. / 1000 | round)k" end)"' <<<"$input" 2>/dev/null)
+[ -z "$ctx" ] || printf ' \033[2m│\033[0m %s' "$ctx"
+
 # rate_limits only arrives after the session's first API response: cache the last one so startup shows it too.
 cache="$root/statusline-rate-limits.json"
 if jq -e '.rate_limits | type == "object"' <<<"$input" >/dev/null 2>&1; then

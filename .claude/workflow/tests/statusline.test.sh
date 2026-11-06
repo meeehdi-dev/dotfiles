@@ -52,6 +52,9 @@ is "past reset shows 0m" "{\"rate_limits\":{\"five_hour\":$(win 90 -100)}}" "$BA
 is "reset seconds ago shows 0m, not -0m" "{\"rate_limits\":{\"five_hour\":$(win 90 -10)}}" "$BADGE │ 5h █░░░░░░░ 10% left ↻0m"
 is "malformed input still prints the badge" 'not json' "$BADGE"
 is "non-object rate_limits" '{"rate_limits":"x"}' "$BADGE"
+is "context in k" '{"context_window":{"used_percentage":12.4,"context_window_size":200000}}' "$BADGE │ 12%/200k"
+is "context in M" '{"context_window":{"used_percentage":3,"context_window_size":1000000}}' "$BADGE │ 3%/1M"
+is "context without used_percentage is left out" '{"context_window":{"used_percentage":null,"context_window_size":200000}}' "$BADGE"
 
 for pb in plan:75 ui:75 build:214 review:246 finalize:71; do
   p=${pb%:*}
