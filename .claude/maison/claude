@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# PATH shim used only by `maison` (see config.fish): maison runs `claude --settings '{apiKeyHelper, statusLine}'`,
+# and that flag beats settings.json. Drop its statusLine so the profile's own one (workflow badge) applies.
+PATH=${PATH#"$(dirname "$0")":}
+args=() prev=""
+for a in "$@"; do
+  # a value jq can't parse is kept as is, so auth never breaks
+  [ "$prev" = --settings ] && a=$(jq -c 'del(.statusLine)' <<<"$a" 2>/dev/null || printf '%s' "$a")
+  args+=("$a") prev=$a
+done
+exec claude "${args[@]}"

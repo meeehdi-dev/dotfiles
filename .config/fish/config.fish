@@ -96,6 +96,6 @@ function claude
         case VO2
             env CLAUDE_CONFIG_DIR="$HOME/.claude-vo2" claude $argv
         case LVMH
-            env CLAUDE_CONFIG_DIR="$HOME/.claude-lvmh" maison $argv
+            env CLAUDE_CONFIG_DIR="$HOME/.claude-lvmh" PATH="$HOME/.claude/maison:$PATH" maison $argv
     end
 end
