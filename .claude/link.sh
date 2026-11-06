@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install the workflow into Claude config dirs. Idempotent: a second run changes nothing.
-# - Links workflow/, agents/wf-*.md, skills/work, skills/workflow-*, rules/agents.md (relative
+# - Links CLAUDE.md, workflow/, agents/wf-*.md, skills/work, skills/workflow-*, rules/agents.md (relative
 #   links, like stow). Never replaces a real file or folder, or a symlink pointing elsewhere (even dangling).
 # - Removes dangling symlinks in skills/, agents/, rules/ whose chain ends inside dotfiles (old skills/plan).
 # - Merges into settings.json with jq: the phase hooks (PreToolUse, UserPromptSubmit), statusLine, worktree.baseRef "head",
@@ -104,7 +104,7 @@ for cfg in "$@"; do
   printf '%s' "$stale_list" | while IFS= read -r l; do
     case $l in "$cfg"/*) rm "$l" && echo "removed dangling $l" ;; esac
   done
-  for item in workflow agents/wf-*.md skills/work skills/workflow-* rules/agents.md; do
+  for item in CLAUDE.md workflow agents/wf-*.md skills/work skills/workflow-* rules/agents.md; do
     for path in "$src"/$item; do
       [ -e "$path" ] || continue
       rel_path="${path#"$src"/}" dest="$cfg/$rel_path"
