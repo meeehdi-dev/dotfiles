@@ -55,6 +55,12 @@ is "non-object rate_limits" '{"rate_limits":"x"}' "$BADGE"
 is "context in k" '{"context_window":{"used_percentage":12.4,"context_window_size":200000}}' "$BADGE │ 12%/200k"
 is "context in M" '{"context_window":{"used_percentage":3,"context_window_size":1000000}}' "$BADGE │ 3%/1M"
 is "context without used_percentage is left out" '{"context_window":{"used_percentage":null,"context_window_size":200000}}' "$BADGE"
+mkdir -p "$T/home/.claude-maison"
+printf '%s\n' "printf '\\033[2m▸\\033[0m ↓1.2K ↑300 │ \\033[33m\\033[1m~\$0.42\\033[0m │ ━╌ 12%%'" > "$T/home/.claude-maison/statusline.sh"
+OUT=$(printf '{}' | HOME="$T/home" CLAUDE_MAISON=1 bash "$SCRIPT"); RC=$?
+if [ "$(plain)" = "$BADGE │ ~\$0.42" ]; then pass "maison cost"; else fail "maison cost" "$(plain)"; fi
+OUT=$(printf '{}' | HOME="$T/home" bash "$SCRIPT")
+if [ "$(plain)" = "$BADGE" ]; then pass "no cost outside maison"; else fail "no cost outside maison" "$(plain)"; fi
 
 for pb in plan:75 ui:75 build:214 review:246 finalize:71; do
   p=${pb%:*}
