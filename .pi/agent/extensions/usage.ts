@@ -1,9 +1,13 @@
 import { Buffer } from "node:buffer";
+import { createHash } from "node:crypto";
+import { homedir, userInfo } from "node:os";
+import { join } from "node:path";
 import { convertToLlm, type ExtensionAPI, type ExtensionContext, type AgentBeforeSettleEvent, type TurnEndEvent, type BoundaryResult } from "@earendil-works/pi-coding-agent";
 import { matchesKey } from "@earendil-works/pi-tui";
 
-const ENDPOINT = "https://chatgpt.com/backend-api/wham/usage";
-const STATUS = "z-chatgpt-usage";
+const CHATGPT_ENDPOINT = "https://chatgpt.com/backend-api/wham/usage";
+const CLAUDE_ENDPOINT = "https://api.anthropic.com/api/oauth/usage";
+const STATUS = "z-usage";
 const FIVE_HOURS = 5 * 60 * 60;
 const SEVEN_DAYS = 7 * 24 * 60 * 60;
 const REFRESH_MS = 60 * 1000;
@@ -11,6 +15,9 @@ const COUNTDOWN_MS = 60 * 1000;
 const TIMEOUT_MS = 10 * 1000;
 
 type UsageWindow = { label: "5h" | "7d"; percent: number; resetAt: number };
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === "object" && !Array.isArray(value);
 
 function accountId(token: string): string | undefined {
   try {
@@ -23,13 +30,12 @@ function accountId(token: string): string | undefined {
 }
 
 function parseUsage(value: unknown): UsageWindow[] {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
-  const rateLimit = (value as Record<string, unknown>).rate_limit;
-  if (!rateLimit || typeof rateLimit !== "object" || Array.isArray(rateLimit)) return [];
+  if (!isRecord(value) || !isRecord(value.rate_limit)) return [];
+  const rateLimit = value.rate_limit;
   const windows = new Map<UsageWindow["label"], UsageWindow>();
   for (const raw of Object.values(rateLimit)) {
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
-    const item = raw as Record<string, unknown>;
+    if (!isRecord(raw)) continue;
+    const item = raw;
     const label = item.limit_window_seconds === FIVE_HOURS ? "5h" : item.limit_window_seconds === SEVEN_DAYS ? "7d" : undefined;
     const percent = item.used_percent, resetAt = item.reset_at;
     if (!label || windows.has(label) || typeof percent !== "number" || !Number.isFinite(percent) || percent < 0 || percent > 100 ||
@@ -39,16 +45,31 @@ function parseUsage(value: unknown): UsageWindow[] {
   return [windows.get("5h"), windows.get("7d")].filter((window): window is UsageWindow => window !== undefined);
 }
 
+function parseClaudeUsage(value: unknown): UsageWindow[] {
+  if (!isRecord(value)) return [];
+  const body = value;
+  return parseUsage({ rate_limit: Object.fromEntries(([
+    ["five_hour", FIVE_HOURS], ["seven_day", SEVEN_DAYS],
+  ] as const).map(([key, seconds]) => {
+    const window = body[key] as Record<string, unknown> | null | undefined;
+    return [key, {
+      limit_window_seconds: seconds,
+      used_percent: window?.utilization,
+      reset_at: typeof window?.resets_at === "string" ? Date.parse(window.resets_at) / 1000 : NaN,
+    }];
+  })) });
+}
+
 type Usage = { windows: UsageWindow[]; permission: "allowed" | "denied" | "absent" | "unknown" };
 
 function usageEvidence(value: unknown): Usage {
   const windows = parseUsage(value);
-  const rate = value && typeof value === "object" ? (value as Record<string, unknown>).rate_limit : undefined;
-  if (!rate || typeof rate !== "object" || Array.isArray(rate) || !windows.length) return { windows, permission: "unknown" };
+  const rate = isRecord(value) ? value.rate_limit : undefined;
+  if (!isRecord(rate) || !windows.length) return { windows, permission: "unknown" };
   const supported = Object.values(rate).filter((raw) => raw && typeof raw === "object" &&
     [FIVE_HOURS, SEVEN_DAYS].includes((raw as { limit_window_seconds: number }).limit_window_seconds));
   if (supported.length !== windows.length) return { windows, permission: "unknown" };
-  const { allowed, limit_reached: reached } = rate as Record<string, unknown>;
+  const { allowed, limit_reached: reached } = rate;
   if ((allowed !== undefined && typeof allowed !== "boolean") || (reached !== undefined && typeof reached !== "boolean") ||
     (allowed !== undefined && reached !== undefined && allowed === reached)) return { windows, permission: "unknown" };
   const permission = allowed === true || reached === false ? "allowed" : allowed === false || reached === true ? "denied" : "absent";
@@ -87,17 +108,18 @@ function countdown(resetAt: number): string {
   return `${minutes}m`;
 }
 
-function unavailable(ctx: ExtensionContext) {
-  ctx.ui.setStatus(STATUS, ctx.ui.theme.fg("muted", "ChatGPT unavailable"));
+function unavailable(ctx: ExtensionContext, label: string) {
+  ctx.ui.setStatus(STATUS, ctx.ui.theme.fg("muted", `${label} unavailable`));
 }
 
-export default function chatgptUsage(pi: ExtensionAPI) {
+export default function usage(pi: ExtensionAPI) {
   let cleanup = () => {};
   let cancel = () => {};
   let capture = (_event: TurnEndEvent, _ctx: ExtensionContext) => {};
   let boundary = async (_event: AgentBeforeSettleEvent, _ctx: ExtensionContext): Promise<BoundaryResult | undefined> => {};
   let providerCode: string | undefined;
   let responseStatus: number | undefined;
+  let displayedProvider: string | undefined;
 
   pi.on("turn_start", () => { cancel(); providerCode = undefined; responseStatus = undefined; });
   pi.on("provider_stream_event", (event) => {
@@ -107,16 +129,22 @@ export default function chatgptUsage(pi: ExtensionAPI) {
   pi.on("turn_end", (event, ctx) => capture(event, ctx));
   pi.on("agent_before_settle", (event, ctx) => boundary(event, ctx));
   pi.on("input", () => { cancel(); });
-  pi.on("model_select", () => { cancel(); });
+  pi.on("model_select", (_event, ctx) => {
+    cancel();
+    if (ctx.model?.provider !== displayedProvider) start(ctx);
+  });
   pi.on("session_before_switch", () => { cancel(); });
   pi.on("session_before_fork", () => { cancel(); });
 
-  pi.on("session_start", (_event, ctx) => {
+  const start = (ctx: ExtensionContext) => {
     cleanup();
+    const provider = displayedProvider = ctx.model?.provider;
+    const claude = provider === "claude-code";
+    let label = claude ? "Claude" : "ChatGPT";
     capture = () => {};
     boundary = async () => {};
     cancel = () => {};
-    if (ctx.mode !== "tui") {
+    if (ctx.mode !== "tui" || (provider !== "openai-codex" && provider !== "claude-code")) {
       ctx.ui.setStatus(STATUS, undefined);
       cleanup = () => {};
       return;
@@ -140,11 +168,11 @@ export default function chatgptUsage(pi: ExtensionAPI) {
     const render = () => {
       if (stopped) return;
       if (waitingUntil !== undefined) {
-        ctx.ui.setStatus(STATUS, ctx.ui.theme.fg("warning", `ChatGPT quota reset in ${countdown(waitingUntil / 1000)} · Esc cancels`));
+        ctx.ui.setStatus(STATUS, ctx.ui.theme.fg("warning", `${label} quota reset in ${countdown(waitingUntil / 1000)} · Esc cancels`));
         return;
       }
       if (!latest.length) {
-        if (hasError) unavailable(ctx);
+        if (hasError) unavailable(ctx, label);
         else ctx.ui.setStatus(STATUS, undefined);
         return;
       }
@@ -157,7 +185,7 @@ export default function chatgptUsage(pi: ExtensionAPI) {
         const bar = `${remainingCells ? theme.fg(warning ? "warning" : "accent", "█".repeat(remainingCells)) : ""}${used ? theme.fg("muted", "░".repeat(used)) : ""}`;
         return `${theme.fg("accent", window.label)} ${bar} ${theme.fg(warning ? "warning" : "text", `${Math.round(remaining)}% left`)}${theme.fg("muted", ` ↻${countdown(window.resetAt)}`)}`;
       });
-      ctx.ui.setStatus(STATUS, `${theme.fg("dim", "│")} ${parts.join(theme.fg("dim", " │ "))}`);
+      ctx.ui.setStatus(STATUS, `${theme.fg("dim", "│")} ${claude ? `${theme.fg("accent", label)} ` : ""}${parts.join(theme.fg("dim", " │ "))}`);
     };
 
     const fetchUsage = async (): Promise<Usage | undefined> => {
@@ -165,27 +193,51 @@ export default function chatgptUsage(pi: ExtensionAPI) {
       const active = () => !stopped && epoch === requestEpoch;
       let controller: AbortController | undefined;
       try {
-        let token: string | undefined;
-        try { token = await ctx.modelRegistry.getApiKeyForProvider("openai-codex"); } catch { token = undefined; }
-        if (!active()) return;
-        if (typeof token !== "string" || !token.trim()) {
-          latest = [];
-          hasError = false;
-          render();
-          return;
-        }
-
         controller = new AbortController();
         request = controller;
         timeout = setTimeout(() => controller?.abort(), TIMEOUT_MS);
-        const headers: Record<string, string> = { Authorization: `Bearer ${token}`, Accept: "application/json" };
-        const id = accountId(token);
-        if (id) headers["ChatGPT-Account-Id"] = id;
-        const response = await fetch(ENDPOINT, { method: "GET", headers, signal: controller.signal, redirect: "error" });
+        let token: string | undefined;
+        const headers: Record<string, string> = { Accept: "application/json" };
+        if (claude) {
+          const env = { ...process.env, ...(await ctx.modelRegistry.getProviderAuth("claude-code"))?.env };
+          if (!active() || controller.signal.aborted) return;
+          const configDir = env.PI_CLAUDE_CODE_CONFIG_DIR || env.CLAUDE_CONFIG_DIR;
+          label = !configDir || configDir === join(homedir(), ".claude") ? "Claude Personal"
+            : configDir === join(homedir(), ".claude-vo2") ? "Claude VO2" : "Claude";
+          // Claude hashes even an explicit ~/.claude; never fall back to another profile's item.
+          const storageDir = env.CLAUDE_SECURESTORAGE_CONFIG_DIR ?? configDir;
+          const suffix = storageDir ? `-${createHash("sha256").update(storageDir.normalize("NFC")).digest("hex").slice(0, 8)}` : "";
+          const result = await pi.exec("/usr/bin/security", [
+            "find-generic-password", "-a", userInfo().username, "-s", `Claude Code-credentials${suffix}`, "-w",
+          ], { signal: controller.signal, timeout: TIMEOUT_MS, maxBuffer: 64 * 1024 });
+          if (!active() || controller.signal.aborted) return;
+          if (result.code !== 0 || result.killed || result.truncated) throw new Error("Claude credentials unavailable");
+          const credentials = JSON.parse(result.stdout);
+          token = credentials?.claudeAiOauth?.accessToken;
+          if (typeof token !== "string" || !token.trim()) throw new Error("Claude credentials unavailable");
+          headers["anthropic-beta"] = "oauth-2025-04-20";
+        } else {
+          try { token = await ctx.modelRegistry.getApiKeyForProvider("openai-codex"); } catch { token = undefined; }
+          if (!active() || controller.signal.aborted) return;
+          if (typeof token !== "string" || !token.trim()) {
+            latest = [];
+            hasError = false;
+            render();
+            return;
+          }
+          const id = accountId(token);
+          if (id) headers["ChatGPT-Account-Id"] = id;
+        }
+        headers.Authorization = `Bearer ${token}`;
+        const response = await fetch(claude ? CLAUDE_ENDPOINT : CHATGPT_ENDPOINT, {
+          method: "GET", headers, signal: controller.signal, redirect: "error",
+        });
         if (!response.ok) throw new Error("usage request failed");
         const body: unknown = await response.json();
         if (!active() || controller.signal.aborted) return;
-        const usage = usageEvidence(body);
+        const usage: Usage = claude
+          ? { windows: parseClaudeUsage(body), permission: "absent" } : usageEvidence(body);
+        if (claude && !usage.windows.length) throw new Error("Claude usage unavailable");
         latest = usage.windows;
         hasError = false;
         render();
@@ -194,7 +246,7 @@ export default function chatgptUsage(pi: ExtensionAPI) {
         if (active()) {
           latest = [];
           hasError = true;
-          if (waitingUntil === undefined) unavailable(ctx);
+          if (waitingUntil === undefined) unavailable(ctx, label);
           else render();
         }
       } finally {
@@ -226,7 +278,16 @@ export default function chatgptUsage(pi: ExtensionAPI) {
     capture = (event, activeCtx) => {
       cancel();
       const message = event.message;
-      if (message.role !== "assistant" || message.stopReason !== "error" || message.provider !== "openai-codex") return;
+      if (message.role !== "assistant" || message.stopReason !== "error" || message.provider !== provider) return;
+      if (claude) {
+        // pi-claude-code only reports plain text; the usage fetch must still confirm a 100% window before waiting.
+        const text = message.errorMessage ?? "";
+        if (!/^Claude Code billing:/.test(text) &&
+          !(/^Claude Code API error:.*\b(usage limit|hit your limit|limit reached)\b/i.test(text) && !/\brate limit\b/i.test(text))) return;
+        candidate = { id: event.messageEntryId, provider: message.provider, model: message.model,
+          session: activeCtx.sessionManager.getSessionId(), refreshId };
+        return;
+      }
       let code = providerCode ?? errorCode(message);
       try { code ??= errorCode(JSON.parse(message.errorMessage ?? "")); } catch { /* Adapter errors are usually plain text. */ }
       code ??= textCode(message.errorMessage ?? "");
@@ -260,7 +321,7 @@ export default function chatgptUsage(pi: ExtensionAPI) {
         if (!owns()) return;
         return Promise.race([refresh(), cancelled]);
       };
-      const stop = (reason: string) => { if (owns()) activeCtx.ui.notify(`ChatGPT quota recovery stopped: ${reason}.`, "warning"); };
+      const stop = (reason: string) => { if (owns()) activeCtx.ui.notify(`${label} quota recovery stopped: ${reason}.`, "warning"); };
       try {
         if (signal?.aborted) return;
         let state = quotaState(await verify(blocked.refreshId));
@@ -316,7 +377,8 @@ export default function chatgptUsage(pi: ExtensionAPI) {
       if (waitingUntil !== undefined && Date.now() >= waitingUntil) wake?.();
     }, COUNTDOWN_MS);
     void refresh();
-  });
+  };
 
+  pi.on("session_start", (_event, ctx) => start(ctx));
   pi.on("session_shutdown", () => cleanup());
 }

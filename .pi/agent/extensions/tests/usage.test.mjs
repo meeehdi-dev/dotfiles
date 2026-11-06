@@ -1,14 +1,21 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, userInfo } from "node:os";
+import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const extensionPath = resolve(fileURLToPath(new URL("..", import.meta.url)), "chatgpt-usage.ts");
+const extensionPath = resolve(fileURLToPath(new URL("..", import.meta.url)), "usage.ts");
 const install = join(homedir(), ".pi/agent/install");
 const piRoot = process.env.PI_TEST_PACKAGE_ROOT ?? join(install, "releases", readFileSync(join(install, "current-version"), "utf8").trim(), "node_modules/@earendil-works/pi-coding-agent");
-const { loadExtensions, createExtensionRuntime } = await import(pathToFileURL(join(piRoot, "dist/core/extensions/loader.js")));
+const { loadExtensions, loadExtensionFromFactory, createExtensionRuntime } = await import(pathToFileURL(join(piRoot, "dist/core/extensions/loader.js")));
+const { createJiti } = createRequire(join(piRoot, "package.json"))("jiti");
+const importExtension = createJiti(import.meta.url, { alias: {
+  "@earendil-works/pi-coding-agent": join(piRoot, "dist/index.js"),
+  "@earendil-works/pi-tui": join(piRoot, "../pi-tui/dist/index.js"),
+} });
 const { createEventBus } = await import(pathToFileURL(join(piRoot, "dist/core/event-bus.js")));
 const { AgentSession, SessionManager, SettingsManager, convertToLlm } = await import(pathToFileURL(join(piRoot, "dist/index.js")));
 const { Agent } = await import(pathToFileURL(join(piRoot, "../pi-agent-core/dist/index.js")));
@@ -28,11 +35,14 @@ function assertQuotaBars(text, expectedRemaining) {
   });
 }
 
-async function harness({ mode = "tui", token = jwt(), body, fetchImpl, nowMs = now } = {}) {
+async function harness({ mode = "tui", provider = "openai-codex", providerEnv = {}, execImpl, token = jwt(), body, fetchImpl, nowMs = now } = {}) {
   const runtime = createExtensionRuntime(), bus = createEventBus(), statuses = [], fetches = [], timers = [];
   const listeners = new Set(), notifications = [];
   let branch = [], sessionId = "session-one";
-  const loaded = await loadExtensions([extensionPath], process.cwd(), bus, runtime);
+  const factory = execImpl ? await importExtension.import(extensionPath, { default: true }) : undefined;
+  const loaded = factory
+    ? { extensions: [await loadExtensionFromFactory((api) => factory({ ...api, exec: execImpl }), process.cwd(), bus, runtime)], errors: [] }
+    : await loadExtensions([extensionPath], process.cwd(), bus, runtime);
   assert.deepEqual(loaded.errors, [], "Pi must accept the usage extension");
   const extension = loaded.extensions[0];
   const previous = {
@@ -57,13 +67,16 @@ async function harness({ mode = "tui", token = jwt(), body, fetchImpl, nowMs = n
   };
   const ctx = {
     mode,
-    model: { provider: "openai-codex", id: "test-model" },
+    model: { provider, id: "test-model" },
     sessionManager: {
       getSessionId: () => sessionId,
       getLeafId: () => branch.at(-1)?.id,
       getBranch: () => branch,
     },
-    modelRegistry: { getApiKeyForProvider: async (provider) => { assert.equal(provider, "openai-codex"); return token; } },
+    modelRegistry: {
+      getApiKeyForProvider: async (provider) => { assert.equal(provider, "openai-codex"); return token; },
+      getProviderAuth: async (provider) => { assert.equal(provider, "claude-code"); return { env: providerEnv }; },
+    },
     ui: {
       theme: { fg: (color, text) => `<${color}:${text}>` },
       setStatus: (key, text) => statuses.push({ key, text }),
@@ -132,7 +145,7 @@ test("uses reported durations, styles both windows, and counts down from reset t
   assert.equal(h.fetches[0].options.headers.Authorization, `Bearer ${token}`);
   assert.equal(h.fetches[0].options.headers["ChatGPT-Account-Id"], "account-private");
   assert.deepEqual(h.statuses.at(-1), {
-    key: "z-chatgpt-usage",
+    key: "z-usage",
     text: "<dim:│> <accent:5h> <accent:██████><muted:░░> <text:75% left><muted: ↻2h30m><dim: │ ><accent:7d> <accent:███████><muted:░> <text:90% left><muted: ↻2d3h>",
   });
   assertQuotaBars(h.statuses.at(-1).text, [6, 7]);
@@ -147,6 +160,116 @@ test("uses reported durations, styles both windows, and counts down from reset t
   await h.settle();
   assert.match(h.statuses.at(-1).text, /↻2h29m/);
   assert.equal(h.fetches.length, 1, "countdown ticks do not refresh quota early");
+});
+
+test("Claude Personal and VO2 read only their own Keychain item and render their quota", async (t) => {
+  for (const [dir, label, used] of [[".claude", "Personal", 25], [".claude-vo2", "VO2", 80]]) {
+    const configDir = join(homedir(), dir), calls = [];
+    const h = await harness({ provider: "claude-code",
+      providerEnv: { PI_CLAUDE_CODE_CONFIG_DIR: configDir, CLAUDE_SECURESTORAGE_CONFIG_DIR: undefined },
+      execImpl: async (command, args, options) => {
+        calls.push({ command, args, options });
+        return { code: 0, stdout: JSON.stringify({ claudeAiOauth: { accessToken: `private-${label}` } }) };
+      }, body: {
+        five_hour: { utilization: used, resets_at: new Date(reset(3600) * 1000).toISOString() },
+        seven_day: { utilization: 95, resets_at: new Date(reset(86400) * 1000).toISOString() },
+      } });
+    t.after(() => h.close());
+    h.ctx.modelRegistry.getApiKeyForProvider = () => { throw new Error("must not read GPT auth"); };
+    await h.start();
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].command, "/usr/bin/security");
+    const suffix = createHash("sha256").update(configDir).digest("hex").slice(0, 8);
+    assert.deepEqual(calls[0].args, ["find-generic-password", "-a", userInfo().username, "-s", `Claude Code-credentials-${suffix}`, "-w"]);
+    assert.equal(calls[0].options.timeout, 10_000);
+    assert.equal(h.fetches.length, 1);
+    assert.equal(h.fetches[0].url, "https://api.anthropic.com/api/oauth/usage");
+    assert.equal(h.fetches[0].options.headers.Authorization, `Bearer private-${label}`);
+    assert.equal(h.fetches[0].options.headers["anthropic-beta"], "oauth-2025-04-20");
+    assert.equal(h.fetches[0].options.headers["ChatGPT-Account-Id"], undefined);
+    assert.equal(h.fetches[0].options.redirect, "error");
+    assert.match(h.statuses.at(-1).text, new RegExp(`Claude ${label}.*${100 - used}% left.*↻1h.*5% left.*↻1d`));
+    assert.doesNotMatch(h.statuses.at(-1).text, /private-/);
+    await h.close();
+  }
+});
+
+test("a missing or logged-out Claude profile never falls back to another account", async (t) => {
+  for (const result of [
+    { code: 44, stderr: "private credential error" },
+    { code: 0, stdout: JSON.stringify({ claudeAiOauth: { accessToken: "" } }) },
+  ]) {
+    let calls = 0;
+    const h = await harness({ provider: "claude-code",
+      providerEnv: { PI_CLAUDE_CODE_CONFIG_DIR: join(homedir(), ".claude-vo2") },
+      execImpl: async () => { calls++; return result; } });
+    t.after(() => h.close());
+    await h.start();
+    assert.equal(calls, 1);
+    assert.equal(h.fetches.length, 0);
+    assert.equal(h.statuses.at(-1).text, "<muted:Claude VO2 unavailable>");
+    await h.close();
+  }
+});
+
+test("Claude request failure clears old quota without exposing credentials", async (t) => {
+  let ok = true;
+  const h = await harness({ provider: "claude-code",
+    providerEnv: { PI_CLAUDE_CODE_CONFIG_DIR: join(homedir(), ".claude") },
+    execImpl: async () => ({ code: 0, stdout: JSON.stringify({ claudeAiOauth: { accessToken: "private-token" } }) }),
+    fetchImpl: async () => ({ ok, json: async () => ({
+      five_hour: { utilization: 25, resets_at: new Date(reset(60) * 1000).toISOString() },
+    }) }) });
+  t.after(() => h.close());
+  await h.start();
+  assert.match(h.statuses.at(-1).text, /Claude Personal.*75% left/);
+  ok = false;
+  h.timers.find(({ kind, delay }) => kind === "interval" && delay === 60_000).callback();
+  await h.settle();
+  assert.equal(h.statuses.at(-1).text, "<muted:Claude Personal unavailable>");
+  assert.ok(!JSON.stringify(h.statuses).includes("private-token"));
+});
+
+test("switching providers clears old quota immediately and ignores late responses", async (t) => {
+  let resolveFetch;
+  const h = await harness({ fetchImpl: () => new Promise((resolve) => { resolveFetch = resolve; }) });
+  t.after(() => h.close());
+  await h.start();
+  const signal = h.fetches[0].options.signal;
+  h.ctx.model = { provider: "other", id: "other" };
+  await h.emit("model_select");
+  assert.equal(signal.aborted, true);
+  assert.equal(h.statuses.at(-1).text, undefined);
+  resolveFetch({ ok: true, json: async () => usageBody(80) });
+  await h.settle();
+  assert.equal(h.statuses.at(-1).text, undefined);
+  h.ctx.model = { provider: "openai-codex", id: "test-model" };
+  await h.emit("model_select");
+  await h.settle();
+  assert.equal(h.fetches.length, 2);
+  resolveFetch({ ok: true, json: async () => usageBody(20) });
+  await h.settle();
+  assert.match(h.statuses.at(-1).text, /80% left/);
+});
+
+test("switching from GPT to Claude fetches Claude data and clears a displayed GPT quota", async (t) => {
+  const h = await harness({ providerEnv: { PI_CLAUDE_CODE_CONFIG_DIR: join(homedir(), ".claude-vo2") },
+    execImpl: async () => ({ code: 0, stdout: JSON.stringify({ claudeAiOauth: { accessToken: "private-vo2" } }) }),
+    fetchImpl: async (url) => ({ ok: true, json: async () => url.includes("anthropic.com")
+      ? { five_hour: { utilization: 90, resets_at: new Date(reset(60) * 1000).toISOString() },
+          seven_day: { utilization: "invalid", resets_at: "invalid" } }
+      : usageBody(20) }) });
+  t.after(() => h.close());
+  await h.start();
+  assert.match(h.statuses.at(-1).text, /80% left/);
+  const atSwitch = h.statuses.length;
+  h.ctx.model = { provider: "claude-code", id: "default" };
+  await h.emit("model_select");
+  assert.equal(h.statuses[atSwitch].text, undefined);
+  await h.settle();
+  assert.equal(h.fetches.length, 2);
+  assert.match(h.statuses.at(-1).text, /Claude VO2.*10% left/);
+  assert.doesNotMatch(h.statuses.at(-1).text, /80% left|7d/);
 });
 
 test("renders fully remaining and fully used quota bars", async (t) => {
@@ -188,7 +311,7 @@ test("omits malformed or missing windows instead of guessing their duration", as
   const missing = await harness({ body: { rate_limit: { primary_window: quota(18000, "bad", reset(5000)) } } });
   t.after(() => missing.close());
   await missing.start();
-  assert.deepEqual(missing.statuses.at(-1), { key: "z-chatgpt-usage", text: undefined });
+  assert.deepEqual(missing.statuses.at(-1), { key: "z-usage", text: undefined });
 });
 
 test("makes no request without usable auth and leaves the item clear", async (t) => {
@@ -196,7 +319,7 @@ test("makes no request without usable auth and leaves the item clear", async (t)
   t.after(() => h.close());
   await h.start();
   assert.equal(h.fetches.length, 0);
-  assert.deepEqual(h.statuses.at(-1), { key: "z-chatgpt-usage", text: undefined });
+  assert.deepEqual(h.statuses.at(-1), { key: "z-usage", text: undefined });
 });
 
 test("network, HTTP, and JSON failures show only a generic unavailable status", async (t) => {
@@ -210,13 +333,13 @@ test("network, HTTP, and JSON failures show only a generic unavailable status", 
     await h.start();
     const text = h.statuses.at(-1).text;
     assert.equal(text, "<muted:ChatGPT unavailable>");
-    assert.equal(h.statuses.at(-1).key, "z-chatgpt-usage");
+    assert.equal(h.statuses.at(-1).key, "z-usage");
     assert.doesNotMatch(text, /private|secret|account-private|provider response/);
     const [, countdown] = h.timers.filter(({ kind, delay }) => kind === "interval" && delay === 60_000);
     assert.ok(countdown);
     countdown.callback();
     await h.settle();
-    assert.deepEqual(h.statuses.at(-1), { key: "z-chatgpt-usage", text: "<muted:ChatGPT unavailable>" });
+    assert.deepEqual(h.statuses.at(-1), { key: "z-usage", text: "<muted:ChatGPT unavailable>" });
     assert.equal(h.fetches.length, 1, "countdown ticks do not trigger an early retry");
   }
 });
@@ -237,10 +360,10 @@ test("clears stale quota on failure and replaces unavailable status after the ne
   assert.ok(refresh && countdown);
   refresh.callback();
   await h.settle();
-  assert.deepEqual(h.statuses.at(-1), { key: "z-chatgpt-usage", text: "<muted:ChatGPT unavailable>" });
+  assert.deepEqual(h.statuses.at(-1), { key: "z-usage", text: "<muted:ChatGPT unavailable>" });
   countdown.callback();
   await h.settle();
-  assert.deepEqual(h.statuses.at(-1), { key: "z-chatgpt-usage", text: "<muted:ChatGPT unavailable>" });
+  assert.deepEqual(h.statuses.at(-1), { key: "z-usage", text: "<muted:ChatGPT unavailable>" });
   assert.equal(h.fetches.length, 2, "countdown ticks do not trigger an early retry");
 
   refresh.callback();
@@ -274,10 +397,10 @@ test("does not fetch or start timers outside TUI; shutdown aborts and clears TUI
   timeout.callback();
   await tui.settle();
   assert.equal(signal.aborted, true);
-  assert.deepEqual(tui.statuses.at(-1), { key: "z-chatgpt-usage", text: "<muted:ChatGPT unavailable>" });
+  assert.deepEqual(tui.statuses.at(-1), { key: "z-usage", text: "<muted:ChatGPT unavailable>" });
   await tui.emit("session_shutdown");
   assert.ok(tui.timers.every(({ cleared }) => cleared));
-  assert.deepEqual(tui.statuses.at(-1), { key: "z-chatgpt-usage", text: undefined });
+  assert.deepEqual(tui.statuses.at(-1), { key: "z-usage", text: undefined });
 });
 
 test("always-on recovery waits for the later exhausted window and continues once without a prompt", async (t) => {
@@ -677,4 +800,43 @@ test("real AgentSession queued user work supersedes quota failure", async (t) =>
   assert.equal(h.listeners.size, 0);
   assert.deepEqual(r.errors, []);
   assert.equal(r.manager.getBranch().filter((entry) => entry.type === "message" && entry.message.role === "user").length, 2);
+});
+
+test("Claude usage-limit failures wait for the confirmed reset, then continue once", async (t) => {
+  const claudeBody = (used, seconds) => ({
+    five_hour: { utilization: used, resets_at: new Date(reset(seconds) * 1000).toISOString() },
+    seven_day: { utilization: 40, resets_at: new Date(reset(86400) * 1000).toISOString() },
+  });
+  const claudeFailure = (errorMessage) => failure({ provider: "claude-code", api: "claude-code", errorMessage });
+  const claudeHarness = (fetchImpl) => harness({ provider: "claude-code", fetchImpl,
+    providerEnv: { PI_CLAUDE_CODE_CONFIG_DIR: join(homedir(), ".claude-vo2") },
+    execImpl: async () => ({ code: 0, stdout: JSON.stringify({ claudeAiOauth: { accessToken: "private" } }) }) });
+
+  for (const errorMessage of [
+    "Claude Code API error: You've hit your usage limit · resets 3pm",
+    "Claude Code billing: Anthropic did not accept this request on your Claude plan limits ...",
+  ]) await t.test(errorMessage, async (t) => {
+    let body = claudeBody(100, 3600);
+    const h = await claudeHarness(async () => ({ ok: true, json: async () => body }));
+    t.after(() => h.close());
+    await h.start();
+    const pending = h.emit("agent_before_settle", await fail(h, claudeFailure(errorMessage)));
+    await h.settle();
+    assert.match(h.statuses.at(-1).text, /Claude VO2 quota reset in 1h · Esc cancels/);
+    body = claudeBody(0, 18000);
+    tickCountdown(h, now + 3600_000);
+    assert.deepEqual(await pending, { continue: true, entries: [{ type: "context_edit", targetId: "failed", replacement: null }] });
+  });
+
+  for (const [name, errorMessage, used] of [
+    ["transient rate limit", "Claude Code API error: Rate limit reached", 100],
+    ["unrelated error", "Claude Code upstream server error (status 529)", 100],
+    ["usage-credit rejection without exhaustion", "Claude Code billing: third-party apps now draw from your extra usage", 20],
+  ]) await t.test(name, async (t) => {
+    const h = await claudeHarness(async () => ({ ok: true, json: async () => claudeBody(used, 3600) }));
+    t.after(() => h.close());
+    await h.start();
+    assert.equal(await h.emit("agent_before_settle", await fail(h, claudeFailure(errorMessage))), undefined);
+    assert.ok(!h.statuses.some(({ text }) => text?.includes("Esc cancels")));
+  });
 });
