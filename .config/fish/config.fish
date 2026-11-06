@@ -81,6 +81,25 @@ if command -v fnm >/dev/null
     fnm env --use-on-cd --version-file-strategy=recursive --corepack-enabled --resolve-engines --shell fish | source
 end
 
+# pi
+function pi
+    set -l profile (printf '%s\n' None 'GPT Personal' 'Claude Personal' 'Claude VO2' | fzf --no-sort --prompt='Pi account> ')
+    if test -z "$profile"
+        return
+    end
+
+    switch $profile
+        case None
+            return
+        case 'GPT Personal'
+            command pi --model openai-codex/gpt-6.1-sol $argv
+        case 'Claude Personal'
+            env PI_CLAUDE_CODE_CONFIG_DIR="$HOME/.claude" pi --model claude-code/default $argv
+        case 'Claude VO2'
+            env PI_CLAUDE_CODE_CONFIG_DIR="$HOME/.claude-vo2" pi --model claude-code/default $argv
+    end
+end
+
 # claude
 function claude
     set -l profile (printf '%s\n' None Personal VO2 LVMH | fzf --prompt='Claude account> ')
