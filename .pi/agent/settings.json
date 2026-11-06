@@ -6,7 +6,8 @@
   "packages": [
     "npm:pi-web-access",
     "npm:@plannotator/pi-extension",
-    "git:github.com/DietrichGebert/ponytail"
+    "git:github.com/DietrichGebert/ponytail",
+    "https://github.com/earendil-works/pi-claude-code"
   ],
   "terminal": {
     "showTerminalProgress": true
