@@ -1,4 +1,7 @@
 {
   "theme": "dark",
-  "model": "opus"
+  "model": "opus",
+  "permissions": {
+    "defaultMode": "auto"
+  }
 }
