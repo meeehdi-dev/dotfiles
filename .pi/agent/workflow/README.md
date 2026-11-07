@@ -1,80 +1,37 @@
 # Personal Pi workflow
 
-**Plan → Build feature 1 → fresh Build feature 2 → … → whole-plan Review ↔ focused Build → optional UI → Finalize.** Agent guidance, not a permission sandbox or executable scheduler.
+**Plan → Build each feature → whole-plan Review ↔ focused Build → optional UI → Finalize**, in one session, in place.
 
 ## Usage
 
-`/work [task or report]` is the **only workflow command**. It starts fresh Plan immediately; bare `/work` asks for input in chat. All arguments are literal task text, including phase names, JSON, quotes and multiline text. There are no aliases, subcommands or command menu.
+- `/work [task or report]` starts Plan in the current repository or folder. Nothing is created: no worktree, branch or metadata file. In Git, the start commit and pre-existing changes are recorded so Review can tell them apart.
+- Steer phases in chat. The agent switches with `workflow_phase`, asks finite choices with `workflow_question` and leaves with `workflow_exit`. The status badge shows the phase.
+- Plan approval (Plannotator) authorizes the whole build loop. Build makes one call to the `orchestrator` subagent, which runs a fresh `builder` per feature, then a `reviewer` on the whole plan, with correction rounds until clean or blocked. Expand the subagent output with Ctrl+O to watch nested agents.
+- After a clean review: optional Plannotator code review, then approve to UI or Finalize. UI reviews your running dev server live. Finalize merges the plan and reports into one decision record and stops.
 
-Request phases, standalone read-only Review, help/status or return without publishing in chat. Authorized handoffs use fresh sessions without copying the previous conversation. Repeating/skipping phases remains possible. `workflow_handoff` takes `mode`, `input` and optional concise `notes`; `workflow_question` offers finite choices without dispatching; `workflow_exit` returns without publishing. Only UI gets `workflow_ui_server`. Handoff/exit use a transient one-shot token through the sole command because Pi's session APIs are command-only, not a persistent queue or public action grammar.
+## Files
 
-Implementation-plan approval authorizes all planned features and final in-scope correction/review rounds, not publication. Build implements and checks one eligible feature per fresh session, saves a small cumulative progress report, then hands off directly to Build for the next feature in plan order. No independent Review runs between features. Reports retain feature states, decisions/reasons, changed paths, checks, blockers/dependencies and next work; the original plan stays unchanged and earlier reports survive until Finalize. Defer evidenced blockers while independent work remains, then independently review the whole plan, even if partial. Final actionable findings cycle through focused Build → whole-plan Review until clean or concretely blocked. Build completion is not independent review or human approval. In Git, clean standalone/whole-plan Review offers opt-in gated code review, direct UI approval, or approval to skip UI and Finalize. Focused UI feedback loops return to UI; consequential feedback returns to Plan. Finalize consolidates only this task's artifacts after summary readback/format verification and publishes only with established authority. See the contracts below for routing and safety details.
+- `~/.pi/agent/extensions/workflow-modes.ts`: `/work`, the phase tools, prompt injection, badge.
+- `~/.pi/agent/extensions/subagent/`: the pi example subagent extension (pi 1.5.0), patched to show nested subagents.
+- `~/.pi/agent/agents/{orchestrator,builder,reviewer}.md`: agent prompts and models.
+- `~/.pi/agent/workflow/`: `rules.md` (shared) and one file per phase.
+- Artifacts: plans in `~/.pi/plans/<key>/`, reports in `~/.pi/reviews/<key>/`.
 
-Normal phase, routing, scope and procedural guidance remains the default. At an unexpected blocker, a specific user instruction takes precedence in every phase within its stated scope, without a phase-name veto, mandatory detour or repeated confirmation. It does not authorize unrelated work or silent destruction, override higher-priority policies, or disable helper identity/data-loss checks. Explain concrete helper or command limitations and use ordinary tools where appropriate; forward the exact exception and scope in existing handoff notes. Outside `/work`, these defaults add no gates to ordinary requests.
+## Models
 
-## Phase model defaults
+| Agent | Model | Thinking |
+| --- | --- | --- |
+| main session | your choice | your choice |
+| orchestrator | openai-codex/gpt-6.1-sol | medium |
+| builder | openai-codex/gpt-6.1-sol | medium |
+| reviewer | openai-codex/gpt-6.1-sol | high |
 
-Each fresh phase selects these session-scoped settings before its kickoff:
+## Limits
 
-| Phase | Provider | Model | Thinking |
-| --- | --- | --- | --- |
-| Plan | openai-codex | gpt-6.1-sol | high |
-| Build | openai-codex | gpt-6.1-sol | medium |
-| Review | openai-codex | gpt-6.1-sol | high |
-| UI | openai-codex | gpt-6.1-terra | medium |
-| Finalize | openai-codex | gpt-6.1-sol | medium |
-
-Repeated phases and replanning apply defaults again. Manual model/thinking changes survive subsequent prompts, resume, reload and tree navigation; restoration starts no work. Ordinary Pi and saved global defaults remain unchanged. Explicit workflow return restores the selection recorded before initial entry, not the departing phase's manual selection. Original settings travel only in session phase state, never repository task metadata or handoff arguments. Older sessions without that evidence require explicit recovery direction rather than guessed restoration.
-
-Unavailable models, selection/authentication failures or effective thinking mismatches prevent kickoff and report recovery; there is no fallback model or live entitlement probe. Failed original-selection validation prevents local cleanup. Retry the phase in chat, request return, or follow the reported manual recovery route.
-
-## Installation and contracts
-
-Keep the installed entry path `~/.pi/agent/extensions/workflow-modes.ts`, both helper modules in `extensions/workflow/`, and **all six runtime Markdown files** together in the agent's `workflow/` directory. Requires installed Pi (current API: 1.5.0), Git and Node 22.19+. Reload/restart Pi after extension changes; this checkout is not automatically activated.
-
-- [Shared rules](common.md): authority, artifacts, original-plan context, decisions, handoffs and recovery.
-- [Plan](plan.md): non-mutating research, conditional Plannotator clarification and separate plan approval.
-- [Build](build.md): selected feature, checks, cumulative progress and fresh Build continuation.
-- [Review](review.md): independent read-only review, cumulative reports, automatic loops and human routing.
-- [UI](ui.md): live review, owned server lifecycle and focused feedback corrections.
-- [Finalize](finalize.md): bounded consolidation, bookkeeping, signed commit, local merge or SSH push/gh PR, and recovery.
-
-Shared and selected phase files are required: unreadable files pause entry before task setup/session replacement where detectable. They are reread before dispatch and on every request, including after reload/resume. Later failures inject paused instructions, not a generic role. Repair the reported exact path and explicitly retry in chat (or `/work` for Plan). Chat/recovery/return remain available. Optional discovered skills are fully reread each request: Plan/UI load plannotator, Build ponytail, Review ponytail-review and plannotator; unavailable skills warn without dropping other skills. Finalize needs none.
-
-## Non-Git tasks: in place
-
-`/work [task]` still starts Plan; request other phases, help and return in chat. Phases work directly on actual files. No repository/worktree, copying, directory metadata, snapshot or backup is created. **There is no isolation, Git baseline or implicit rollback**, including for symlink destinations. Unborn repositories, broken metadata, missing Git, process/permission errors and aborted discovery never authorize non-Git fallback.
-
-Tagged non-Git identity lives only in the branch-sensitive session entry: UUID, canonical root/original cwd and a project key derived from the directory name plus canonical-path hash. Handoffs/replanning and reload/resume/tree retain identity, exact inputs and notes without automatic dispatch. Resume the session to continue the task; a new unrelated session creates a distinct task, even with an old plan reference. No directory registry or filename-based identity discovery. Exact artifact references/overrides remain authoritative.
-
-Review reads explicitly scoped task files against the plan/checks and discloses the missing baseline, not exhaustive diff detection. Clean standalone/whole-plan Review offers only **Approve code and go to UI** or **Approve code, skip UI, and go to Finalize**. No browser file review or replacement config annotation outside Git; chat approval and optional live UI remain available. The UI helper accepts inspected application directories within the canonical root and rejects symlink escapes.
-
-Successful non-Git Finalize performs bounded consolidation, instructed bookkeeping and scoped documentation checks, reports outcomes and remains in the same Finalize session and cwd. Failures stay for recovery; workflow return requires an explicit request. No commit, push, PR, signing or authentication work; publication context is rejected before dispatch and on return. A repository appearing later pauses the task, never grants Git authority. Explicit chat return preserves files/artifacts, starts fresh ordinary Pi and performs no Git status or clean/dirty claim. Identity is not rediscovered after return: resume the retained session.
-
-## Managed Git workspace and recovery
-
-From an unmanaged Git checkout, `/work` creates one unique `pi/<UUID>` branch/worktree at exact launching committed HEAD under `~/.pi/worktrees/<project-key>/<UUID>/`. Source files/index/branch remain untouched. Dirty source requires “Proceed from committed files only” or “Cancel”; nothing is copied/stashed/staged. Cancellation or no-UI dirty entry creates nothing. Committed launch subdirectories, pre-workflow model/thinking evidence, custom session storage and ordinary tool exclusions are preserved; fresh phases select the defaults above. Cwd/resources/trust/tools rebind through Pi's public session runtime. Ephemeral sessions cannot safely enter across cwd.
-
-In Git, every phase/replan reuses the validated task association (`workflow-task.json` in Git administration), not a nested worktree. Branch/repository/source/session mismatches pause; partial setup/replacement failures retain and report resources rather than roll back. Verify actual cwd after failure and follow the reported chat/resume/manual-relaunch route. From fresh ordinary Pi in a retained task, `/work` starts Plan first; request the desired phase in chat or resume its workflow session. Reload/resume/tree navigation restores context but starts no work. Unassociated legacy sessions need explicit recovery, not automatic migration.
-
-All successful Finalize paths (documentation-only, non-Git, PR and local merge) report outcomes immediately and keep the same session and cwd alive for further conversation or normal manual Pi quit. Completion never automatically calls `workflow_exit`, shuts down Pi or starts another phase. Normal quit neither restores pre-workflow model/thinking nor disposes of the task worktree or ignored data; no quit hook or command is added. Only explicit workflow return restores the original selection. Neither action starts publication.
-
-Explicit return opens fresh ordinary Pi at the recorded launch cwd (not an old conversation), leaves pending files and all task resources intact and marks nothing approved/complete. It does not change the parent shell cwd. Bare exit never publishes. Authorized Finalize asks **Merge in-place (local only, no push)** or **Create or reuse a PR on GitHub**, unless already explicitly chosen for this task. Both routes preserve signing/hooks and task-only staging. Local mode merges into the verified original checkout's local base, never pushes or calls gh, and retains the active worktree and all ignored task data. Only on a later explicit request to return with local-merge cleanup, reverify the reported merge outcome and safety checks, then return with `mergedInto`; after successful return validation and renewed merge/task checks, the helper runs `git clean -fdX` only in the validated task root, checks for leftovers, then removes the merged task worktree without force, retaining its branch. Tracked changes and non-ignored untracked files still block cleanup. **All ignored task data is disposable on this local route**, including modified environment copies and local databases; source originals remain untouched. Failed/cancelled replacement or destination validation deletes no ignored files. Protected nested repositories are not force-cleaned; cleanup can partially succeed, so failures report retained resources without promising rollback. Unrelated pending source edits, staged content and untracked files do not by themselves block a fast-forward merge or verified return/cleanup; inspect and record them before merging and verify preservation afterward. Let Git refuse actual overwrite/conflict risks; never stash, reset or discard source work to proceed. Diverged history requires permission for a signed merge commit, without sweeping unrelated staged content into it; conflicts pause for direction. PR mode reports the verified PR URL and stays in Finalize. On explicit return, reverified display-only URL context is optional; the worktree stays intact. Bare return also retains resources after local merge. No persistent publication receipt, completion lock or automatic cleanup queue is added. No CI polling, GitHub merge or branch deletion.
-
-Worktrees isolate checkout files, **not services, ports, credentials, ignored dependencies, submodules or symlink targets**. Initial Plan setup provisions none of those and grants no general Git/service/install/publication authority. Plan remains non-mutating and Review read-only. Publication uses the existing GPG identity/hooks and SSH remote/agent, plus separate gh authentication. Locked keys or missing auth require user-terminal recovery and confirmation; no secrets, credential/config migration, unsigned fallback or force push.
-
-### Just-in-time preparation (managed Git Build/UI only)
-
-Before a Build check or UI startup needs missing prerequisites, the agent uses ordinary tools and inspected existing project commands at the task app/workspace root, without routine install/copy confirmation or a detour to Build. Inspect project instructions, manifests, lockfiles and invoked scripts, including normal install hooks; reuse usable dependencies and prepare again only for missing or changed prerequisites. No package-manager detector, setup runner/tool or receipts. New dependencies and intentional manifest/lockfile updates still need explicit authority. Unknown commands, missing required source files, incompatible config, required lockfile changes, migrations, provisioning and unclear real-data effects are blockers, not permission to guess. Non-Git tasks gain no preparation authority.
-
-Only identified required ignored app files (not just `.env` variants) may be copied from recorded sourceRoot at corresponding relative paths, filling missing destinations only. Check ignored/untracked status in both checkouts and canonical containment, including existing parents; never follow symlink escapes, overwrite task files, change originals, bulk-copy ignored trees or share/symlink dependency directories. Credential contents must never reach model/tool results, logs or review artifacts; suppress potentially secret-bearing raw installer/app output and report sanitized diagnostics. Hooks run as the user, and copied configuration can reach real services: this is not sandboxing or migration/deployment authority. Prompt contracts specify this behavior; there is no executable preparation enforcement.
-
-The UI helper runs only an inspected existing executable/argument array inside the task, owns only its POSIX process group and returns bounded URL/status data, never raw logs. It uses complete output-discovered loopback HTTP URLs, not guessed/scanned ports or readiness probes. Ambiguous/missing URLs or unsupported ownership need manual fallback. User-managed URLs are never owned/stopped. UI departure, return, reload and orderly shutdown stop owned groups; crashes/forced kills and escaping descendants cannot guarantee cleanup. Live interactions can change real data.
-
-Plannotator code review intends staged/unstaged/new changes unless an explicit base is requested. Its tool accepts a base but **no diff type**; browser trunk/merge-base defaults or saved preferences may differ. Verify/change the comparison using supported controls; use the manual command fallback in Review's contract if needed. Live UI review also needs manual `--app --gate` fallback if auto-detection is uncertain. A silent browser close may send no event: resume in chat. Never infer approval from silence or tool failure.
+- No isolation: agents edit your working copy. Commit or stash first for a clean baseline.
+- Non-Git folders work in place, with no baseline, undo or Plannotator code review.
+- The orchestrator call blocks the session for the whole loop; Ctrl+C stops it.
 
 ## Verification
 
-Run `npm test` here: `node --test tests/*.test.mjs`. No dependencies are added; `PI_TEST_PACKAGE_ROOT` selects another installed Pi package. Tests cover non-Git in-place identity/continuation/return, error classification, containment and non-publication contracts, direct/absolute/relative-symlink loading, real provider-free runtime rebinding, fixture-only Git worktrees/source preservation, session transport/restoration/recovery, native choices, tool neutrality, required-file failure/repair, synthetic child-process cleanup and instruction contracts. Fixture Git writes are confined to temporary repositories; synthetic server tests use no HTTP listeners, live apps or browsers.
-
-Prompt assertions verify supplied preparation boundaries, not model compliance or real installer behavior. Cleanup tests use disposable ignored files/directories and protected nested repositories, not real credentials or app data. They do not verify safe real-artifact deletion or browser behavior. Human model/TUI/RPC/browser/live-app/authentication/signing/publication smoke checks remain separate. There is no configured standalone typecheck/lint script. Use installed non-fixing checks only; do not install tooling or activate this checkout to verify it.
+`npm test` here (`node --test tests/*.test.mjs`): loads both extensions, checks `/work` in a temp repo and folder, and checks the nested-subagent render helper. No network, model or browser.

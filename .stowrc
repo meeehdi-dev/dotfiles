@@ -3,5 +3,4 @@
 --ignore=(^|/)tests
 --ignore=\.test\.mjs
 --ignore=^\.claude/worktrees
---ignore=^\.pi/agent/extensions/workflow
 --ignore=^\.claude/settings\.base\.json
