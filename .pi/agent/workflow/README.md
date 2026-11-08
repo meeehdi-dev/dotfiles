@@ -19,12 +19,16 @@
 
 ## Models
 
-| Agent | Model | Thinking |
+Subagents follow the session's provider (the `pi` GPT or Claude profile); another provider inherits the session model.
+
+| Agent | GPT (`openai-codex`) | Claude (`claude-code`, same as `.claude/agents/wf-*`) |
 | --- | --- | --- |
 | main session | your choice | your choice |
-| orchestrator | openai-codex/gpt-6.1-sol | medium |
-| builder | openai-codex/gpt-6.1-sol | medium |
-| reviewer | openai-codex/gpt-6.1-sol | high |
+| orchestrator | gpt-6.1-sol, medium | sonnet, medium |
+| builder | gpt-6.1-sol, medium | sonnet, high |
+| reviewer | gpt-6.1-sol, high | opus, high |
+
+`sonnet`/`opus` resolve to the newest matching Claude model (now `claude-sonnet-5-5`/`claude-opus-5-5`).
 
 ## Limits
 

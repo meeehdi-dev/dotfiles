@@ -317,6 +317,7 @@ function getPiInvocation(args: string[]): { command: string; args: string[] } {
 type OnUpdateCallback = (partial: AgentToolResult<SubagentDetails>) => void;
 
 interface DispatchDefaults {
+	provider?: string;
 	model?: string;
 	thinkingLevel?: ThinkingLevel;
 }
@@ -350,8 +351,10 @@ async function runSingleAgent(
 	}
 
 	const args: string[] = ["--mode", "json", "-p", "--no-session"];
-	const inheritsDispatchConfig = !agent.model;
-	const model = agent.model ?? dispatchDefaults.model;
+	// A per-provider map follows the session's account; an unlisted provider inherits the session model.
+	const agentModel = typeof agent.model === "string" ? agent.model : agent.model?.[dispatchDefaults.provider ?? ""];
+	const inheritsDispatchConfig = !agentModel;
+	const model = agentModel ?? dispatchDefaults.model;
 	if (model) args.push("--model", model);
 	if (inheritsDispatchConfig && dispatchDefaults.thinkingLevel) {
 		args.push("--thinking", dispatchDefaults.thinkingLevel);
@@ -540,6 +543,7 @@ export default function (pi: ExtensionAPI) {
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const agentScope: AgentScope = params.agentScope ?? "user";
 			const dispatchDefaults: DispatchDefaults = {
+				provider: ctx.model?.provider,
 				model: ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined,
 				thinkingLevel: ctx.thinkingLevel,
 			};

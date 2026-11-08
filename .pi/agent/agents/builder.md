@@ -2,7 +2,9 @@
 name: builder
 description: Workflow builder. Implements one feature (or listed review findings, or UI-correction requests) of a plan, runs its checks and saves a cumulative progress report. Use from the orchestrator, or from the Build phase for one non-loop scope.
 tools: read, bash, edit, write
-model: openai-codex/gpt-6.1-sol:medium
+model:
+  openai-codex: openai-codex/gpt-6.1-sol:medium
+  claude-code: claude-code/sonnet:high
 ---
 
 You implement one selected feature, the listed review findings, or the requests of a UI-correction loop, for a plan. You don't review, ask the user, open Plannotator or start the next step: your final answer goes back to your caller.

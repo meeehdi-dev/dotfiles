@@ -12,7 +12,8 @@ export interface AgentConfig {
 	name: string;
 	description: string;
 	tools?: string[];
-	model?: string;
+	/** One model, or one per provider of the dispatching session (e.g. `openai-codex`, `claude-code`). */
+	model?: string | Record<string, string>;
 	systemPrompt: string;
 	source: "user" | "project";
 	filePath: string;
@@ -95,7 +96,9 @@ function loadAgentsFromDir(dir: string, source: "user" | "project"): AgentConfig
 			name: frontmatter.name,
 			description: frontmatter.description,
 			tools: parseToolList(frontmatter.tools),
-			model: typeof frontmatter.model === "string" ? frontmatter.model : undefined,
+			model: typeof frontmatter.model === "string" || (frontmatter.model && typeof frontmatter.model === "object" && !Array.isArray(frontmatter.model))
+				? (frontmatter.model as string | Record<string, string>)
+				: undefined,
 			systemPrompt: body,
 			source,
 			filePath,
