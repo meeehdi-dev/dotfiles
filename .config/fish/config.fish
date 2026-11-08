@@ -83,7 +83,13 @@ end
 
 # pi
 function pi
-    set -l profile (printf '%s\n' None 'GPT Personal' 'Claude Personal' 'Claude VO2' | fzf --no-sort --prompt='Pi account> ')
+    # Subcommands (update, install, ...) skip the profile picker
+    if contains -- "$argv[1]" install remove uninstall update list config auth mcp
+        command pi $argv
+        return
+    end
+
+    set -l profile (printf '%s\n' None GPT Claude | fzf --no-sort --prompt='Pi account> ')
     if test -z "$profile"
         return
     end
@@ -91,12 +97,10 @@ function pi
     switch $profile
         case None
             return
-        case 'GPT Personal'
+        case GPT
             command pi --model openai-codex/gpt-6.1-sol $argv
-        case 'Claude Personal'
+        case Claude
             env PI_CLAUDE_CODE_CONFIG_DIR="$HOME/.claude" pi --model claude-code/default $argv
-        case 'Claude VO2'
-            env PI_CLAUDE_CODE_CONFIG_DIR="$HOME/.claude-vo2" pi --model claude-code/default $argv
     end
 end
 
