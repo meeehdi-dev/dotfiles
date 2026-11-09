@@ -117,6 +117,7 @@ export default function usage(pi: ExtensionAPI) {
   let cancel = () => {};
   let capture = (_event: TurnEndEvent, _ctx: ExtensionContext) => {};
   let boundary = async (_event: AgentBeforeSettleEvent, _ctx: ExtensionContext): Promise<BoundaryResult | undefined> => {};
+  let confirmClaudeExhaustion = async () => false;
   let providerCode: string | undefined;
   let responseStatus: number | undefined;
   let displayedProvider: string | undefined;
@@ -126,6 +127,14 @@ export default function usage(pi: ExtensionAPI) {
     if (event.provider === "openai-codex") providerCode = errorCode(event.data) ?? providerCode;
   });
   pi.on("after_provider_response", (event) => { responseStatus = event.status; });
+  pi.on("message_end", async (event) => {
+    const message = event.message;
+    if (message.role !== "assistant" || message.provider !== "claude-code" || message.stopReason !== "error" ||
+      !/^(?:Error: )?Incomplete Claude Code upstream response \(status 429,.*upstream said: This request would exceed your account's rate limit\./i.test(message.errorMessage ?? "")) return;
+    if (!await confirmClaudeExhaustion()) return;
+    // Pi excludes billing errors from native retries; preserve the upstream error for diagnostics.
+    return { message: { ...message, errorMessage: `Claude Code billing: confirmed subscription quota exhaustion. ${message.errorMessage}` } };
+  });
   pi.on("turn_end", (event, ctx) => capture(event, ctx));
   pi.on("agent_before_settle", (event, ctx) => boundary(event, ctx));
   pi.on("input", () => { cancel(); });
@@ -143,6 +152,7 @@ export default function usage(pi: ExtensionAPI) {
     let label = claude ? "Claude" : "ChatGPT";
     capture = () => {};
     boundary = async () => {};
+    confirmClaudeExhaustion = async () => false;
     cancel = () => {};
     if (ctx.mode !== "tui" || (provider !== "openai-codex" && provider !== "claude-code")) {
       ctx.ui.setStatus(STATUS, undefined);
@@ -262,6 +272,13 @@ export default function usage(pi: ExtensionAPI) {
         fetching = fetchUsage().finally(() => { fetching = undefined; });
       }
       return fetching;
+    };
+
+    confirmClaudeExhaustion = async () => {
+      if (!claude) return false;
+      if (fetching) await fetching;
+      const state = quotaState(await refresh());
+      return !stopped && typeof state === "number";
     };
 
     cancel = () => {

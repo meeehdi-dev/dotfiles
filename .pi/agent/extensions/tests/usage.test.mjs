@@ -564,7 +564,7 @@ async function realSession(h, { transient = false, queued = false, otherEntry = 
       requests.push(structuredClone(context));
       const stream = new AssistantMessageEventStream();
       const n = requests.length, failed = n >= 2 && n < 2 + failures;
-      const message = { ...failure(), usage, stopReason: failed ? "error" : n === 1 ? "toolUse" : "stop",
+      const message = { ...failure({ provider: model.provider, api: model.api }), usage, stopReason: failed ? "error" : n === 1 ? "toolUse" : "stop",
         errorMessage: failed ? (errorText ?? (transient ? "rate_limit_exceeded (429)" : failure().errorMessage)) : undefined,
         content: n === 1 ? [{ type: "toolCall", id: "completed-tool", name: "probe", arguments: {} }]
           : failed ? [] : [{ type: "text", text: "continued" }] };
@@ -800,6 +800,51 @@ test("real AgentSession queued user work supersedes quota failure", async (t) =>
   assert.equal(h.listeners.size, 0);
   assert.deepEqual(r.errors, []);
   assert.equal(r.manager.getBranch().filter((entry) => entry.type === "message" && entry.message.role === "user").length, 2);
+});
+
+const claudeAccountLimitError = "Incomplete Claude Code upstream response (status 429, capture incomplete, upstream said: This request would exceed your account's rate limit. Please try again later.)";
+
+test("Claude account-limit 429 waits immediately instead of using native retries", async (t) => {
+  let used = 100;
+  const h = await harness({ provider: "claude-code",
+    providerEnv: { PI_CLAUDE_CODE_CONFIG_DIR: join(homedir(), ".claude") },
+    execImpl: async () => ({ code: 0, stdout: JSON.stringify({ claudeAiOauth: { accessToken: "private" } }) }),
+    fetchImpl: async () => ({ ok: true, json: async () => ({
+      five_hour: { utilization: used, resets_at: new Date(reset(3600) * 1000).toISOString() },
+    }) }) });
+  const r = await realSession(h, { errorText: claudeAccountLimitError, otherEntry: false });
+  t.after(async () => { h.key("\u001b"); await h.close(); r.session.dispose(); });
+  const pending = r.session.prompt("original prompt");
+  await h.settle();
+  assert.equal(r.requests.length, 2);
+  assert.equal(h.listeners.size, 1);
+  assert.match(h.statuses.at(-1).text, /Claude Personal quota reset in 1h/);
+  assert.equal(r.events.filter(({ type }) => type === "auto_retry_start").length, 0);
+  const failed = r.manager.getBranch().find((entry) => entry.type === "message" && entry.message.stopReason === "error");
+  assert.ok(failed.message.errorMessage.includes(claudeAccountLimitError), "retain original diagnostics");
+  tickCountdown(h, now + 60_000);
+  await h.settle();
+  assert.equal(r.requests.length, 2, "no model requests before reset");
+  used = 0;
+  tickCountdown(h, now + 3600_000);
+  await pending;
+  assert.equal(r.requests.length, 3);
+  assert.equal(r.tools, 1);
+  assert.deepEqual(r.errors, []);
+});
+
+test("Claude account-limit text does not suppress retries without confirmed exhaustion", async (t) => {
+  for (const body of [
+    { five_hour: { utilization: 20, resets_at: new Date(reset(3600) * 1000).toISOString() } },
+    {},
+  ]) {
+    const h = await harness({ provider: "claude-code", body,
+      execImpl: async () => ({ code: 0, stdout: JSON.stringify({ claudeAiOauth: { accessToken: "private" } }) }) });
+    t.after(() => h.close());
+    await h.start();
+    assert.equal(await h.emit("message_end", { message: failure({ provider: "claude-code", errorMessage: claudeAccountLimitError }) }), undefined);
+    await h.close();
+  }
 });
 
 test("Claude usage-limit failures wait for the confirmed reset, then continue once", async (t) => {
