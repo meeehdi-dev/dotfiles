@@ -242,6 +242,8 @@ export default function usage(pi: ExtensionAPI) {
         const response = await fetch(claude ? CLAUDE_ENDPOINT : CHATGPT_ENDPOINT, {
           method: "GET", headers, signal: controller.signal, redirect: "error",
         });
+        // The usage endpoint rate-limits per account across all pi sessions; keep the last known quota.
+        if (response.status === 429 && latest.length) { render(); return; }
         if (!response.ok) throw new Error("usage request failed");
         const body: unknown = await response.json();
         if (!active() || controller.signal.aborted) return;

@@ -230,6 +230,22 @@ test("Claude request failure clears old quota without exposing credentials", asy
   assert.ok(!JSON.stringify(h.statuses).includes("private-token"));
 });
 
+test("Claude usage rate limiting keeps the last known quota", async (t) => {
+  let status = 200;
+  const h = await harness({ provider: "claude-code",
+    providerEnv: { PI_CLAUDE_CODE_CONFIG_DIR: join(homedir(), ".claude") },
+    execImpl: async () => ({ code: 0, stdout: JSON.stringify({ claudeAiOauth: { accessToken: "private-token" } }) }),
+    fetchImpl: async () => ({ ok: status === 200, status, json: async () => ({
+      five_hour: { utilization: 25, resets_at: new Date(reset(3600) * 1000).toISOString() },
+    }) }) });
+  t.after(() => h.close());
+  await h.start();
+  status = 429;
+  h.timers.find(({ kind, delay }) => kind === "interval" && delay === 60_000).callback();
+  await h.settle();
+  assert.match(h.statuses.at(-1).text, /Claude Personal.*75% left/);
+});
+
 test("switching providers clears old quota immediately and ignores late responses", async (t) => {
   let resolveFetch;
   const h = await harness({ fetchImpl: () => new Promise((resolve) => { resolveFetch = resolve; }) });
