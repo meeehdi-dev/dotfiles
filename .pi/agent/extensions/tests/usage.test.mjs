@@ -849,6 +849,30 @@ test("Claude account-limit 429 waits immediately instead of using native retries
   assert.deepEqual(r.errors, []);
 });
 
+test("Claude confirmed exhaustion survives usage endpoint throttling before recovery", async (t) => {
+  let throttled = false, used = 100;
+  const h = await harness({ provider: "claude-code",
+    execImpl: async () => ({ code: 0, stdout: JSON.stringify({ claudeAiOauth: { accessToken: "private" } }) }),
+    fetchImpl: async () => throttled ? { ok: false, status: 429 } : { ok: true, json: async () => ({
+      five_hour: { utilization: used, resets_at: new Date(reset(3600) * 1000).toISOString() },
+    }) } });
+  t.after(() => h.close());
+  await h.start();
+  const event = await fail(h, failure({ provider: "claude-code", errorMessage: claudeAccountLimitError }));
+  const { message } = await h.emit("message_end", { message: event.context.contextEntries[1].messages[0] });
+  await h.emit("turn_end", { message, messageEntryId: "failed" });
+  throttled = true;
+  const pending = h.emit("agent_before_settle", event);
+  await h.settle();
+  assert.equal(h.listeners.size, 1);
+  assert.match(h.statuses.at(-1).text, /quota reset in 1h/);
+  assert.deepEqual(h.notifications, []);
+  throttled = false;
+  used = 0;
+  tickCountdown(h, now + 3600_000);
+  assert.deepEqual(await pending, { continue: true, entries: [{ type: "context_edit", targetId: "failed", replacement: null }] });
+});
+
 test("Claude account-limit text does not suppress retries without confirmed exhaustion", async (t) => {
   for (const body of [
     { five_hour: { utilization: 20, resets_at: new Date(reset(3600) * 1000).toISOString() } },

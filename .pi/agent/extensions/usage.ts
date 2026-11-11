@@ -170,7 +170,8 @@ export default function usage(pi: ExtensionAPI) {
     let timeout: ReturnType<typeof setTimeout> | undefined;
     let refreshTimer: ReturnType<typeof setInterval> | undefined;
     let countdownTimer: ReturnType<typeof setInterval> | undefined;
-    let candidate: { id: string; provider: string; model: string; session: string; refreshId: number } | undefined;
+    let confirmedClaudeReset: number | undefined;
+    let candidate: { id: string; provider: string; model: string; session: string; refreshId: number; confirmedReset?: number } | undefined;
     let recovery: AbortController | undefined;
     let waitingUntil: number | undefined;
     let wake: (() => void) | undefined;
@@ -280,10 +281,12 @@ export default function usage(pi: ExtensionAPI) {
       if (!claude) return false;
       if (fetching) await fetching;
       const state = quotaState(await refresh());
-      return !stopped && typeof state === "number";
+      confirmedClaudeReset = !stopped && typeof state === "number" ? state : undefined;
+      return confirmedClaudeReset !== undefined;
     };
 
     cancel = () => {
+      confirmedClaudeReset = undefined;
       candidate = undefined;
       if (recovery) {
         requestEpoch++;
@@ -295,6 +298,7 @@ export default function usage(pi: ExtensionAPI) {
       wake?.();
     };
     capture = (event, activeCtx) => {
+      const confirmedReset = confirmedClaudeReset;
       cancel();
       const message = event.message;
       if (message.role !== "assistant" || message.stopReason !== "error" || message.provider !== provider) return;
@@ -304,7 +308,7 @@ export default function usage(pi: ExtensionAPI) {
         if (!/^Claude Code billing:/.test(text) &&
           !(/^Claude Code API error:.*\b(usage limit|hit your limit|limit reached)\b/i.test(text) && !/\brate limit\b/i.test(text))) return;
         candidate = { id: event.messageEntryId, provider: message.provider, model: message.model,
-          session: activeCtx.sessionManager.getSessionId(), refreshId };
+          session: activeCtx.sessionManager.getSessionId(), refreshId, confirmedReset };
         return;
       }
       let code = providerCode ?? errorCode(message);
@@ -343,7 +347,8 @@ export default function usage(pi: ExtensionAPI) {
       const stop = (reason: string) => { if (owns()) activeCtx.ui.notify(`${label} quota recovery stopped: ${reason}.`, "warning"); };
       try {
         if (signal?.aborted) return;
-        let state = quotaState(await verify(blocked.refreshId));
+        // message_end already verified this reset; another immediate fetch can hit the usage endpoint's rate limit.
+        let state = blocked.confirmedReset ?? quotaState(await verify(blocked.refreshId));
         if (!owns()) return;
         if (typeof state !== "number") { stop("no confirmed exhaustion with a future reset"); return; }
         while (typeof state === "number" && owns()) {
