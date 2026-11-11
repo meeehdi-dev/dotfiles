@@ -17,6 +17,7 @@
 ## Git and workflow
 
 - Git is read-only by default, unless I explicitly ask otherwise.
+- Always use the `gh` CLI when possible for GitHub operations, including creating and reviewing pull requests.
 - Every commit message follows Conventional Commits (`type(scope)!: description`, e.g. `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`; `BREAKING CHANGE:` footer or `!` for breaking changes).
 - Use workflow phases only after I run `/work`; its rules live in `~/.pi/agent/workflow/rules.md`. Otherwise handle requests directly, without mandatory plans or review gates.
 
