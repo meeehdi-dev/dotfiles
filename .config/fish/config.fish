@@ -15,6 +15,7 @@ set -gx GPG_TTY (tty)
 set -x BUN_INSTALL "$HOME/.bun"
 set -x PNPM_INSTALL "$HOME/Library/pnpm"
 set -x LOCAL_INSTALL "$HOME/.local"
+set -x HOMEBREW_NO_ENV_HINTS "1"
 
 # interactive rm for folders
 alias rm "rm -I"
