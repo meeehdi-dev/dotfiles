@@ -1,6 +1,7 @@
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
-import { homedir, userInfo } from "node:os";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { homedir, tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { convertToLlm, type ExtensionAPI, type ExtensionContext, type AgentBeforeSettleEvent, type TurnEndEvent, type BoundaryResult } from "@earendil-works/pi-coding-agent";
 import { matchesKey } from "@earendil-works/pi-tui";
@@ -13,6 +14,24 @@ const SEVEN_DAYS = 7 * 24 * 60 * 60;
 const REFRESH_MS = 60 * 1000;
 const COUNTDOWN_MS = 60 * 1000;
 const TIMEOUT_MS = 10 * 1000;
+const BACKOFF_MS = 5 * 60 * 1000;
+
+// Shared across pi processes so N sessions make one usage call per account, not N.
+type Cache = { body?: unknown; until: number };
+const cacheFile = (key: string) => join(tmpdir(), "pi-usage", `${key}.json`);
+function readCache(file: string): Cache | undefined {
+  try {
+    const value = JSON.parse(readFileSync(file, "utf8"));
+    return isRecord(value) && typeof value.until === "number" ? value as Cache : undefined;
+  } catch { return undefined; }
+}
+function writeCache(file: string, cache: Cache) {
+  try {
+    mkdirSync(join(file, ".."), { recursive: true, mode: 0o700 });
+    writeFileSync(`${file}.${process.pid}`, JSON.stringify(cache), { mode: 0o600 });
+    renameSync(`${file}.${process.pid}`, file);
+  } catch { /* The cache only saves requests; failing to write it must not hide fresh usage. */ }
+}
 
 type UsageWindow = { label: "5h" | "7d"; percent: number; resetAt: number };
 
@@ -199,10 +218,23 @@ export default function usage(pi: ExtensionAPI) {
       ctx.ui.setStatus(STATUS, `${theme.fg("dim", "│")} ${claude ? `${theme.fg("accent", label)} ` : ""}${parts.join(theme.fg("dim", " │ "))}`);
     };
 
-    const fetchUsage = async (): Promise<Usage | undefined> => {
+    const toUsage = (body: unknown): Usage => claude
+      ? { windows: parseClaudeUsage(body), permission: "absent" } : usageEvidence(body);
+
+    const fetchUsage = async (force: boolean): Promise<Usage | undefined> => {
       const epoch = requestEpoch;
       const active = () => !stopped && epoch === requestEpoch;
       let controller: AbortController | undefined;
+      let file = "";
+      let cached: Cache | undefined;
+      // Fresh data from another session, or a shared 429 backoff (no body): never fetch, never show an error.
+      const useCache = () => {
+        if (!active()) return;
+        const usage = cached?.body !== undefined ? toUsage(cached.body) : undefined;
+        if (usage?.windows.length) { latest = usage.windows; hasError = false; }
+        render();
+        return usage?.windows.length ? usage : undefined;
+      };
       try {
         controller = new AbortController();
         request = controller;
@@ -218,6 +250,9 @@ export default function usage(pi: ExtensionAPI) {
           // Claude hashes even an explicit ~/.claude; never fall back to another profile's item.
           const storageDir = env.CLAUDE_SECURESTORAGE_CONFIG_DIR ?? configDir;
           const suffix = storageDir ? `-${createHash("sha256").update(storageDir.normalize("NFC")).digest("hex").slice(0, 8)}` : "";
+          file = cacheFile(`claude${suffix}`);
+          cached = readCache(file);
+          if (!force && cached && cached.until > Date.now()) return useCache();
           const result = await pi.exec("/usr/bin/security", [
             "find-generic-password", "-a", userInfo().username, "-s", `Claude Code-credentials${suffix}`, "-w",
           ], { signal: controller.signal, timeout: TIMEOUT_MS, maxBuffer: 64 * 1024 });
@@ -238,19 +273,28 @@ export default function usage(pi: ExtensionAPI) {
           }
           const id = accountId(token);
           if (id) headers["ChatGPT-Account-Id"] = id;
+          file = cacheFile(`chatgpt-${id ? createHash("sha256").update(id).digest("hex").slice(0, 8) : "default"}`);
+          cached = readCache(file);
+          if (!force && cached && cached.until > Date.now()) return useCache();
         }
         headers.Authorization = `Bearer ${token}`;
         const response = await fetch(claude ? CLAUDE_ENDPOINT : CHATGPT_ENDPOINT, {
           method: "GET", headers, signal: controller.signal, redirect: "error",
         });
-        // The usage endpoint rate-limits per account across all pi sessions; keep the last known quota.
-        if (response.status === 429 && latest.length) { render(); return; }
+        // The usage endpoint rate-limits per account across all pi sessions: back off everywhere and keep the last known quota.
+        if (response.status === 429) {
+          const retryAfter = Number(response.headers?.get?.("retry-after")) * 1000;
+          writeCache(file, { body: cached?.body, until: Date.now() + (retryAfter > 0 ? retryAfter : BACKOFF_MS) });
+          if (!latest.length && cached?.body !== undefined) latest = toUsage(cached.body).windows;
+          render();
+          return;
+        }
         if (!response.ok) throw new Error("usage request failed");
         const body: unknown = await response.json();
         if (!active() || controller.signal.aborted) return;
-        const usage: Usage = claude
-          ? { windows: parseClaudeUsage(body), permission: "absent" } : usageEvidence(body);
+        const usage = toUsage(body);
         if (claude && !usage.windows.length) throw new Error("Claude usage unavailable");
+        writeCache(file, { body, until: Date.now() + REFRESH_MS - 5000 });
         latest = usage.windows;
         hasError = false;
         render();
@@ -268,11 +312,12 @@ export default function usage(pi: ExtensionAPI) {
         if (request === controller) request = undefined;
       }
     };
-    const refresh = () => {
+    // Quota verification forces a real request; periodic display refreshes may reuse another session's result.
+    const refresh = (force = true) => {
       if (stopped) return Promise.resolve(undefined);
       if (!fetching) {
         refreshId++;
-        fetching = fetchUsage().finally(() => { fetching = undefined; });
+        fetching = fetchUsage(force).finally(() => { fetching = undefined; });
       }
       return fetching;
     };
@@ -395,12 +440,12 @@ export default function usage(pi: ExtensionAPI) {
       ctx.ui.setStatus(STATUS, undefined);
     };
     ctx.ui.setStatus(STATUS, undefined);
-    refreshTimer = setInterval(() => { void refresh(); }, REFRESH_MS);
+    refreshTimer = setInterval(() => { void refresh(false); }, REFRESH_MS);
     countdownTimer = setInterval(() => {
       render();
       if (waitingUntil !== undefined && Date.now() >= waitingUntil) wake?.();
     }, COUNTDOWN_MS);
-    void refresh();
+    void refresh(false);
   };
 
   pi.on("session_start", (_event, ctx) => start(ctx));

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { homedir, userInfo } from "node:os";
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
@@ -47,8 +48,9 @@ async function harness({ mode = "tui", provider = "openai-codex", providerEnv = 
   const extension = loaded.extensions[0];
   const previous = {
     fetch: globalThis.fetch, setTimeout: globalThis.setTimeout, clearTimeout: globalThis.clearTimeout,
-    setInterval: globalThis.setInterval, clearInterval: globalThis.clearInterval, now: Date.now,
+    setInterval: globalThis.setInterval, clearInterval: globalThis.clearInterval, now: Date.now, tmp: process.env.TMPDIR,
   };
+  const cacheRoot = process.env.TMPDIR = mkdtempSync(join(tmpdir(), "usage-test-"));
   let id = 0, clock = nowMs;
   const timer = (kind, callback, delay) => {
     const value = { id: ++id, kind, callback, delay, cleared: false };
@@ -91,7 +93,7 @@ async function harness({ mode = "tui", provider = "openai-codex", providerEnv = 
   };
   const settle = async () => { for (let i = 0; i < 5; i++) await new Promise((resolve) => setImmediate(resolve)); };
   return {
-    statuses, fetches, timers, emit, settle, ctx, listeners, notifications, extension, loaded, runtime,
+    statuses, fetches, timers, emit, settle, ctx, cacheRoot, listeners, notifications, extension, loaded, runtime,
     setBranch(value) { branch = value; },
     setSession(value) { sessionId = value; },
     key(data) { for (const handler of listeners) assert.equal(handler(data), undefined, "terminal input must pass through"); },
@@ -106,6 +108,8 @@ async function harness({ mode = "tui", provider = "openai-codex", providerEnv = 
       globalThis.setInterval = previous.setInterval;
       globalThis.clearInterval = previous.clearInterval;
       Date.now = previous.now;
+      if (previous.tmp === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = previous.tmp;
+      rmSync(cacheRoot, { recursive: true, force: true });
       runtime.invalidate(); bus.clear();
     },
   };
@@ -224,6 +228,7 @@ test("Claude request failure clears old quota without exposing credentials", asy
   await h.start();
   assert.match(h.statuses.at(-1).text, /Claude Personal.*75% left/);
   ok = false;
+  h.setNow(now + 60_000);
   h.timers.find(({ kind, delay }) => kind === "interval" && delay === 60_000).callback();
   await h.settle();
   assert.equal(h.statuses.at(-1).text, "<muted:Claude Personal unavailable>");
@@ -241,9 +246,22 @@ test("Claude usage rate limiting keeps the last known quota", async (t) => {
   t.after(() => h.close());
   await h.start();
   status = 429;
+  h.setNow(now + 60_000);
   h.timers.find(({ kind, delay }) => kind === "interval" && delay === 60_000).callback();
   await h.settle();
   assert.match(h.statuses.at(-1).text, /Claude Personal.*75% left/);
+  assert.equal(h.fetches.length, 2);
+
+  // Another session starting during the shared backoff shows the cached quota without calling the endpoint.
+  const second = await harness({ provider: "claude-code",
+    providerEnv: { PI_CLAUDE_CODE_CONFIG_DIR: join(homedir(), ".claude") },
+    execImpl: async () => ({ code: 0, stdout: JSON.stringify({ claudeAiOauth: { accessToken: "private-token" } }) }),
+    fetchImpl: async () => { throw new Error("must not fetch during backoff"); }, nowMs: now + 120_000 });
+  process.env.TMPDIR = h.cacheRoot;
+  await second.start();
+  assert.equal(second.fetches.length, 0);
+  assert.match(second.statuses.at(-1).text, /Claude Personal.*75% left/);
+  await second.close();
 });
 
 test("switching providers clears old quota immediately and ignores late responses", async (t) => {
@@ -374,6 +392,7 @@ test("clears stale quota on failure and replaces unavailable status after the ne
 
   const [refresh, countdown] = h.timers.filter(({ kind, delay }) => kind === "interval" && delay === 60_000);
   assert.ok(refresh && countdown);
+  h.setNow(now + 60_000);
   refresh.callback();
   await h.settle();
   assert.deepEqual(h.statuses.at(-1), { key: "z-usage", text: "<muted:ChatGPT unavailable>" });
@@ -382,6 +401,7 @@ test("clears stale quota on failure and replaces unavailable status after the ne
   assert.deepEqual(h.statuses.at(-1), { key: "z-usage", text: "<muted:ChatGPT unavailable>" });
   assert.equal(h.fetches.length, 2, "countdown ticks do not trigger an early retry");
 
+  h.setNow(now + 120_000);
   refresh.callback();
   await h.settle();
   assert.match(h.statuses.at(-1).text, /<accent:5h>/);
