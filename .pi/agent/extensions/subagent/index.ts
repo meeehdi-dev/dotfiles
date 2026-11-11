@@ -1,4 +1,4 @@
-// Copied from pi 1.5.0 examples/extensions/subagent. Local patch: nested subagent visibility
+// Copied from pi 1.5.0 examples/extensions/subagent. Local patches: nested activity and usage
 // (live child `subagent` calls are captured from tool_execution_update and rendered indented).
 /**
  * Subagent Tool - Delegate tasks to specialized agents
@@ -207,20 +207,45 @@ type DisplayItem =
 	| { type: "text"; text: string }
 	| { type: "toolCall"; name: string; args: Record<string, any>; nested?: SubagentDetails };
 
-// Nested details come from the finished tool result, or else from the live partial update.
-function getDisplayItems(messages: Message[], live: Record<string, SubagentDetails> = {}): DisplayItem[] {
-	const finished: Record<string, SubagentDetails> = {};
+// A finished call replaces its live snapshot; each call id contributes once.
+function getNestedCalls(messages: Message[], live: Record<string, SubagentDetails> = {}): Record<string, SubagentDetails> {
+	const calls = { ...live };
 	for (const msg of messages) {
 		if (msg.role === "toolResult" && msg.toolName === "subagent" && msg.details)
-			finished[msg.toolCallId] = msg.details as unknown as SubagentDetails;
+			calls[msg.toolCallId] = msg.details as unknown as SubagentDetails;
 	}
+	return calls;
+}
+
+function aggregateUsage(results: SingleResult[]): Omit<UsageStats, "contextTokens"> {
+	const total = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
+	for (const r of results) {
+		const nested = Object.values(getNestedCalls(r.messages, r.nested)).map((call) => aggregateUsage(call.results));
+		for (const usage of [r.usage, ...nested]) {
+			for (const field of ["input", "output", "cacheRead", "cacheWrite", "cost", "turns"] as const)
+				total[field] += usage[field];
+		}
+	}
+	return total;
+}
+
+function formatResultUsage(result: SingleResult): string {
+	const own = formatUsageStats(result.usage, result.model);
+	const lines = own ? [`Own: ${own}`] : [];
+	if (Object.keys(getNestedCalls(result.messages, result.nested)).length)
+		lines.push(`Total (incl. nested): ${formatUsageStats(aggregateUsage([result]))}`);
+	return lines.join("\n");
+}
+
+function getDisplayItems(messages: Message[], live: Record<string, SubagentDetails> = {}): DisplayItem[] {
+	const calls = getNestedCalls(messages, live);
 	const items: DisplayItem[] = [];
 	for (const msg of messages) {
 		if (msg.role === "assistant") {
 			for (const part of msg.content) {
 				if (part.type === "text") items.push({ type: "text", text: part.text });
 				else if (part.type === "toolCall") {
-					const nested = part.name === "subagent" ? (finished[part.id] ?? live[part.id]) : undefined;
+					const nested = part.name === "subagent" ? calls[part.id] : undefined;
 					items.push({ type: "toolCall", name: part.name, args: part.arguments, nested });
 				}
 			}
@@ -262,8 +287,8 @@ function renderNested(
 				if (item.nested) lines.push(renderNested(item.nested, themeFg, expanded, depth + 2));
 			}
 		}
-		const usage = formatUsageStats(r.usage, r.model);
-		if (usage) lines.push(`${pad}  ${themeFg("dim", usage)}`);
+		const usage = formatResultUsage(r);
+		if (usage) lines.push(...usage.split("\n").map((line) => `${pad}  ${themeFg("dim", line)}`));
 	}
 	return lines.join("\n");
 }
@@ -890,7 +915,7 @@ export default function (pi: ExtensionAPI) {
 							container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
 						}
 					}
-					const usageStr = formatUsageStats(r.usage, r.model);
+					const usageStr = formatResultUsage(r);
 					if (usageStr) {
 						container.addChild(new Spacer(1));
 						container.addChild(new Text(theme.fg("dim", usageStr), 0, 0));
@@ -906,23 +931,10 @@ export default function (pi: ExtensionAPI) {
 					text += `\n${renderDisplayItems(displayItems, COLLAPSED_ITEM_COUNT)}`;
 					if (displayItems.length > COLLAPSED_ITEM_COUNT) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
 				}
-				const usageStr = formatUsageStats(r.usage, r.model);
+				const usageStr = formatResultUsage(r);
 				if (usageStr) text += `\n${theme.fg("dim", usageStr)}`;
 				return new Text(text, 0, 0);
 			}
-
-			const aggregateUsage = (results: SingleResult[]) => {
-				const total = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 };
-				for (const r of results) {
-					total.input += r.usage.input;
-					total.output += r.usage.output;
-					total.cacheRead += r.usage.cacheRead;
-					total.cacheWrite += r.usage.cacheWrite;
-					total.cost += r.usage.cost;
-					total.turns += r.usage.turns;
-				}
-				return total;
-			};
 
 			if (details.mode === "chain") {
 				const successCount = details.results.filter((r) => r.exitCode === 0).length;
@@ -975,14 +987,14 @@ export default function (pi: ExtensionAPI) {
 							container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
 						}
 
-						const stepUsage = formatUsageStats(r.usage, r.model);
+						const stepUsage = formatResultUsage(r);
 						if (stepUsage) container.addChild(new Text(theme.fg("dim", stepUsage), 0, 0));
 					}
 
 					const usageStr = formatUsageStats(aggregateUsage(details.results));
 					if (usageStr) {
 						container.addChild(new Spacer(1));
-						container.addChild(new Text(theme.fg("dim", `Total: ${usageStr}`), 0, 0));
+						container.addChild(new Text(theme.fg("dim", `Total (incl. nested): ${usageStr}`), 0, 0));
 					}
 					return container;
 				}
@@ -1001,7 +1013,7 @@ export default function (pi: ExtensionAPI) {
 					else text += `\n${renderDisplayItems(displayItems, 5)}`;
 				}
 				const usageStr = formatUsageStats(aggregateUsage(details.results));
-				if (usageStr) text += `\n\n${theme.fg("dim", `Total: ${usageStr}`)}`;
+				if (usageStr) text += `\n\n${theme.fg("dim", `Total (incl. nested): ${usageStr}`)}`;
 				text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
 				return new Text(text, 0, 0);
 			}
@@ -1060,14 +1072,14 @@ export default function (pi: ExtensionAPI) {
 							container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
 						}
 
-						const taskUsage = formatUsageStats(r.usage, r.model);
+						const taskUsage = formatResultUsage(r);
 						if (taskUsage) container.addChild(new Text(theme.fg("dim", taskUsage), 0, 0));
 					}
 
 					const usageStr = formatUsageStats(aggregateUsage(details.results));
 					if (usageStr) {
 						container.addChild(new Spacer(1));
-						container.addChild(new Text(theme.fg("dim", `Total: ${usageStr}`), 0, 0));
+						container.addChild(new Text(theme.fg("dim", `Total (incl. nested): ${usageStr}`), 0, 0));
 					}
 					return container;
 				}
@@ -1087,10 +1099,8 @@ export default function (pi: ExtensionAPI) {
 						text += `\n${theme.fg("muted", r.exitCode === -1 ? "(running...)" : "(no output)")}`;
 					else text += `\n${renderDisplayItems(displayItems, 5)}`;
 				}
-				if (!isRunning) {
-					const usageStr = formatUsageStats(aggregateUsage(details.results));
-					if (usageStr) text += `\n\n${theme.fg("dim", `Total: ${usageStr}`)}`;
-				}
+				const usageStr = formatUsageStats(aggregateUsage(details.results));
+				if (usageStr) text += `\n\n${theme.fg("dim", `Total (incl. nested): ${usageStr}`)}`;
 				if (!expanded) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
 				return new Text(text, 0, 0);
 			}

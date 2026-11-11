@@ -14,7 +14,6 @@ type Task = { id: string; kind: "git" | "directory"; projectKey: string; root: s
 type Phase = { mode: Mode; input: string; notes?: string; task: Task };
 const STATE = "workflow-phase";
 const TOOLS = ["workflow_phase", "workflow_question", "workflow_exit"];
-const SKILLS: Record<Mode, string[]> = { plan: ["plannotator"], build: [], review: ["plannotator"], ui: ["plannotator"], finalize: [] };
 const BADGES: Record<Mode, "accent" | "success" | "warning" | "muted"> = { plan: "accent", build: "warning", review: "muted", ui: "accent", finalize: "success" };
 const BLACK = rgbColor(0, 0, 0), WHITE = rgbColor(255, 255, 255);
 
@@ -143,12 +142,7 @@ export default function workflow(pi: ExtensionAPI) {
       event.systemPromptOptions.sections.workflow = `Workflow paused: ${String(error)}. Explain the missing file and wait for the user.`;
       return;
     }
-    const skills = SKILLS[state.mode].flatMap((name) => {
-      const skill = event.systemPromptOptions.skills?.find((item) => item.name === name);
-      if (!skill) return [];
-      return [`<skill name="${name}" location="${skill.filePath}">\n${readFileSync(skill.filePath, "utf8")}\n</skill>`];
-    });
-    event.systemPromptOptions.sections.workflow = [...skills, prompt, guidance(state.task),
+    event.systemPromptOptions.sections.workflow = [prompt, guidance(state.task),
       `Phase: ${state.mode}`, `Input: ${state.input || "not supplied, ask the user"}`, ...(state.notes ? [`Handoff notes: ${state.notes}`] : [])].join("\n\n");
   });
 }

@@ -1,12 +1,12 @@
 # Workflow rules (shared by every phase and workflow agent)
 
-Plan → Build F1 → Build F2 → … → whole-plan Review ↔ focused Build → optional UI → Finalize.
-Features are built one per fresh `builder` with no review in between; humans approve only after a clean whole-plan or standalone review. Focused UI feedback loops Build ↔ Review back to UI; decisions go to Plan.
+Plan → Build F1 → Build F2 → … → whole-plan Review → focused Build ↔ follow-up Review → optional UI → Finalize.
+Features are built one per fresh `builder` with no review in between; humans approve only after a clean standalone review or complete plan coverage (initial whole-plan review plus valid follow-up evidence). Focused UI feedback loops Build ↔ Review back to UI; decisions go to Plan.
 The workflow guides; it never overrides the user's change of direction. A specific user instruction at a blocker wins within its stated scope, without a phase detour or reconfirmation; it never overrides security or data-loss protections.
 
 - One session, in place. Plan, Review routing, UI and Finalize run in the main session; the build loop runs in an `orchestrator` subagent that spawns `builder` / `reviewer`; standalone review spawns a `reviewer`. Use the `subagent` tool in single mode with `cwd` = the task root. Handoffs pass paths and notes, never the transcript.
 - Phase changes: `workflow_phase` (mode, absolute plan/report path, notes). Leaving: `workflow_exit`.
-- Read the complete reference, applicable instructions (AGENTS.md) and connected code; other docs only when needed. Preserve unrelated user work.
+- Read the complete reference and applicable instructions (AGENTS.md); reuse unchanged context already loaded in this session. Builders/reviewers inspect connected code; routing agents consult code only when evidence conflicts or is missing. Other docs only when needed. Preserve unrelated user work.
 
 ## Workspace
 
@@ -22,10 +22,19 @@ The workflow guides; it never overrides the user's change of direction. A specif
 
 ## Plans and progress
 
-- One plan with numbered features and stable IDs (F1, F2…), acceptance criteria per feature, ordered steps, explicit dependencies. A single-feature or unnumbered plan is one unit.
-- The plan stays primary and unchanged. Every builder/reviewer reads it in full, plus the latest same-task reports. Small progress reports carry state between features, review reports after the build. The latest report stands alone; predecessor links keep the evidence.
-- Handoffs carry: explicit loop authorization, feature ID or "whole-plan", next action, absolute plan/report paths, material decisions, accepted limitations, and any user exception with its scope.
-- Never guess completion: reconcile progress from code, checks and reports. Partial work is not complete or reviewed.
+- One plan with numbered features and stable IDs (F1, F2…), acceptance criteria per feature, ordered steps, explicit dependencies. Features are coherent behaviors, not one per file/test. A single-feature or unnumbered plan is one unit.
+- The plan stays primary and unchanged. Every builder/reviewer reads it in full, plus the latest authoritative progress/review state and active feedback. Read historical reports only to resolve missing or conflicting evidence; predecessor links preserve history, not a mandatory reading list. Finalize still reads all artifacts before deleting any.
+- The latest state stands alone: plan path, predecessor links, loop authority, every feature's state, material decisions/reasons, accepted limitations/reasons, changed paths, blockers/dependencies, unresolved findings with stable IDs/status, exact check results and next action. Preserve prior review coverage and its evidence; never drop an unresolved issue.
+- Handoffs carry: explicit loop authorization, feature ID or review mode, next action, absolute plan/latest-state/active-feedback paths, material decisions, accepted limitations, and any user exception with its scope. Link other artifacts through the latest state, not the transcript.
+- Never guess completion: reconcile state and check evidence; builders/reviewers verify against code. Partial work is not complete or reviewed.
+
+## Review continuity
+
+- First review after feature builds: independent whole-plan review. After corrections (including localized UI feedback), use follow-up review: prior findings, new changes, affected acceptance criteria, callers and integration paths. Retain prior clean coverage only for unchanged implementation with valid evidence.
+- Expand to whole-plan review when shared contracts change, concurrent/unrelated changes invalidate prior coverage, the affected scope is uncertain, or no valid prior whole-plan review exists. Never narrow an explicitly requested standalone review.
+- Reports identify newly checked scope and retained prior coverage, with source revision and relevant working-tree state. A focused review is not a fresh whole-plan review. Clean loop completion requires complete plan coverage and no open findings, incomplete features or blockers; uncertain/stale coverage must be rechecked.
+- Long reviews/audits save a new small `review-checkpoint` report at completed logical scope boundaries before expanding into another substantial area: reviewed scope, findings/evidence, revision and relevant working-tree state, remaining questions. Mark it incomplete, never clean. A replacement reviewer validates it against current code before reusing evidence; it is not a resumable session.
+- No hard token/turn cap. Investigation without a new concrete hypothesis or evidence of progress is a blocker/uncertainty, not a reason to keep exploring.
 
 ## Authority
 
@@ -35,7 +44,7 @@ The workflow guides; it never overrides the user's change of direction. A specif
 
 ## Human surfaces (main session only)
 
-- Plannotator via the `plannotator` tool for plan, code and live-app review. Before opening, tell the user that closing the tab without deciding sends nothing and they can reply in chat. End the turn after opening.
+- Plannotator via the `plannotator` tool for plan, code and live-app review. Consult the installed plannotator skill when required; reuse it if already loaded and unchanged. Before opening, tell the user that closing the tab without deciding sends nothing and they can reply in chat. End the turn after opening.
 - `workflow_question` for finite choices, with context and explicit action labels; chat for free-form input. Plan's clarifications use Plannotator only. Subagents can't ask: they report to their caller.
 - A choice authorizes only what it clearly describes. Cancelled = wait for chat. Never infer approval from silence, a closed tab, a cancel or a tool failure. Don't add question gates to authorized transitions.
 

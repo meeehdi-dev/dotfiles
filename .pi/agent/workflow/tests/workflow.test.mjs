@@ -78,6 +78,60 @@ test("/work in a non-Git folder is in place with a path-based key", async (t) =>
   assert.deepEqual(readdirSync(dir), []);
 });
 
+test("workflow sections omit skill bodies and stay stable across unchanged runs", async (t) => {
+  const { loaded, runtime } = await load(t);
+  Object.assign(runtime, { getActiveTools: () => [], setActiveTools: () => {},
+    appendEntry: () => assert.fail("Prompt injection must not append entries"),
+    sendUserMessage: () => assert.fail("Prompt injection must not send messages") });
+  let mode;
+  const ctx = { sessionManager: { getBranch: () => [{ type: "custom", customType: "workflow-phase",
+    data: { mode, input: "task", task: { id: "id", root: "/task", kind: "directory", projectKey: "key" } } }] },
+    ui: { setStatus: () => {}, theme: { style: (s) => s, colors: Object.fromEntries(
+      ["accent", "warning", "muted", "success"].map((name) => [name, { kind: "rgb", r: 9, g: 9, b: 9 }])) } } };
+  const skillPath = join(temp(t), "unread-skill.md");
+  const event = () => ({ systemPromptOptions: { sections: {},
+    skills: [{ name: "plannotator", filePath: skillPath }] } });
+  const [inject] = loaded.extensions[0].handlers.get("before_agent_start");
+  for (mode of ["plan", "build", "review", "ui", "finalize"]) {
+    const first = event(), second = event();
+    assert.equal(await inject(first, ctx), undefined);
+    assert.equal(await inject(second, ctx), undefined);
+    const section = first.systemPromptOptions.sections.workflow;
+    assert.match(section, /# Workflow rules/);
+    assert.ok(section.includes(`Phase: ${mode}`));
+    assert.doesNotMatch(section, /<skill|unread-skill/);
+    assert.equal(second.systemPromptOptions.sections.workflow, section);
+  }
+});
+
+test("nested usage counts finalized calls once and retains live and failed usage", async (t) => {
+  const { loaded } = await load(t);
+  const { renderResult } = loaded.extensions[1].tools.get("subagent").definition;
+  const theme = { fg: (_c, s) => s, bold: (s) => s };
+  const agent = (n, extra = {}) => ({ agent: "agent", agentSource: "user", task: "task", exitCode: 0,
+    stderr: "", messages: [], usage: { input: n, output: n * 2, cacheRead: n * 3, cacheWrite: n * 4,
+      cost: n / 1000, turns: n, contextTokens: 77777 }, ...extra });
+  const details = (...results) => ({ mode: "single", results });
+  const finished = (id, ...results) => ({ role: "toolResult", toolCallId: id, toolName: "subagent",
+    content: [], details: details(...results) });
+  const grandchild = agent(3, { exitCode: 1, stopReason: "error" });
+  const child = agent(2, { messages: [finished("grandchild", grandchild)] });
+  const parent = agent(1, { messages: [finished("child", child), finished("child", child)],
+    nested: { child: details(agent(80)), live: details(agent(4, { exitCode: -1 })) } });
+  for (const mode of ["single", "chain", "parallel"]) {
+    for (const expanded of [false, true]) {
+      const result = { content: [], details: { mode, results: [parent] } };
+      const text = renderResult(result, { expanded }, theme, {}).render(250).join("\n");
+      assert.match(text, /Total \(incl\. nested\): 10 turns ↑10 ↓20 R30 W40 \$0\.0100/);
+      assert.doesNotMatch(text, /Total[^\n]*ctx:/);
+      if (mode === "single" || expanded) assert.match(text, /Own: 1 turn ↑1 ↓2 R3 W4 \$0\.0010 ctx:78k/);
+    }
+  }
+  const running = { content: [], details: { mode: "parallel", results: [{ ...parent, exitCode: -1 }] } };
+  assert.match(renderResult(running, { expanded: false }, theme, {}).render(250).join("\n"),
+    /Total \(incl\. nested\): 10 turns ↑10 ↓20 R30 W40 \$0\.0100/);
+});
+
 test("nested subagent activity renders under the orchestrator's call", async (t) => {
   const { loaded } = await load(t);
   const { renderResult } = loaded.extensions[1].tools.get("subagent").definition;
