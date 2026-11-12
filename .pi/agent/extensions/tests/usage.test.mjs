@@ -869,45 +869,29 @@ test("Claude account-limit 429 waits immediately instead of using native retries
   assert.deepEqual(r.errors, []);
 });
 
-test("Claude confirmed exhaustion survives usage endpoint throttling before recovery", async (t) => {
-  let throttled = false, used = 100;
+test("Claude 429 waits for the fullest window reported by Claude Code, without the usage endpoint", async (t) => {
   const h = await harness({ provider: "claude-code",
     execImpl: async () => ({ code: 0, stdout: JSON.stringify({ claudeAiOauth: { accessToken: "private" } }) }),
-    fetchImpl: async () => throttled ? { ok: false, status: 429 } : { ok: true, json: async () => ({
-      five_hour: { utilization: used, resets_at: new Date(reset(3600) * 1000).toISOString() },
-    }) } });
+    fetchImpl: async () => ({ ok: false, status: 429 }) });
   t.after(() => h.close());
   await h.start();
+  const fetches = h.fetches.length;
+  const ok = { id: "ok", type: "message", message: { role: "assistant", diagnostics: [{ type: "claude-code.rate-limit", details: {
+    unifiedWindows: { five_hour: { utilization: 0.99, resetsAt: reset(3600) }, seven_day: { utilization: 0.8, resetsAt: reset(86400) } } } }] } };
   const event = await fail(h, failure({ provider: "claude-code", errorMessage: claudeAccountLimitError }));
   const { message } = await h.emit("message_end", { message: event.context.contextEntries[1].messages[0] });
+  assert.match(message.errorMessage, /^Claude Code billing: .*status 429/);
   await h.emit("turn_end", { message, messageEntryId: "failed" });
-  throttled = true;
+  h.setBranch([ok, ...event.context.contextEntries.map(({ sourceEntry }) => sourceEntry)]);
   const pending = h.emit("agent_before_settle", event);
   await h.settle();
-  assert.equal(h.listeners.size, 1);
   assert.match(h.statuses.at(-1).text, /quota reset in 1h/);
-  assert.deepEqual(h.notifications, []);
-  throttled = false;
-  used = 0;
   tickCountdown(h, now + 3600_000);
   assert.deepEqual(await pending, { continue: true, entries: [{ type: "context_edit", targetId: "failed", replacement: null }] });
+  assert.equal(h.fetches.length, fetches, "recovery never calls the usage endpoint");
 });
 
-test("Claude account-limit text does not suppress retries without confirmed exhaustion", async (t) => {
-  for (const body of [
-    { five_hour: { utilization: 20, resets_at: new Date(reset(3600) * 1000).toISOString() } },
-    {},
-  ]) {
-    const h = await harness({ provider: "claude-code", body,
-      execImpl: async () => ({ code: 0, stdout: JSON.stringify({ claudeAiOauth: { accessToken: "private" } }) }) });
-    t.after(() => h.close());
-    await h.start();
-    assert.equal(await h.emit("message_end", { message: failure({ provider: "claude-code", errorMessage: claudeAccountLimitError }) }), undefined);
-    await h.close();
-  }
-});
-
-test("Claude usage-limit failures wait for the confirmed reset, then continue once", async (t) => {
+test("Claude usage-limit failures wait for the reset, then continue once", async (t) => {
   const claudeBody = (used, seconds) => ({
     five_hour: { utilization: used, resets_at: new Date(reset(seconds) * 1000).toISOString() },
     seven_day: { utilization: 40, resets_at: new Date(reset(86400) * 1000).toISOString() },
@@ -934,9 +918,7 @@ test("Claude usage-limit failures wait for the confirmed reset, then continue on
   });
 
   for (const [name, errorMessage, used] of [
-    ["transient rate limit", "Claude Code API error: Rate limit reached", 100],
     ["unrelated error", "Claude Code upstream server error (status 529)", 100],
-    ["usage-credit rejection without exhaustion", "Claude Code billing: third-party apps now draw from your extra usage", 20],
   ]) await t.test(name, async (t) => {
     const h = await claudeHarness(async () => ({ ok: true, json: async () => claudeBody(used, 3600) }));
     t.after(() => h.close());

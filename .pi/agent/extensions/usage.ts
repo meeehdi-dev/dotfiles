@@ -136,7 +136,7 @@ export default function usage(pi: ExtensionAPI) {
   let cancel = () => {};
   let capture = (_event: TurnEndEvent, _ctx: ExtensionContext) => {};
   let boundary = async (_event: AgentBeforeSettleEvent, _ctx: ExtensionContext): Promise<BoundaryResult | undefined> => {};
-  let confirmClaudeExhaustion = async () => false;
+  let claudeRecovery = false;
   let providerCode: string | undefined;
   let responseStatus: number | undefined;
   let displayedProvider: string | undefined;
@@ -149,10 +149,9 @@ export default function usage(pi: ExtensionAPI) {
   pi.on("message_end", async (event) => {
     const message = event.message;
     if (message.role !== "assistant" || message.provider !== "claude-code" || message.stopReason !== "error" ||
-      !/^(?:Error: )?Incomplete Claude Code upstream response \(status 429,.*upstream said: This request would exceed your account's rate limit\./i.test(message.errorMessage ?? "")) return;
-    if (!await confirmClaudeExhaustion()) return;
+      !claudeRecovery || !/^(?:Error: )?Incomplete Claude Code upstream response \(status 429\b/i.test(message.errorMessage ?? "")) return;
     // Pi excludes billing errors from native retries; preserve the upstream error for diagnostics.
-    return { message: { ...message, errorMessage: `Claude Code billing: confirmed subscription quota exhaustion. ${message.errorMessage}` } };
+    return { message: { ...message, errorMessage: `Claude Code billing: subscription rate limit reached. ${message.errorMessage}` } };
   });
   pi.on("turn_end", (event, ctx) => capture(event, ctx));
   pi.on("agent_before_settle", (event, ctx) => boundary(event, ctx));
@@ -171,7 +170,7 @@ export default function usage(pi: ExtensionAPI) {
     let label = claude ? "Claude" : "ChatGPT";
     capture = () => {};
     boundary = async () => {};
-    confirmClaudeExhaustion = async () => false;
+    claudeRecovery = false;
     cancel = () => {};
     if (ctx.mode !== "tui" || (provider !== "openai-codex" && provider !== "claude-code")) {
       ctx.ui.setStatus(STATUS, undefined);
@@ -179,6 +178,7 @@ export default function usage(pi: ExtensionAPI) {
       return;
     }
 
+    claudeRecovery = claude;
     let stopped = false;
     let fetching: Promise<Usage | undefined> | undefined;
     let refreshId = 0;
@@ -189,8 +189,7 @@ export default function usage(pi: ExtensionAPI) {
     let timeout: ReturnType<typeof setTimeout> | undefined;
     let refreshTimer: ReturnType<typeof setInterval> | undefined;
     let countdownTimer: ReturnType<typeof setInterval> | undefined;
-    let confirmedClaudeReset: number | undefined;
-    let candidate: { id: string; provider: string; model: string; session: string; refreshId: number; confirmedReset?: number } | undefined;
+    let candidate: { id: string; provider: string; model: string; session: string; refreshId: number } | undefined;
     let recovery: AbortController | undefined;
     let waitingUntil: number | undefined;
     let wake: (() => void) | undefined;
@@ -322,16 +321,20 @@ export default function usage(pi: ExtensionAPI) {
       return fetching;
     };
 
-    confirmClaudeExhaustion = async () => {
-      if (!claude) return false;
-      if (fetching) await fetching;
-      const state = quotaState(await refresh());
-      confirmedClaudeReset = !stopped && typeof state === "number" ? state : undefined;
-      return confirmedClaudeReset !== undefined;
+    // The 429 carries no reset time: use Claude Code's last per-turn rate-limit report, then the usage bar, then a short retry.
+    const claudeReset = (activeCtx: ExtensionContext): number => {
+      const info = activeCtx.sessionManager.getBranch().flatMap((entry) => entry.type === "message" && entry.message.role === "assistant"
+        ? (entry.message as { diagnostics?: { type: string; details?: unknown }[] }).diagnostics ?? [] : [])
+        .filter((item) => item.type === "claude-code.rate-limit").at(-1)?.details;
+      const reported = isRecord(info) && isRecord(info.unifiedWindows) ? Object.values(info.unifiedWindows).flatMap((raw) =>
+        isRecord(raw) && typeof raw.utilization === "number" && typeof raw.resetsAt === "number"
+          ? [{ percent: raw.utilization * 100, resetAt: raw.resetsAt }] : []) : [];
+      const windows = (reported.length ? reported : latest).filter((window) => window.resetAt * 1000 > Date.now());
+      const fullest = windows.sort((a, b) => b.percent - a.percent || b.resetAt - a.resetAt)[0];
+      return fullest ? fullest.resetAt * 1000 : Date.now() + BACKOFF_MS;
     };
 
     cancel = () => {
-      confirmedClaudeReset = undefined;
       candidate = undefined;
       if (recovery) {
         requestEpoch++;
@@ -343,17 +346,14 @@ export default function usage(pi: ExtensionAPI) {
       wake?.();
     };
     capture = (event, activeCtx) => {
-      const confirmedReset = confirmedClaudeReset;
       cancel();
       const message = event.message;
       if (message.role !== "assistant" || message.stopReason !== "error" || message.provider !== provider) return;
       if (claude) {
-        // pi-claude-code only reports plain text; the usage fetch must still confirm a 100% window before waiting.
         const text = message.errorMessage ?? "";
-        if (!/^Claude Code billing:/.test(text) &&
-          !(/^Claude Code API error:.*\b(usage limit|hit your limit|limit reached)\b/i.test(text) && !/\brate limit\b/i.test(text))) return;
+        if (!/^Claude Code billing:/.test(text) && !/^Claude Code API error:.*\b(usage limit|hit your limit|limit reached|rate limit)\b/i.test(text)) return;
         candidate = { id: event.messageEntryId, provider: message.provider, model: message.model,
-          session: activeCtx.sessionManager.getSessionId(), refreshId, confirmedReset };
+          session: activeCtx.sessionManager.getSessionId(), refreshId };
         return;
       }
       let code = providerCode ?? errorCode(message);
@@ -392,8 +392,7 @@ export default function usage(pi: ExtensionAPI) {
       const stop = (reason: string) => { if (owns()) activeCtx.ui.notify(`${label} quota recovery stopped: ${reason}.`, "warning"); };
       try {
         if (signal?.aborted) return;
-        // message_end already verified this reset; another immediate fetch can hit the usage endpoint's rate limit.
-        let state = blocked.confirmedReset ?? quotaState(await verify(blocked.refreshId));
+        let state = claude ? claudeReset(activeCtx) : quotaState(await verify(blocked.refreshId));
         if (!owns()) return;
         if (typeof state !== "number") { stop("no confirmed exhaustion with a future reset"); return; }
         while (typeof state === "number" && owns()) {
@@ -405,7 +404,8 @@ export default function usage(pi: ExtensionAPI) {
           }), cancelled]);
           wake = undefined;
           if (!owns()) return;
-          state = quotaState(await verify(refreshId));
+          // Claude: just retry after the reset; a new 429 waits again.
+          state = claude ? "allowed" : quotaState(await verify(refreshId));
           if (!owns()) return;
           if (state === undefined) { stop("usage verification unavailable or reset untrustworthy"); return; }
         }
