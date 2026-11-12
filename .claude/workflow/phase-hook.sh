@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 # PreToolUse (matcher Skill|Agent) and UserPromptSubmit hook: records the workflow phase per session
 # for statusline.sh. A typed /work is expanded as a slash command, never a Skill call, so its prompt starts tracking.
-# Never blocks a tool: always exits 0.
+# Hook invocation never blocks a tool. Explicit `end <session-id>` reports failures.
+if [ "$#" -gt 0 ]; then
+  [ "$#" -eq 2 ] && [ "$1" = end ] && [[ "$2" =~ ^[A-Za-z0-9_-]+$ ]] || { echo 'usage: phase-hook.sh end <session-id>' >&2; exit 2; }
+  rm -f -- "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/workflow-state/$2"
+  exit $?
+fi
 input=$(cat)
 read -r session name < <(jq -r '[.session_id // "", .tool_input.skill // .tool_input.subagent_type // (if (.prompt // "") | test("^/work(\\s|$)") then "work" else "" end)] | @tsv' <<<"$input" 2>/dev/null)
 case "$name" in
   work|workflow-plan) phase=plan ;;
-  workflow-build|wf-builder) phase=build ;;
+  workflow-build|wf-orchestrator|wf-builder) phase=build ;;
   workflow-review|wf-reviewer) phase=review ;;
   workflow-ui) phase=ui ;;
   workflow-finalize) phase=finalize ;;

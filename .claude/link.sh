@@ -3,7 +3,7 @@
 # - Links CLAUDE.md, workflow/, agents/wf-*.md, skills/work, skills/workflow-*, rules/agents.md (relative
 #   links, like stow). Never replaces a real file or folder, or a symlink pointing elsewhere (even dangling).
 # - Removes dangling symlinks in skills/, agents/, rules/ whose chain ends inside dotfiles (old skills/plan).
-# - Merges into settings.json with jq: the phase hooks (PreToolUse, UserPromptSubmit), statusLine, worktree.baseRef "head",
+# - Merges into settings.json with jq: the phase hooks (PreToolUse, UserPromptSubmit), statusLine,
 #   the ponytail marketplace and enabledPlugins entry. Other keys are kept; writes only on change.
 #   A key the user set differently, or invalid JSON, skips that whole config dir.
 # - Deep-merges settings.base.json (shared settings) into settings.json; a key the dir already has wins.
@@ -72,7 +72,6 @@ merge='
       (if (mine("PreToolUse") | length) > 0 and (mine("PreToolUse") | index([$hook]) == null) then "hooks.PreToolUse (phase-hook)" else empty end),
       (if (mine("UserPromptSubmit") | length) > 0 and (mine("UserPromptSubmit") | index([$ph]) == null) then "hooks.UserPromptSubmit (phase-hook)" else empty end),
       (if has_path(["statusLine"]) and .statusLine != $sl then "statusLine" else empty end),
-      (if has_path(["worktree","baseRef"]) and .worktree.baseRef != "head" then "worktree.baseRef" else empty end),
       (if has_path(["extraKnownMarketplaces","ponytail"]) and .extraKnownMarketplaces.ponytail != $mk then "extraKnownMarketplaces.ponytail" else empty end),
       (if has_path(["enabledPlugins","ponytail@ponytail"]) and .enabledPlugins["ponytail@ponytail"] != true then "enabledPlugins.ponytail@ponytail" else empty end)
     ],
@@ -81,7 +80,6 @@ merge='
       | (if (mine("PreToolUse") | length) > 0 then . else .hooks.PreToolUse += [$hook] end)
       | (if (mine("UserPromptSubmit") | length) > 0 then . else .hooks.UserPromptSubmit += [$ph] end)
       | .statusLine //= $sl
-      | .worktree.baseRef //= "head"
       | .extraKnownMarketplaces.ponytail //= $mk
       | .enabledPlugins["ponytail@ponytail"] //= true
     ) }'

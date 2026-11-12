@@ -25,4 +25,20 @@ expect "plain prompt keeps phase" s1 build '{"session_id":"s1","prompt":"looks g
 expect "bare /work restarts plan" s1 plan '{"session_id":"s1","prompt":"/work"}'
 expect "bad session id ignored" ../x none '{"session_id":"../x","prompt":"/work"}'
 
+# Entering Finalize is not completion: failures/cancellation retain its badge.
+expect "finalize entry retains tracking" s1 finalize '{"session_id":"s1","tool_input":{"skill":"workflow-finalize"}}'
+expect "cancelled or failed finalize stays active" s1 finalize '{"session_id":"s1","prompt":"that failed"}'
+if bash "$HOOK" end ../s1 2>/dev/null; then echo 'FAIL unsafe end accepted'; fails=$((fails + 1)); fi
+expect "invalid end preserves active state" s1 finalize '{"session_id":"s1","prompt":"wait"}'
+expect "another session starts" s2 plan '{"session_id":"s2","prompt":"/work other"}'
+bash "$HOOK" end s1 || fails=$((fails + 1))
+expect "successful completion clears badge and deactivates tracking" s1 none '{"session_id":"s1","tool_input":{"skill":"workflow-build"}}'
+expect "other session remains active" s2 plan '{"session_id":"s2","prompt":"wait"}'
+bash "$HOOK" end s2 || fails=$((fails + 1))
+expect "explicit exit clears badge" s2 none '{"session_id":"s2","prompt":"continue ordinary chat"}'
+expect "new work after exit starts Plan" s1 plan '{"session_id":"s1","prompt":"/work next"}'
+mkdir "$T/workflow-state/failure"
+if bash "$HOOK" end failure 2>/dev/null; then echo 'FAIL end hid removal failure'; fails=$((fails + 1)); fi
+[ -d "$T/workflow-state/failure" ] || { echo 'FAIL end removed unexpected directory'; fails=$((fails + 1)); }
+
 [ "$fails" -eq 0 ] && echo "all passed" || { echo "$fails failed"; exit 1; }
