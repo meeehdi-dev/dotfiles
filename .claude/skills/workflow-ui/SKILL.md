@@ -9,6 +9,8 @@ argument-hint: "[plan path] [notes]"
 
 Run only inside a conversation where the user ran `/work`; otherwise handle the request directly. Read `~/.claude/workflow/rules.md` first. Input: $ARGUMENTS (original plan path, task identity/baseline, latest progress/review state, active feedback and known URL/route).
 
+Preserve rules.md's compact evidence handoff in feedback and all routing notes: latest review evidence path (or none), changed paths/findings/affected criteria, required checks and prior exact results with checked-state/environment references. Local corrections use follow-up scope, not automatic whole-plan rereview or all broad checks; expansion and freshness requirements still apply.
+
 Human visual review, not another audit. Read the plan and only needed routes/contracts; reuse unchanged context. Don't rerun checks, fix code, install prerequisites, edit config, scan ports, migrate data, start/stop servers, provision infrastructure or write Git.
 
 1. Reuse the task root and original plan from handoffs; ask if missing/ambiguous. Ask for the user's running dev-server URL if not known. Never start, adopt or stop that server. A bare port means `http://localhost:<port>/`; preserve route/query/fragment. Live review needs loopback HTTP; ask about remote/HTTPS targets rather than guessing. Confirm the app is the task's implementation, not another checkout.

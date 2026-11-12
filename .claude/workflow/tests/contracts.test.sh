@@ -12,6 +12,43 @@ fi
 for agent in builder reviewer orchestrator; do
   check "$agent latest-state context" grep -q 'latest authoritative progress/review state' "$ROOT/agents/wf-$agent.md"
 done
+for contract in \
+  'task-root ancestor chain and nested CLAUDE.md under affected paths' \
+  'never sibling repositories or a whole home/config tree' \
+  'honor explicitly referenced external instructions' \
+  'Context reuse is within this agent, not across fresh agents' \
+  'First review after feature builds: independent whole-plan review' \
+  'Never narrow an explicitly requested standalone review' \
+  'workflow/review-evidence.mjs' \
+  'compare --root /absolute/task --evidence /prior.json' \
+  'do not hash newly created workflow artifacts as source changes' \
+  'implementation and relevant dependencies remain valid' \
+  'same-file changes require inspecting affected behavior' \
+  'Never reconstruct old diffs/patches' \
+  'Verify that the new manifest matches the inspected-state capture' \
+  'Concurrent changes invalidate affected conclusions' \
+  'Independently run focused checks for changed behavior' \
+  'relevant source/test/config/dependency inputs and known runtime/environment' \
+  'A file manifest alone cannot prove environment validity' \
+  'previous failures, or explicit plan/project freshness requirements' \
+  'newly run (exact command/result and checked state)' \
+  'reused (prior report/state, exact result and reason inputs/environment remain valid)' \
+  'failed, or not checked (reason/impact)' \
+  'A builder pass is check evidence, never independent review'; do
+  check "$contract" grep -Fq "$contract" "$ROOT/workflow/rules.md"
+done
+for prompt in "$ROOT"/skills/workflow-{build,review,ui}/SKILL.md "$ROOT"/agents/wf-{builder,orchestrator}.md; do
+  check "$prompt evidence handoff" grep -q 'compact evidence handoff' "$prompt"
+  check "$prompt evidence path" grep -q 'latest review evidence path' "$prompt"
+  check "$prompt check provenance" grep -q 'checked-state' "$prompt"
+done
+check 'reviewer captures evidence' grep -q 'workflow/review-evidence.mjs' "$ROOT/agents/wf-reviewer.md"
+check 'reviewer writes only reports/evidence' grep -q 'write only reports and new review evidence artifacts' "$ROOT/agents/wf-reviewer.md"
+check 'reviewer check provenance' grep -q 'newly run, reused with provenance/reason, failed or not checked' "$ROOT/agents/wf-reviewer.md"
+check 'finalize referenced manifests only' grep -q 'review evidence manifests only through report references' "$ROOT/skills/workflow-finalize/SKILL.md"
+check 'finalize verifies manifest identity' grep -q 'verify same-task membership and identity' "$ROOT/skills/workflow-finalize/SKILL.md"
+check 'finalize deletes only verified manifests' grep -q 'including the verified referenced evidence manifests' "$ROOT/skills/workflow-finalize/SKILL.md"
+check 'finalize never deletes source or sessions' grep -q 'Never delete the summary, directories, source/config files, journals, session logs' "$ROOT/skills/workflow-finalize/SKILL.md"
 check 'follow-up coverage expansion' grep -q 'Expand to whole-plan review when shared contracts change' "$ROOT/workflow/rules.md"
 check 'incomplete checkpoint evidence' grep -q 'Mark it incomplete, never clean' "$ROOT/workflow/rules.md"
 check 'finalize verifies before deletion' grep -q 'Failure → delete nothing' "$ROOT/skills/workflow-finalize/SKILL.md"
@@ -32,4 +69,11 @@ check 'fresh settings do not inject worktree preference' jq -e 'has("worktree") 
 cp "$T/config/settings.json" "$T/before"
 bash "$ROOT/link.sh" "$T/config" > "$T/repeat-output"
 check 'installer remains idempotent' cmp "$T/before" "$T/config/settings.json"
+# Exercise the existing workflow-directory link, not a real-profile install.
+mkdir "$T/source"
+printf 'fixture\n' > "$T/source/check.txt"
+node "$T/config/workflow/review-evidence.mjs" capture --root "$T/source" --file check.txt --output "$T/evidence.json" > "$T/capture.json"
+node "$T/config/workflow/review-evidence.mjs" compare --root "$T/source" --file check.txt --evidence "$T/evidence.json" > "$T/compare.json"
+check 'installed-style helper path captures evidence' jq -e '.uncertainty == [] and .exhaustive == false' "$T/capture.json"
+check 'installed-style helper comparison' jq -e '.unchanged == ["check.txt"] and .added == [] and .modified == [] and .deleted == [] and .uncertainty == []' "$T/compare.json"
 echo 'all workflow contracts passed'

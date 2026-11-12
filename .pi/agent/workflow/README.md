@@ -26,6 +26,28 @@
 - These subprocess totals are display-only; they are not added to the main Pi footer. Cache reads/writes are separate from uncached input; output includes reasoning. Costs are estimates, not subscription quota.
 - Measure subsequent user-requested workflows by comparable task/provider and separate initial builds from UI/correction rounds. No automatic paid benchmarks or promised savings percentage. Models and reasoning are unchanged.
 
+## Review evidence (Pi and Claude Code)
+
+One dependency-free helper has two entry paths: `~/.pi/agent/workflow/review-evidence.mjs` (relative alias) and `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/workflow/review-evidence.mjs` (canonical implementation). Existing workflow links expose them; no real-profile installation is needed for local checks.
+
+```sh
+# Use an existing same-task report directory outside the task source; choose new names.
+node ~/.pi/agent/workflow/review-evidence.mjs capture --root /absolute/task --output /absolute/reports/id-review-evidence-start.json
+node ~/.pi/agent/workflow/review-evidence.mjs compare --root /absolute/task --evidence /absolute/reports/id-review-evidence-prior.json
+# After inspecting findings, corrections and affected callers, compare against start too.
+node ~/.pi/agent/workflow/review-evidence.mjs compare --root /absolute/task --evidence /absolute/reports/id-review-evidence-start.json
+node ~/.pi/agent/workflow/review-evidence.mjs capture --root /absolute/task --output /absolute/reports/id-review-evidence-end.json
+```
+
+- Use task-ID/UTC-named artifacts in actual workflows, link the new manifest from the report and verify it matches the inspected capture. Concurrent changes invalidate affected conclusions; recheck or block. Checkpoints remain incomplete. Keep artifacts outside task source so new reports/manifests aren't counted as source changes.
+- Git captures tracked and nonignored untracked paths at the repository root. Repeat `--exclude relative/path` only for the recorded pre-existing user paths. Non-Git requires repeated `--file relative/path` for the explicit reviewed file set and is non-exhaustive. Comparison must use the same exclusions/file scope. Capture exclusively creates a new output; compare writes nothing. Exit 2 means uncertainty/error, never permission to narrow; exit 0 may include changed paths.
+- Fingerprints prove bytes/type/executable identity, not correctness, unchanged functions, environment or external inputs. Symlink identity is recorded without reading target contents; targets/submodule internals remain unverified. Do not copy source or serialize secrets into evidence.
+- Build, Review and UI carry the latest state, latest review evidence path (or none), changed paths/findings/affected criteria, required checks and prior exact results with checked-state references and known environment/limitations. Builders preserve prior evidence without calling corrections reviewed. History stays linked, not a reading list.
+- Initial review remains independent and whole-plan; standalone scope never narrows. Follow-ups compare the last valid reviewed manifest and inspect affected behavior/callers/contracts, retaining only valid coverage. Shared contracts, concurrent/unrelated changes invalidating coverage, uncertain scope or missing whole-plan coverage trigger expansion. Missing older manifests mean recheck uncertain coverage once and establish evidence, never reconstruct old diffs/patches or retrospective aggregate hashes.
+- Independently run focused checks for changed behavior. Reuse passing broad checks only with valid relevant source/test/config/dependency inputs, known runtime/environment and no freshness requirement. A manifest cannot prove environment validity. Changed/unknown inputs or environment, previous failures and plan/project freshness requirements mean rerun affected checks or report a blocker/limitation. Label newly run, reused (source/reason), failed and not checked distinctly; builder passes aren't independent reviews.
+- Bound instruction discovery to the task-root ancestor chain and nested instructions under affected paths, not siblings/home trees; honor explicit external references. Read the complete plan, current state and required rules/skills; load extra docs/skills only for affected work or a concrete question. This does not reuse context across agents or change models/effort.
+- Finalize reads referenced same-task manifests, verifies identity/membership, consolidates decisions/limitations, then deletes only identified consolidated artifacts after verification. Never source, sessions, directories or unrelated evidence.
+
 ## Models
 
 Subagents follow the session's provider (the `pi` GPT or Claude profile); another provider inherits the session model.
@@ -47,4 +69,4 @@ Subagents follow the session's provider (the `pi` GPT or Claude profile); anothe
 
 ## Verification
 
-`npm test` here (`node --test tests/*.test.mjs`): loads both extensions, checks `/work` in a temp repo and folder, and checks stable skill-free workflow sections, nested activity rendering and recursive usage totals. No network, model or browser.
+`npm test` here (`node --test tests/*.test.mjs`): loads both extensions, checks `/work` in a temp repo and folder, and checks stable skill-free workflow sections, nested activity rendering, recursive usage totals, focused follow-up prompt contracts and disposable review-evidence fixtures (both helper entry paths). `bash .claude/workflow/tests/contracts.test.sh` from the repository root checks Claude prompt contracts and installed-style helper access in disposable config directories only. No network, model or browser.

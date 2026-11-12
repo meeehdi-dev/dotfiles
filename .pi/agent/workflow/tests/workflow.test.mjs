@@ -104,6 +104,60 @@ test("workflow sections omit skill bodies and stay stable across unchanged runs"
   }
 });
 
+test("follow-up rules preserve independent review and evidence/check provenance", () => {
+  const rules = readFileSync(new URL("../rules.md", import.meta.url), "utf8");
+  for (const contract of [
+    "task-root ancestor chain and nested AGENTS.md under affected paths",
+    "never sibling repositories or a whole home/config tree",
+    "honor explicitly referenced external instructions",
+    "Context reuse is within this agent, not across fresh agents",
+    "First review after feature builds: independent whole-plan review",
+    "Expand to whole-plan review when shared contracts change",
+    "Never narrow an explicitly requested standalone review",
+    "Mark it incomplete, never clean",
+    "node ~/.pi/agent/workflow/review-evidence.mjs",
+    "compare --root /absolute/task --evidence /prior.json",
+    "do not hash newly created workflow artifacts as source changes",
+    "implementation and relevant dependencies remain valid",
+    "same-file changes require inspecting affected behavior",
+    "Never reconstruct old diffs/patches",
+    "Verify that the new manifest matches the inspected-state capture",
+    "Concurrent changes invalidate affected conclusions",
+    "Independently run focused checks for changed behavior",
+    "relevant source/test/config/dependency inputs and known runtime/environment",
+    "A file manifest alone cannot prove environment validity",
+    "previous failures, or explicit plan/project freshness requirements",
+    "newly run (exact command/result and checked state)",
+    "reused (prior report/state, exact result and reason inputs/environment remain valid)",
+    "failed, or not checked (reason/impact)",
+    "A builder pass is check evidence, never independent review",
+    "Git is read-only by default",
+    "no new scope/design, dependencies, installs",
+  ]) assert.ok(rules.includes(contract), contract);
+});
+
+test("evidence survives routing and only verified manifests are finalized", () => {
+  for (const path of ["../build.md", "../review.md", "../ui.md",
+    "../../agents/builder.md", "../../agents/reviewer.md", "../../agents/orchestrator.md"]) {
+    const prompt = readFileSync(new URL(path, import.meta.url), "utf8");
+    if (path.endsWith("agents/reviewer.md")) {
+      assert.match(prompt, /review-evidence\.mjs/);
+      assert.match(prompt, /write only reports and new review evidence artifacts/);
+      assert.match(prompt, /newly run, reused with provenance\/reason, failed or not checked/);
+    } else {
+      assert.match(prompt, /compact evidence handoff/);
+      assert.match(prompt, /latest review evidence path/);
+      assert.match(prompt, /checked-state/);
+    }
+  }
+  const finalize = readFileSync(new URL("../finalize.md", import.meta.url), "utf8");
+  assert.match(finalize, /review evidence manifests only through report references/);
+  assert.match(finalize, /verify same-task membership and identity/);
+  assert.match(finalize, /including the verified referenced evidence manifests/);
+  assert.match(finalize, /Failure → delete nothing/);
+  assert.match(finalize, /Never delete the summary, directories, source files/);
+});
+
 test("nested usage counts finalized calls once and retains live and failed usage", async (t) => {
   const { loaded } = await load(t);
   const { renderResult } = loaded.extensions[1].tools.get("subagent").definition;

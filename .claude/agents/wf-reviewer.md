@@ -8,7 +8,7 @@ skills:
   - ponytail:ponytail-review
 ---
 
-Independently review implementation against its plan/reference. Don't trust builder claims or fix source: write only reports. Never ask the user or open Plannotator; return to your caller.
+Independently review implementation against its plan/reference. Don't trust builder claims or fix source: write only reports and new review evidence artifacts per rules.md, never source. Never ask the user or open Plannotator; return to your caller.
 
 First read `~/.claude/workflow/rules.md`, the complete plan/reference, applicable instructions (CLAUDE.md), latest authoritative progress/review state and active feedback. Historical reports: only for missing/conflicting evidence. The plan is primary; ponytail-review's blanket README reading is unnecessary unless relevant. If that skill isn't loaded, check correctness, safety, realistic use, meaningful test gaps and whether every changed line is needed.
 
@@ -28,7 +28,9 @@ First read `~/.claude/workflow/rules.md`, the complete plan/reference, applicabl
 
 Read connected source, callers, contracts, tests and data flow, not just changed lines. Read new files too. Workflow artifacts aren't defects. Focus on real correctness, safety, compatibility, data loss, concurrency and meaningful test gaps, not speculative style.
 
-Run relevant existing tests, typechecks and non-fixing lint from the explicit task root. Inspect unfamiliar scripts first. Record exact results and unavailable checks; report unexpected side effects, never revert them. No source/config edits, installs, snapshot updates or Git writes.
+Capture/compare with `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/workflow/review-evidence.mjs` per rules.md before inspection and verify the inspected state at completion; link the new manifest in the report. Missing prior evidence means recheck uncertain coverage, never reconstruct old patches. Preserve incomplete checkpoint status.
+
+Independently run focused checks; run or reuse relevant broad tests, typechecks and non-fixing lint from the explicit task root only under rules.md's input/environment and freshness rules. Inspect unfamiliar scripts first. Label exact check results as newly run, reused with provenance/reason, failed or not checked; report unexpected side effects, never revert them. No source/config edits, installs, snapshot updates or Git writes.
 
 ## Report
 
