@@ -30,7 +30,7 @@ async function work(t, cwd) {
   Object.assign(runtime, { appendEntry: (type, data) => entries.push({ type: "custom", customType: type, data }),
     sendUserMessage: (text) => sent.push(text), getActiveTools: () => [], setActiveTools: () => {} });
   const ctx = { cwd, hasUI: true, sessionManager: { getBranch: () => entries },
-    ui: { notify: () => {}, setStatus: () => {}, theme: { colors: { accent: { kind: "rgb", r: 9, g: 9, b: 9 } }, style: (s) => s } } };
+    ui: { notify: () => {}, setStatus: () => assert.fail("No workflow footer display") } };
   await loaded.extensions[0].commands.get("work").handler("do it", ctx);
   assert.equal(entries.length, 1);
   assert.match(sent[0], /Begin Plan/);
@@ -86,8 +86,7 @@ test("workflow sections omit skill bodies and stay stable across unchanged runs"
   let mode;
   const ctx = { sessionManager: { getBranch: () => [{ type: "custom", customType: "workflow-phase",
     data: { mode, input: "task", task: { id: "id", root: "/task", kind: "directory", projectKey: "key" } } }] },
-    ui: { setStatus: () => {}, theme: { style: (s) => s, colors: Object.fromEntries(
-      ["accent", "warning", "muted", "success"].map((name) => [name, { kind: "rgb", r: 9, g: 9, b: 9 }])) } } };
+    ui: { setStatus: () => assert.fail("No workflow footer display") } };
   const skillPath = join(temp(t), "unread-skill.md");
   const event = () => ({ systemPromptOptions: { sections: {},
     skills: [{ name: "plannotator", filePath: skillPath }] } });
@@ -104,58 +103,74 @@ test("workflow sections omit skill bodies and stay stable across unchanged runs"
   }
 });
 
-test("follow-up rules preserve independent review and evidence/check provenance", () => {
-  const rules = readFileSync(new URL("../rules.md", import.meta.url), "utf8");
-  for (const contract of [
-    "task-root ancestor chain and nested AGENTS.md under affected paths",
-    "never sibling repositories or a whole home/config tree",
-    "honor explicitly referenced external instructions",
-    "Context reuse is within this agent, not across fresh agents",
-    "First review after feature builds: independent whole-plan review",
-    "Expand to whole-plan review when shared contracts change",
-    "Never narrow an explicitly requested standalone review",
-    "Mark it incomplete, never clean",
-    "node ~/.pi/agent/workflow/review-evidence.mjs",
-    "compare --root /absolute/task --evidence /prior.json",
-    "do not hash newly created workflow artifacts as source changes",
-    "implementation and relevant dependencies remain valid",
-    "same-file changes require inspecting affected behavior",
-    "Never reconstruct old diffs/patches",
-    "Verify that the new manifest matches the inspected-state capture",
-    "Concurrent changes invalidate affected conclusions",
-    "Independently run focused checks for changed behavior",
-    "relevant source/test/config/dependency inputs and known runtime/environment",
-    "A file manifest alone cannot prove environment validity",
-    "previous failures, or explicit plan/project freshness requirements",
-    "newly run (exact command/result and checked state)",
-    "reused (prior report/state, exact result and reason inputs/environment remain valid)",
-    "failed, or not checked (reason/impact)",
-    "A builder pass is check evidence, never independent review",
-    "Git is read-only by default",
-    "no new scope/design, dependencies, installs",
-  ]) assert.ok(rules.includes(contract), contract);
+test("workflow transitions, resume/tree navigation, and exit need no footer UI", async (t) => {
+  const { loaded, runtime } = await load(t);
+  const workflow = loaded.extensions[0];
+  const tools = ["workflow_phase", "workflow_question", "workflow_exit"];
+  let branch = [], active = ["read", "bash", "other_tool"];
+  const sent = [];
+  Object.assign(runtime, {
+    appendEntry: (type, data) => branch.push({ type: "custom", customType: type, data }),
+    getActiveTools: () => active, setActiveTools: (names) => { active = names; },
+    sendUserMessage: (...args) => sent.push(args),
+  });
+  const ctx = { cwd: temp(t), hasUI: true, sessionManager: { getBranch: () => branch },
+    ui: { notify: () => {}, setStatus: () => assert.fail("No workflow footer display") } };
+  const start = workflow.handlers.get("session_start")[0];
+  const tree = workflow.handlers.get("session_tree")[0];
+  const phase = workflow.tools.get("workflow_phase").definition.execute;
+  const exit = workflow.tools.get("workflow_exit").definition.execute;
+  await start({}, ctx);
+  assert.deepEqual(active, ["read", "bash", "other_tool"]);
+  await assert.rejects(() => phase("p", { mode: "build", input: "/plan.md" }, undefined, undefined, ctx), /No active workflow/);
+  await workflow.commands.get("work").handler("task", ctx);
+  const planBranch = [...branch], task = branch[0].data.task;
+  assert.deepEqual(active, ["read", "bash", "other_tool", ...tools]);
+  for (const mode of ["build", "review", "ui", "finalize"]) {
+    const result = await phase("p", { mode, input: "/plan.md", notes: "authorized" }, undefined, undefined, ctx);
+    assert.equal(result.terminate, true);
+    assert.deepEqual(branch.at(-1).data, { mode, input: "/plan.md", notes: "authorized", task });
+    assert.deepEqual(sent.at(-1), [`Begin ${mode} now; no start confirmation needed.`, { deliverAs: "followUp" }]);
+    assert.deepEqual(active, ["read", "bash", "other_tool", ...tools]);
+  }
+  assert.equal((await exit("e", {}, undefined, undefined, ctx)).terminate, true);
+  assert.equal(branch.at(-1).data, null);
+  assert.deepEqual(active, ["read", "bash", "other_tool"]);
+  branch = planBranch;
+  await tree({}, ctx);
+  assert.deepEqual(active, ["read", "bash", "other_tool", ...tools]);
+  branch = [];
+  await tree({}, ctx);
+  assert.deepEqual(active, ["read", "bash", "other_tool"]);
+  branch = planBranch;
+  await start({}, ctx);
+  assert.deepEqual(active, ["read", "bash", "other_tool", ...tools]);
 });
 
-test("evidence survives routing and only verified manifests are finalized", () => {
-  for (const path of ["../build.md", "../review.md", "../ui.md",
-    "../../agents/builder.md", "../../agents/reviewer.md", "../../agents/orchestrator.md"]) {
-    const prompt = readFileSync(new URL(path, import.meta.url), "utf8");
-    if (path.endsWith("agents/reviewer.md")) {
-      assert.match(prompt, /review-evidence\.mjs/);
-      assert.match(prompt, /write only reports and new review evidence artifacts/);
-      assert.match(prompt, /newly run, reused with provenance\/reason, failed or not checked/);
-    } else {
-      assert.match(prompt, /compact evidence handoff/);
-      assert.match(prompt, /latest review evidence path/);
-      assert.match(prompt, /checked-state/);
-    }
-  }
+test("prompt policy preserves automation, independent/focused review, and authority", () => {
+  const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
+  const rules = read("../rules.md"), plan = read("../plan.md"), loop = read("../../agents/orchestrator.md");
+  assert.match(plan, /Explicit browser or chat approval → immediately `workflow_phase` to build/);
+  assert.match(loop, /automatically run an independent whole-plan review/);
+  assert.match(loop, /in-scope findings → focused builder → focused follow-up reviewer/);
+  assert.match(rules, /Expand review when shared contracts change/);
+  assert.match(rules, /Never narrow an explicitly requested standalone review/);
+  assert.match(rules, /Fingerprint manifests are optional/);
+  assert.match(rules, /Git is read-only unless explicitly authorized/);
+  assert.match(rules, /No new scope\/design, dependencies, installs, lockfile\/snapshot updates, migrations, destructive actions, E2E, or deployment without explicit task authority/);
+  assert.match(rules, /Never infer authority/);
+  assert.match(rules, /Cancellation means wait for chat/);
+});
+
+test("finalize honors project retention and verifies consolidation before narrow deletion", () => {
   const finalize = readFileSync(new URL("../finalize.md", import.meta.url), "utf8");
-  assert.match(finalize, /review evidence manifests only through report references/);
-  assert.match(finalize, /verify same-task membership and identity/);
-  assert.match(finalize, /including the verified referenced evidence manifests/);
+  assert.match(finalize, /Honor project\/user documentation locations and retention instructions/);
+  assert.match(finalize, /keep one concise standalone decision record/);
+  assert.match(finalize, /Read the record back against its sources before deleting anything/);
+  assert.match(finalize, /identified, fully consolidated, unshared artifacts/);
+  assert.match(finalize, /same-task root\/kind\/scope\/revision identity/);
   assert.match(finalize, /Failure → delete nothing/);
-  assert.match(finalize, /Never delete the summary, directories, source files/);
+  assert.match(finalize, /Never delete the final record, directories, source files, unrelated docs, or session history/);
 });
 
 test("nested usage counts finalized calls once and retains live and failed usage", async (t) => {

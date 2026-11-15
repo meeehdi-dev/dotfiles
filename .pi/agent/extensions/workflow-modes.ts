@@ -4,7 +4,6 @@ import { readFileSync, realpathSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { Type } from "typebox";
-import { colorToRgb, rgbColor, type Color } from "@earendil-works/pi-tui";
 import { getAgentDir, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 const exec = promisify(execFile);
@@ -14,16 +13,6 @@ type Task = { id: string; kind: "git" | "directory"; projectKey: string; root: s
 type Phase = { mode: Mode; input: string; notes?: string; task: Task };
 const STATE = "workflow-phase";
 const TOOLS = ["workflow_phase", "workflow_question", "workflow_exit"];
-const BADGES: Record<Mode, "accent" | "success" | "warning" | "muted"> = { plan: "accent", build: "warning", review: "muted", ui: "accent", finalize: "success" };
-const BLACK = rgbColor(0, 0, 0), WHITE = rgbColor(255, 255, 255);
-
-function contrast(color: Color) {
-  const linear = (v: number) => (v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-  const { r, g, b } = colorToRgb(color);
-  const l = 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
-  return (l + 0.05) / 0.05 >= 1.05 / (l + 0.05) ? BLACK : WHITE;
-}
-
 const key = (name: string, path: string) => `${name.replace(/[^\w.-]/g, "-")}-${createHash("sha256").update(path).digest("hex").slice(0, 12)}`;
 async function git(cwd: string, args: string[]) {
   const { stdout } = await exec("git", ["--no-optional-locks", "-C", cwd, ...args], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024, env: { ...process.env, LC_ALL: "C" } });
@@ -66,10 +55,6 @@ export default function workflow(pi: ExtensionAPI) {
   let active = false;
   const sync = (ctx: ExtensionContext) => {
     const state = current(ctx);
-    const color = state && ctx.ui.theme.colors[BADGES[state.mode]];
-    ctx.ui.setStatus("workflow", state
-      ? ctx.ui.theme.style(` ${state.mode} `, { fg: contrast(color!), bg: color })
-      : ctx.ui.theme.style(" auto ", { fg: "text", bg: "selectedBg" }));
     if (Boolean(state) === active) return;
     active = Boolean(state);
     const others = pi.getActiveTools().filter((name) => !TOOLS.includes(name));
@@ -122,7 +107,7 @@ export default function workflow(pi: ExtensionAPI) {
 
   pi.registerTool({
     name: "workflow_exit", label: "Leave the workflow", defaultActive: false, exposure: "model-only",
-    description: "End the workflow in this session (badge back to auto). Touches no files and runs no Git commands. Call after Finalize, or when the user asks to leave.",
+    description: "End the workflow in this session. Touches no files and runs no Git commands. Call after Finalize, or when the user asks to leave.",
     parameters: Type.Object({}),
     async execute(_id, _params, _signal, _update, ctx) {
       enter(ctx, null);

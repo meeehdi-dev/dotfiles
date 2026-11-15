@@ -1,72 +1,57 @@
 # Personal Pi workflow
 
-**Plan → Build each feature → whole-plan Review → focused Build ↔ follow-up Review → optional UI → Finalize**, in one session, in place.
+**Plan → Build → independent whole-plan Review → fixes ↔ focused follow-up Review → human code approval → optional UI → Finalize**, in one session, in place.
 
 ## Usage
 
-- `/work [task or report]` starts Plan in the current repository or folder. Nothing is created: no worktree, branch or metadata file. In Git, the start commit and pre-existing changes are recorded so Review can tell them apart.
-- Steer phases in chat. The agent switches with `workflow_phase`, asks finite choices with `workflow_question` and leaves with `workflow_exit`. The status badge shows the phase.
-- Plan approval (Plannotator) authorizes the whole build loop. Build makes one call to the `orchestrator` subagent, which runs a fresh `builder` per feature, then an independent `reviewer` on the whole plan. Correction/UI rounds use focused follow-up reviews, expanding to whole-plan when contracts change, coverage is stale or scope is uncertain. Clean means complete plan coverage with no open findings, incomplete features or blockers. Expand the subagent output with Ctrl+O to watch nested agents.
-- After a clean review: optional Plannotator code review, then approve to UI or Finalize. UI reviews your running dev server live. Finalize merges the plan and reports into one decision record and stops.
+- `/work [task or report]` starts Plan in the current repository or folder. It records the task root and, in Git, the start commit and pre-existing changed paths. It creates no branch, worktree, or metadata file.
+- Review the plan in Plannotator. Explicit approval starts the implementation/review/correction loop without another confirmation; it is not code/UI approval.
+- Build delegates to `orchestrator`, which chooses coherent chunks for `builder` subagents, then uses an independent `reviewer`. In-scope findings are fixed automatically; follow-ups review fixes and affected behavior, expanding when earlier coverage is no longer trustworthy.
+- A clean result needs complete plan coverage with no open findings, incomplete work, blockers, or uncertain coverage. Then approve the code, optionally inspect it in Plannotator, and choose live UI review or explicitly skip it. Standalone review stays read-only unless you authorize fixes.
+- For UI review, you run the dev server. Localized feedback starts a focused correction/review loop and returns to UI automatically; design/authority decisions return to Plan.
+- Finalize leaves one concise decision record and removes only verified, fully consolidated task artifacts. Project documentation paths and retention instructions take precedence, including when all docs live in the repository. Ambiguous/shared artifacts are left alone.
+- Steer in chat at any point. The agent uses `workflow_phase`, `workflow_question`, and `workflow_exit`; there is no workflow footer display.
+
+The workflow automates handoffs, not investigation methods or document templates. Plans and reports should be proportional to the task. Handoffs retain the plan, current state/feedback, authority, changed scope, outstanding work, decisions/limitations, and relevant check evidence. History is linked, not repeatedly copied; a new report is not required for every build chunk.
 
 ## Files
 
-- `~/.pi/agent/extensions/workflow-modes.ts`: `/work`, the phase tools, prompt injection, badge.
-- `~/.pi/agent/extensions/subagent/`: the pi example subagent extension (pi 1.5.0), patched to show nested activity and usage.
-- `~/.pi/agent/agents/{orchestrator,builder,reviewer}.md`: agent prompts and models.
-- `~/.pi/agent/workflow/`: `rules.md` (shared) and one file per phase.
-- Artifacts: plans in `~/.pi/plans/<key>/`, reports in `~/.pi/reviews/<key>/`.
+- `~/.pi/agent/extensions/workflow-modes.ts`: `/work`, phase tools, task/session state, prompt injection.
+- `~/.pi/agent/workflow/`: shared rules and phase responsibilities.
+- `~/.pi/agent/agents/{orchestrator,builder,reviewer}.md`: subagent roles and models.
+- `~/.pi/agent/extensions/subagent/`: subprocess execution, nested activity, and usage display.
+- Default artifacts: `~/.pi/plans/<key>/<id>.md` and `~/.pi/reviews/<key>/<id>-<topic>-<UTC timestamp>.md`. Explicit user/project paths override the defaults.
 
-## Context and usage
+## Optional fingerprint evidence
 
-- Handoffs carry the full plan, latest authoritative progress/review state and active feedback. Prior reports stay linked; read them only for missing/conflicting evidence. Finalize still reads all artifacts before consolidation/deletion.
-- Workflow sections no longer embed the full Plannotator manual. Pi discovers the skill normally; agents read it when required and reuse unchanged loaded context.
-- Long reviews/audits save incomplete checkpoints at logical boundaries. Replacement reviewers validate evidence against current code. Children still use `--no-session`: checkpoints are not resumable sessions.
-- Subagent rows show **Own** usage and **Total (incl. nested)** usage. Totals include recorded live/failed children, count each call once and prefer finished results over live snapshots. Context size belongs to the individual agent, not an aggregate window.
-- These subprocess totals are display-only; they are not added to the main Pi footer. Cache reads/writes are separate from uncached input; output includes reasoning. Costs are estimates, not subscription quota.
-- Measure subsequent user-requested workflows by comparable task/provider and separate initial builds from UI/correction rounds. No automatic paid benchmarks or promised savings percentage. Models and reasoning are unchanged.
-
-## Review evidence (Pi and Claude Code)
-
-One dependency-free helper has two entry paths: `~/.pi/agent/workflow/review-evidence.mjs` (relative alias) and `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/workflow/review-evidence.mjs` (canonical implementation). Existing workflow links expose them; no real-profile installation is needed for local checks.
+Independent review normally uses current code/diffs and review judgment. The dependency-free helper remains available through the Pi alias and its shared Claude implementation; it is not mandatory for Pi reviews and Claude behavior is unchanged.
 
 ```sh
-# Use an existing same-task report directory outside the task source; choose new names.
-node ~/.pi/agent/workflow/review-evidence.mjs capture --root /absolute/task --output /absolute/reports/id-review-evidence-start.json
-node ~/.pi/agent/workflow/review-evidence.mjs compare --root /absolute/task --evidence /absolute/reports/id-review-evidence-prior.json
-# After inspecting findings, corrections and affected callers, compare against start too.
-node ~/.pi/agent/workflow/review-evidence.mjs compare --root /absolute/task --evidence /absolute/reports/id-review-evidence-start.json
-node ~/.pi/agent/workflow/review-evidence.mjs capture --root /absolute/task --output /absolute/reports/id-review-evidence-end.json
+node ~/.pi/agent/workflow/review-evidence.mjs capture --root /absolute/task --output /absolute/reports/id-evidence.json
+node ~/.pi/agent/workflow/review-evidence.mjs compare --root /absolute/task --evidence /absolute/reports/id-evidence.json
 ```
 
-- Use task-ID/UTC-named artifacts in actual workflows, link the new manifest from the report and verify it matches the inspected capture. Concurrent changes invalidate affected conclusions; recheck or block. Checkpoints remain incomplete. Keep artifacts outside task source so new reports/manifests aren't counted as source changes.
-- Git captures tracked and nonignored untracked paths at the repository root. Repeat `--exclude relative/path` only for the recorded pre-existing user paths. Non-Git requires repeated `--file relative/path` for the explicit reviewed file set and is non-exhaustive. Comparison must use the same exclusions/file scope. Capture exclusively creates a new output; compare writes nothing. Exit 2 means uncertainty/error, never permission to narrow; exit 0 may include changed paths.
-- Fingerprints prove bytes/type/executable identity, not correctness, unchanged functions, environment or external inputs. Symlink identity is recorded without reading target contents; targets/submodule internals remain unverified. Do not copy source or serialize secrets into evidence.
-- Build, Review and UI carry the latest state, latest review evidence path (or none), changed paths/findings/affected criteria, required checks and prior exact results with checked-state references and known environment/limitations. Builders preserve prior evidence without calling corrections reviewed. History stays linked, not a reading list.
-- Initial review remains independent and whole-plan; standalone scope never narrows. Follow-ups compare the last valid reviewed manifest and inspect affected behavior/callers/contracts, retaining only valid coverage. Shared contracts, concurrent/unrelated changes invalidating coverage, uncertain scope or missing whole-plan coverage trigger expansion. Missing older manifests mean recheck uncertain coverage once and establish evidence, never reconstruct old diffs/patches or retrospective aggregate hashes.
-- Independently run focused checks for changed behavior. Reuse passing broad checks only with valid relevant source/test/config/dependency inputs, known runtime/environment and no freshness requirement. A manifest cannot prove environment validity. Changed/unknown inputs or environment, previous failures and plan/project freshness requirements mean rerun affected checks or report a blocker/limitation. Label newly run, reused (source/reason), failed and not checked distinctly; builder passes aren't independent reviews.
-- Bound instruction discovery to the task-root ancestor chain and nested instructions under affected paths, not siblings/home trees; honor explicit external references. Read the complete plan, current state and required rules/skills; load extra docs/skills only for affected work or a concrete question. This does not reuse context across agents or change models/effort.
-- Finalize reads referenced same-task manifests, verifies identity/membership, consolidates decisions/limitations, then deletes only identified consolidated artifacts after verification. Never source, sessions, directories or unrelated evidence.
+Use a new same-task output outside task source, with an existing parent directory. Repeat `--exclude relative/path` only for recorded pre-existing user paths; non-Git requires repeated `--file relative/path` for the reviewed file set and is non-exhaustive. Keep scope consistent across comparisons and link evidence from the review. Capture never overwrites; compare writes nothing. Exit 2 means error/uncertainty; exit 0 can still list changed paths.
 
-## Models
+Fingerprints establish byte/type/executable identity, not correctness, unchanged behavior, or environment validity. Symlink targets and submodule internals remain unverified. Never serialize source/secrets as evidence or treat uncertainty as a clean review. Focused checks remain independent; broad passes may be reused only with valid relevant inputs/environment and no freshness requirement. Report actual checks, reuse reasons, failures, and omissions honestly.
 
-Subagents follow the session's provider (the `pi` GPT or Claude profile); another provider inherits the session model.
+## Models and usage
 
-| Agent | GPT (`openai-codex`) | Claude (`claude-code`, same as `.claude/agents/wf-*`) |
+Subagents follow the session provider; other providers inherit the session model. Models/reasoning are unchanged.
+
+| Agent | GPT (`openai-codex`) | Claude (`claude-code`) |
 | --- | --- | --- |
 | main session | your choice | your choice |
 | orchestrator | gpt-6.1-sol, medium | sonnet, medium |
 | builder | gpt-6.1-sol, medium | sonnet, high |
 | reviewer | gpt-6.1-sol, high | opus, high |
 
-`sonnet`/`opus` resolve to the newest matching Claude model (now `claude-sonnet-5-5`/`claude-opus-5-5`).
+`sonnet`/`opus` resolve to the newest matching Claude model. Expand subagent output with Ctrl+O for nested activity. Rows show **Own** usage and **Total (incl. nested)**; totals count recorded live/failed children once, preferring finished results. Context size belongs to each agent, not an aggregate window. Subprocess totals are display-only, not added to the main footer; estimated costs are not subscription quota. Cache reads/writes are separate from uncached input; output includes reasoning.
 
-## Limits
+## Limits and verification
 
-- No isolation: agents edit your working copy. Commit or stash first for a clean baseline.
-- Non-Git folders work in place, with no baseline, undo or Plannotator code review.
-- The orchestrator call blocks the session for the whole loop; Ctrl+C stops it.
-
-## Verification
-
-`npm test` here (`node --test tests/*.test.mjs`): loads both extensions, checks `/work` in a temp repo and folder, and checks stable skill-free workflow sections, nested activity rendering, recursive usage totals, focused follow-up prompt contracts and disposable review-evidence fixtures (both helper entry paths). `bash .claude/workflow/tests/contracts.test.sh` from the repository root checks Claude prompt contracts and installed-style helper access in disposable config directories only. No network, model or browser.
+- No isolation: agents edit the working copy and must preserve pre-existing user work. For a clean baseline, commit or stash yourself before starting.
+- Non-Git has no baseline, undo, or Plannotator code review; change detection is non-exhaustive.
+- The orchestrator call blocks for the loop; Ctrl+C stops it. Missing authority or lack of progress stops affected work, not an endless retry loop.
+- No implicit authority for new scope, dependencies/installs, lockfile/snapshot updates, migrations, destructive actions, E2E, deployment, or Git writes. Verified task-artifact cleanup is the narrow Finalize exception.
+- `npm test` here runs Node unit/integration checks for extension loading, task baselines, tool/state transitions, prompt policy, nested activity/usage, and disposable shared-helper fixtures. No network, model, browser, or E2E. These checks do not prove model compliance or review quality; no automatic paid benchmarks or promised savings.
