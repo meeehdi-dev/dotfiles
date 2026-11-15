@@ -211,10 +211,10 @@ export default function usage(pi: ExtensionAPI) {
         const remaining = 100 - window.percent;
         const remainingCells = 8 - used;
         const warning = remaining <= 10;
-        const bar = `${remainingCells ? theme.fg(warning ? "warning" : "accent", "█".repeat(remainingCells)) : ""}${used ? theme.fg("muted", "░".repeat(used)) : ""}`;
-        return `${theme.fg("accent", window.label)} ${bar} ${theme.fg(warning ? "warning" : "text", `${Math.round(remaining)}% left`)}${theme.fg("muted", ` ↻${countdown(window.resetAt)}`)}`;
+        const bar = `${remainingCells ? theme.fg(warning ? "warning" : window.label === "7d" ? "mdLink" : "accent", "█".repeat(remainingCells)) : ""}${used ? theme.fg("muted", "░".repeat(used)) : ""}`;
+        return `${theme.fg(warning ? "warning" : "text", `${Math.round(remaining)}%`)} ${bar}${theme.fg("muted", ` ↻${countdown(window.resetAt)}`)}`;
       });
-      ctx.ui.setStatus(STATUS, `${theme.fg("dim", "│")} ${claude ? `${theme.fg("accent", label)} ` : ""}${parts.join(theme.fg("dim", " │ "))}`);
+      ctx.ui.setStatus(STATUS, `${claude ? `${theme.fg("accent", label)} ` : ""}${parts.join(theme.fg("dim", " │ "))}`);
     };
 
     const toUsage = (body: unknown): Usage => claude

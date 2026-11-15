@@ -150,7 +150,7 @@ test("uses reported durations, styles both windows, and counts down from reset t
   assert.equal(h.fetches[0].options.headers["ChatGPT-Account-Id"], "account-private");
   assert.deepEqual(h.statuses.at(-1), {
     key: "z-usage",
-    text: "<dim:│> <accent:5h> <accent:██████><muted:░░> <text:75% left><muted: ↻2h30m><dim: │ ><accent:7d> <accent:███████><muted:░> <text:90% left><muted: ↻2d3h>",
+    text: "<text:75%> <accent:██████><muted:░░><muted: ↻2h30m><dim: │ ><text:90%> <mdLink:███████><muted:░><muted: ↻2d3h>",
   });
   assertQuotaBars(h.statuses.at(-1).text, [6, 7]);
   assert.doesNotMatch(h.statuses.at(-1).text, /GPT/);
@@ -192,7 +192,7 @@ test("Claude Personal and VO2 read only their own Keychain item and render their
     assert.equal(h.fetches[0].options.headers["anthropic-beta"], "oauth-2025-04-20");
     assert.equal(h.fetches[0].options.headers["ChatGPT-Account-Id"], undefined);
     assert.equal(h.fetches[0].options.redirect, "error");
-    assert.match(h.statuses.at(-1).text, new RegExp(`Claude ${label}.*${100 - used}% left.*↻1h.*5% left.*↻1d`));
+    assert.match(h.statuses.at(-1).text, new RegExp(`Claude ${label}.*${100 - used}%.*↻1h.*5%.*↻1d`));
     assert.doesNotMatch(h.statuses.at(-1).text, /private-/);
     await h.close();
   }
@@ -226,7 +226,7 @@ test("Claude request failure clears old quota without exposing credentials", asy
     }) }) });
   t.after(() => h.close());
   await h.start();
-  assert.match(h.statuses.at(-1).text, /Claude Personal.*75% left/);
+  assert.match(h.statuses.at(-1).text, /Claude Personal.*75%/);
   ok = false;
   h.setNow(now + 60_000);
   h.timers.find(({ kind, delay }) => kind === "interval" && delay === 60_000).callback();
@@ -249,7 +249,7 @@ test("Claude usage rate limiting keeps the last known quota", async (t) => {
   h.setNow(now + 60_000);
   h.timers.find(({ kind, delay }) => kind === "interval" && delay === 60_000).callback();
   await h.settle();
-  assert.match(h.statuses.at(-1).text, /Claude Personal.*75% left/);
+  assert.match(h.statuses.at(-1).text, /Claude Personal.*75%/);
   assert.equal(h.fetches.length, 2);
 
   // Another session starting during the shared backoff shows the cached quota without calling the endpoint.
@@ -260,7 +260,7 @@ test("Claude usage rate limiting keeps the last known quota", async (t) => {
   process.env.TMPDIR = h.cacheRoot;
   await second.start();
   assert.equal(second.fetches.length, 0);
-  assert.match(second.statuses.at(-1).text, /Claude Personal.*75% left/);
+  assert.match(second.statuses.at(-1).text, /Claude Personal.*75%/);
   await second.close();
 });
 
@@ -283,7 +283,7 @@ test("switching providers clears old quota immediately and ignores late response
   assert.equal(h.fetches.length, 2);
   resolveFetch({ ok: true, json: async () => usageBody(20) });
   await h.settle();
-  assert.match(h.statuses.at(-1).text, /80% left/);
+  assert.match(h.statuses.at(-1).text, /80%/);
 });
 
 test("switching from GPT to Claude fetches Claude data and clears a displayed GPT quota", async (t) => {
@@ -295,15 +295,15 @@ test("switching from GPT to Claude fetches Claude data and clears a displayed GP
       : usageBody(20) }) });
   t.after(() => h.close());
   await h.start();
-  assert.match(h.statuses.at(-1).text, /80% left/);
+  assert.match(h.statuses.at(-1).text, /80%/);
   const atSwitch = h.statuses.length;
   h.ctx.model = { provider: "claude-code", id: "default" };
   await h.emit("model_select");
   assert.equal(h.statuses[atSwitch].text, undefined);
   await h.settle();
   assert.equal(h.fetches.length, 2);
-  assert.match(h.statuses.at(-1).text, /Claude VO2.*10% left/);
-  assert.doesNotMatch(h.statuses.at(-1).text, /80% left|7d/);
+  assert.match(h.statuses.at(-1).text, /Claude VO2.*10%/);
+  assert.doesNotMatch(h.statuses.at(-1).text, /80%|7d/);
 });
 
 test("renders fully remaining and fully used quota bars", async (t) => {
@@ -314,7 +314,7 @@ test("renders fully remaining and fully used quota bars", async (t) => {
   t.after(() => h.close());
   await h.start();
   assert.equal(h.statuses.at(-1).text,
-    "<dim:│> <accent:5h> <accent:████████> <text:100% left><muted: ↻0m><dim: │ ><accent:7d> <muted:░░░░░░░░> <warning:0% left><muted: ↻0m>");
+    "<text:100%> <accent:████████><muted: ↻0m><dim: │ ><warning:0%> <muted:░░░░░░░░><muted: ↻0m>");
   assertQuotaBars(h.statuses.at(-1).text, [8, 0]);
   assert.doesNotMatch(h.statuses.at(-1).text, /GPT/);
 });
@@ -324,7 +324,7 @@ test("warns at exactly 10% remaining and mutes the spent cells", async (t) => {
   t.after(() => h.close());
   await h.start();
   assert.equal(h.statuses.at(-1).text,
-    "<dim:│> <accent:5h> <warning:█><muted:░░░░░░░> <warning:10% left><muted: ↻0m>");
+    "<warning:10%> <warning:█><muted:░░░░░░░><muted: ↻0m>");
   assertQuotaBars(h.statuses.at(-1).text, [1]);
   assert.doesNotMatch(h.statuses.at(-1).text, /GPT/);
 });
@@ -337,9 +337,8 @@ test("omits malformed or missing windows instead of guessing their duration", as
   } } });
   t.after(() => h.close());
   await h.start();
-  assert.match(h.statuses.at(-1).text, /<accent:7d>/);
-  assert.doesNotMatch(h.statuses.at(-1).text, /<accent:5h>/);
-  assert.doesNotMatch(h.statuses.at(-1).text, /<accent:1h>/);
+  assert.equal(h.statuses.at(-1).text, "<text:30%> <mdLink:██><muted:░░░░░░><muted: ↻2d2h>");
+  assertQuotaBars(h.statuses.at(-1).text, [2]);
 
   await h.close();
   const missing = await harness({ body: { rate_limit: { primary_window: quota(18000, "bad", reset(5000)) } } });
@@ -388,7 +387,7 @@ test("clears stale quota on failure and replaces unavailable status after the ne
   } });
   t.after(() => h.close());
   await h.start();
-  assert.match(h.statuses.at(-1).text, /<accent:5h>/);
+  assert.match(h.statuses.at(-1).text, /<text:75%> <accent:██████>/);
 
   const [refresh, countdown] = h.timers.filter(({ kind, delay }) => kind === "interval" && delay === 60_000);
   assert.ok(refresh && countdown);
@@ -404,7 +403,7 @@ test("clears stale quota on failure and replaces unavailable status after the ne
   h.setNow(now + 120_000);
   refresh.callback();
   await h.settle();
-  assert.match(h.statuses.at(-1).text, /<accent:5h>/);
+  assert.match(h.statuses.at(-1).text, /<text:75%> <accent:██████>/);
   assert.equal(h.fetches.length, 3);
 });
 
