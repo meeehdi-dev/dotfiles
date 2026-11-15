@@ -5,8 +5,21 @@
   "defaultModel": "gpt-6.1-sol",
   "packages": [
     "npm:@plannotator/pi-extension",
-    "git:github.com/DietrichGebert/ponytail",
+    {
+      "source": "git:github.com/DietrichGebert/ponytail",
+      "skills": [
+        "!skills/ponytail-audit/**",
+        "!skills/ponytail-debt/**",
+        "!skills/ponytail-gain/**",
+        "!skills/ponytail-help/**"
+      ]
+    },
     "https://github.com/earendil-works/pi-claude-code"
+  ],
+  "skills": [
+    "-~/.agents/skills/plannotator-annotate/SKILL.md",
+    "-~/.agents/skills/plannotator-inbox/SKILL.md",
+    "-~/.agents/skills/plannotator-last/SKILL.md"
   ],
   "terminal": {
     "showTerminalProgress": true
