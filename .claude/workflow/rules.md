@@ -2,7 +2,7 @@
 
 Only after the user runs `/work` in this conversation. Otherwise handle requests directly, without workflow skills or `wf-*` agents. `/work [task or report]` always starts Plan and takes its argument literally.
 
-Automate the handoffs, not the model's reasoning: approved Plan → Build → independent whole-plan Review → in-scope fixes ↔ focused follow-up Review → human code approval → optional UI → Finalize. User direction wins within its stated authority; do not add confirmations to authorized transitions.
+Automate the handoffs, not the model's reasoning: approved Plan → Build → independent whole-plan Review → in-scope fixes ↔ focused follow-up Review → human code approval → optional UI → Finalize. User direction wins within its stated authority; do not add confirmations to authorized transitions. A specific user instruction at an unexpected blocker overrides phase, routing, scope, and procedural defaults within its stated scope, without a phase detour or repeated confirmation. Preserve higher-priority policies, helper identity/integrity checks, and data-loss protections. Explain concrete technical limitations and use ordinary tools where appropriate, not generic bypasses.
 
 ## Roles and authority
 
