@@ -1,26 +1,22 @@
 ---
 name: workflow-ui
-description: Optional live human review of a user-running dev server in Plannotator. Routes feedback to Build or Plan; never manages servers. Only inside a /work task.
+description: Optional live human review of the user's running dev server; route localized feedback through fixes and review. Only inside a /work task.
 user-invocable: false
 argument-hint: "[plan path] [notes]"
 ---
 
 # UI
 
-Run only inside a conversation where the user ran `/work`; otherwise handle the request directly. Read `~/.claude/workflow/rules.md` first. Input: $ARGUMENTS (original plan path, task identity/baseline, latest progress/review state, active feedback and known URL/route).
+Run only after the user ran `/work` in this conversation; otherwise handle the request directly. Read `~/.claude/workflow/rules.md`. Input: $ARGUMENTS (original plan, task identity/baseline, current state/feedback, known URL/route); ask if identity or plan is missing/ambiguous.
 
-Preserve rules.md's compact evidence handoff in feedback and all routing notes: latest review evidence path (or none), changed paths/findings/affected criteria, required checks and prior exact results with checked-state/environment references. Local corrections use follow-up scope, not automatic whole-plan rereview or all broad checks; expansion and freshness requirements still apply.
+Human live-app review, not another audit. Read the plan and needed routes/contracts; do not rerun checks, edit code/config, install, scan ports, migrate, provision infrastructure, manage servers, or write Git.
 
-Human visual review, not another audit. Read the plan and only needed routes/contracts; reuse unchanged context. Don't rerun checks, fix code, install prerequisites, edit config, scan ports, migrate data, start/stop servers, provision infrastructure or write Git.
+Reuse the provided URL/route or ask for the user's running dev server. Never start, adopt, or stop it. A bare port means `http://localhost:<port>/`; preserve route/query/fragment and confirm it serves this task's implementation. Require loopback HTTP for live review; clarify remote/HTTPS targets rather than guessing.
 
-1. Reuse the task root and original plan from handoffs; ask if missing/ambiguous. Ask for the user's running dev-server URL if not known. Never start, adopt or stop that server. A bare port means `http://localhost:<port>/`; preserve route/query/fragment. Live review needs loopback HTTP; ask about remote/HTTPS targets rather than guessing. Confirm the app is the task's implementation, not another checkout.
-2. Warn that interactions are live and can change real data; prefer disposable dev data. Follow rules.md Human surfaces: consult the Plannotator skill, use its tool when available, otherwise documented CLI `plannotator annotate <url> --gate --json` in background Bash with a long timeout. Say closing without deciding sends nothing and the user can reply in chat. End the turn after opening. Never treat static-page approval as live approval; uncertain preview is a blocker, not permission to silently substitute static review.
-3. Route tool feedback, CLI `decision` and chat:
-   - **Requested changes** (including requests accompanying approval): save a new UI feedback report with task/plan context, URL/route, requests and coverage limits. Feedback is not yet confirmed defects. No picker.
-     - Small, clear, localized fixes within the design → invoke `workflow-build` once with original plan path, task identity/baseline, latest progress/review state and active-feedback paths, material decisions/limitations with reasons, URL/route, and "UI-correction loop authorized: <user feedback>; return to UI after clean review with complete plan coverage; follow-up scope per rules.md".
-     - Consequential decision, replanning or more authority → invoke `workflow-plan` with feedback report, exact original plan path and latest state.
-     - Address requests before Finalize unless the user explicitly withdraws/defers them.
-   - **Explicit live approval or explicit skip** → invoke `workflow-finalize` once with original plan path, task identity and main-session ID, latest progress/review state/active-feedback paths, decisions and accepted limitations/deferrals with reasons. History remains linked for consolidation.
-   - **Dismissed, empty, closed tab or failure** → not approval. Once chat resumes, `AskUserQuestion`: "Retry live review", "Skip UI and go to Finalize", "Change direction".
+Warn that live interactions can change real data; prefer disposable dev data. Open gated Plannotator live review of the URL using its tool or documented CLI, then end the turn and wait. A static preview is not live approval; an uncertain/unavailable live preview is a blocker, not permission to silently substitute static review.
 
-Explicit workflow exit follows rules.md Leaving and does not touch the user's server.
+- Requested changes, even alongside approval: save a concise feedback report with task/plan/current-state references, URL/route, requests, and coverage limits. Clear localized requests within the design authorize a UI-correction loop: invoke `workflow-build` with that authority, feedback, and a return-to-UI instruction. After fixes and clean focused follow-up review, return here automatically. Consequential design changes or missing authority go to `workflow-plan`. Address requests before Finalize unless explicitly withdrawn/deferred by the user.
+- Explicit live approval or explicit skip → invoke `workflow-finalize` with the original plan, task identity, current state/feedback, and decisions/limitations.
+- Dismissal, silence, or failure is not approval. Wait for chat; offer retry/skip/change direction when appropriate, without repeatedly reopening review.
+
+Leaving the workflow never touches the user's server.

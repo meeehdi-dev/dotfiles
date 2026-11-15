@@ -24,7 +24,7 @@ The workflow automates handoffs, not investigation methods or document templates
 
 ## Optional fingerprint evidence
 
-Independent review normally uses current code/diffs and review judgment. The dependency-free helper remains available through the Pi alias and its shared Claude implementation; it is not mandatory for Pi reviews and Claude behavior is unchanged.
+Independent review normally uses current code/diffs and review judgment. The dependency-free helper remains available through the Pi alias and its shared Claude implementation; it is optional for reviews in both workflows.
 
 ```sh
 node ~/.pi/agent/workflow/review-evidence.mjs capture --root /absolute/task --output /absolute/reports/id-evidence.json

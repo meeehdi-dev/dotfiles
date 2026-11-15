@@ -3,8 +3,8 @@
 # - Links CLAUDE.md, workflow/, agents/wf-*.md, skills/work, skills/workflow-*, rules/agents.md (relative
 #   links, like stow). Never replaces a real file or folder, or a symlink pointing elsewhere (even dangling).
 # - Removes dangling symlinks in skills/, agents/, rules/ whose chain ends inside dotfiles (old skills/plan).
-# - Merges into settings.json with jq: the phase hooks (PreToolUse, UserPromptSubmit), statusLine,
-#   the ponytail marketplace and enabledPlugins entry. Other keys are kept; writes only on change.
+# - Merges statusLine, the ponytail marketplace and enabledPlugins into settings.json with jq,
+#   removing only the exact obsolete phase-hook registrations. Other keys are kept; writes only on change.
 #   A key the user set differently, or invalid JSON, skips that whole config dir.
 # - Deep-merges settings.base.json (shared settings) into settings.json; a key the dir already has wins.
 # - Hides the ponytail band above the prompt: writes .ponytail-band=off when missing
@@ -59,6 +59,7 @@ for cfg in "$@"; do
   done
 done
 
+# Exact former registrations only; preserve custom hooks and mixed hook groups.
 hook='{"matcher":"Skill|Agent","hooks":[{"type":"command","command":"bash ~/.claude/workflow/phase-hook.sh"}]}'
 prompt_hook='{"hooks":[{"type":"command","command":"bash ~/.claude/workflow/phase-hook.sh"}]}'
 statusline='{"type":"command","command":"bash ~/.claude/workflow/statusline.sh"}'
@@ -67,18 +68,15 @@ market='{"source":{"source":"github","repo":"DietrichGebert/ponytail"}}'
 # Prints {conflicts, settings}. A conflict is a workflow key already set to something else.
 merge='
   def has_path(p): try (getpath(p) != null) catch true;
-  def mine(ev): [.hooks[ev][]? | select(any(.hooks[]?; (.command? // "") | tostring | test("workflow/phase-hook\\.sh")))];
   { conflicts: [
-      (if (mine("PreToolUse") | length) > 0 and (mine("PreToolUse") | index([$hook]) == null) then "hooks.PreToolUse (phase-hook)" else empty end),
-      (if (mine("UserPromptSubmit") | length) > 0 and (mine("UserPromptSubmit") | index([$ph]) == null) then "hooks.UserPromptSubmit (phase-hook)" else empty end),
       (if has_path(["statusLine"]) and .statusLine != $sl then "statusLine" else empty end),
       (if has_path(["extraKnownMarketplaces","ponytail"]) and .extraKnownMarketplaces.ponytail != $mk then "extraKnownMarketplaces.ponytail" else empty end),
       (if has_path(["enabledPlugins","ponytail@ponytail"]) and .enabledPlugins["ponytail@ponytail"] != true then "enabledPlugins.ponytail@ponytail" else empty end)
     ],
     settings: (
       ($base * .)
-      | (if (mine("PreToolUse") | length) > 0 then . else .hooks.PreToolUse += [$hook] end)
-      | (if (mine("UserPromptSubmit") | length) > 0 then . else .hooks.UserPromptSubmit += [$ph] end)
+      | (if (.hooks.PreToolUse? | type) == "array" then .hooks.PreToolUse |= map(select(. != $hook)) else . end)
+      | (if (.hooks.UserPromptSubmit? | type) == "array" then .hooks.UserPromptSubmit |= map(select(. != $ph)) else . end)
       | .statusLine //= $sl
       | .extraKnownMarketplaces.ponytail //= $mk
       | .enabledPlugins["ponytail@ponytail"] //= true
