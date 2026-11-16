@@ -46,6 +46,45 @@ test("both extensions load through symlinks and register the workflow surface", 
   assert.ok(subagent.tools.has("subagent"));
 });
 
+test("subagent discovery advertises fresh user metadata only while the tool is active", async (t) => {
+  const dir = temp(t);
+  const previous = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = dir;
+  t.after(() => {
+    if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = previous;
+  });
+  mkdirSync(join(dir, "agents"));
+  mkdirSync(join(dir, ".pi", "agents"), { recursive: true });
+  const agent = join(dir, "agents", "helper.md");
+  writeFileSync(agent, "---\nname: helper\ndescription: Focused implementation\n---\nPRIVATE USER BODY\n");
+  writeFileSync(join(dir, ".pi", "agents", "local.md"), "---\nname: local\ndescription: PRIVATE PROJECT DESCRIPTION\n---\nPRIVATE PROJECT BODY\n");
+  const { loaded } = await load(t);
+  assert.deepEqual(loaded.errors, []);
+  const [inject] = loaded.extensions[1].handlers.get("before_agent_start");
+  const event = { systemPromptOptions: { selectedTools: ["subagent"], sections: { other: "preserve" } } };
+  const ctx = { cwd: dir };
+  await inject(event, ctx);
+  const section = event.systemPromptOptions.sections.subagents;
+  assert.match(section, /helper \(user\): Focused implementation/);
+  assert.match(section, /Follow \/work delegation rules when active/);
+  assert.match(section, /handle small tasks directly/);
+  assert.match(section, /Delegation grants no additional authority/);
+  assert.doesNotMatch(section, /PRIVATE/);
+  await inject(event, ctx);
+  assert.equal(event.systemPromptOptions.sections.subagents, section);
+  writeFileSync(agent, "---\nname: helper\ndescription: Updated specialty\n---\n");
+  await inject(event, ctx);
+  assert.match(event.systemPromptOptions.sections.subagents, /Updated specialty/);
+  rmSync(agent);
+  await inject(event, ctx);
+  assert.match(event.systemPromptOptions.sections.subagents, /Available user agents for the subagent tool: none/);
+  event.systemPromptOptions.selectedTools = ["read"];
+  await inject(event, ctx);
+  assert.equal(event.systemPromptOptions.sections.subagents, undefined);
+  assert.equal(event.systemPromptOptions.sections.other, "preserve");
+});
+
 test("/work in Git records start commit and pre-existing changes, creating nothing", async (t) => {
   const repo = join(temp(t), "repo");
   mkdirSync(join(repo, "sub"), { recursive: true });

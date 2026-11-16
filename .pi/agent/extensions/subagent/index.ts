@@ -1,4 +1,4 @@
-// Synced with upstream pi example (1.5.2); local patch: per-provider model selection.
+// Synced with upstream pi example (1.5.2); local patches: per-provider models and agent discovery context.
 /**
  * Subagent Tool - Delegate tasks to specialized agents
  *
@@ -34,7 +34,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
-import { type AgentConfig, type AgentScope, discoverAgents } from "./agents.ts";
+import { type AgentConfig, type AgentScope, discoverAgents, formatAgentList } from "./agents.ts";
 
 const MAX_PARALLEL_TASKS = 8;
 const MAX_CONCURRENCY = 4;
@@ -610,6 +610,20 @@ const SubagentParams = Type.Object({
 });
 
 export default function (pi: ExtensionAPI) {
+	pi.on("before_agent_start", (event, ctx) => {
+		const options = event.systemPromptOptions;
+		if (!options.selectedTools?.includes("subagent")) {
+			delete options.sections.subagents;
+			return;
+		}
+		const { agents } = discoverAgents(ctx.cwd, "user");
+		options.sections.subagents = [
+			`Available user agents for the subagent tool: ${formatAgentList(agents, agents.length).text}`,
+			"Follow /work delegation rules when active. Otherwise, consider subagent for substantial, clearly bounded implementation or independent review that fits an agent's description; handle small tasks directly. Delegation grants no additional authority.",
+			"Project agents are not advertised here; using them requires explicit agentScope and retains the tool's confirmation behavior.",
+		].join("\n");
+	});
+
 	// Tool execute results cannot set runtime error state directly, so patch it through the result hook.
 	pi.on("tool_result", (event) => {
 		if (event.toolName !== "subagent") return;
