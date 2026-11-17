@@ -15,3 +15,6 @@ tab_bar_position = "bottom"
 detach = "prefix+d"
 split_horizontal = "prefix+s"
 split_vertical = "prefix+v"
+
+[worktrees]
+directory = "~/.herdr/worktrees"
