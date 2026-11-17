@@ -42,9 +42,9 @@ Subagents follow the session provider; other providers inherit the session model
 | Agent | GPT (`openai-codex`) | Claude (`claude-code`) |
 | --- | --- | --- |
 | main session | your choice | your choice |
-| orchestrator | gpt-6.1-sol, medium | sonnet, medium |
-| builder | gpt-6.1-sol, medium | sonnet, high |
-| reviewer | gpt-6.1-sol, high | opus, high |
+| orchestrator | gpt-6.2-sol, medium | sonnet, medium |
+| builder | gpt-6.2-sol, medium | sonnet, high |
+| reviewer | gpt-6.2-sol, high | opus, high |
 
 `sonnet`/`opus` resolve to the newest matching Claude model. Expand subagent output with Ctrl+O for nested activity. Rows show **Own** usage and **Total (incl. nested)**; totals count recorded live/failed children once, preferring finished results. Context size belongs to each agent, not an aggregate window. Subprocess totals are display-only, not added to the main footer; estimated costs are not subscription quota. Cache reads/writes are separate from uncached input; output includes reasoning.
 

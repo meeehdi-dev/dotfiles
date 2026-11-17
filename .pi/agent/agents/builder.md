@@ -3,7 +3,7 @@ name: builder
 description: Implements the supplied approved scope or corrections, checks it, and hands back concise progress.
 tools: read, bash, edit, write
 model:
-  openai-codex: openai-codex/gpt-6.1-sol:medium
+  openai-codex: openai-codex/gpt-6.2-sol:medium
   claude-code: claude-code/sonnet:high
 ---
 

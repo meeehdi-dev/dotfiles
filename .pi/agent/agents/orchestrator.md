@@ -3,7 +3,7 @@ name: orchestrator
 description: Runs an authorized workflow build, independent review, and focused correction loop.
 tools: read, bash, subagent
 model:
-  openai-codex: openai-codex/gpt-6.1-sol:medium
+  openai-codex: openai-codex/gpt-6.2-sol:medium
   claude-code: claude-code/sonnet:medium
 ---
 

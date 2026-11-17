@@ -3,7 +3,7 @@ name: reviewer
 description: Independently reviews a whole plan, focused corrections, or a standalone change set; never edits source.
 tools: read, bash, write
 model:
-  openai-codex: openai-codex/gpt-6.1-sol:high
+  openai-codex: openai-codex/gpt-6.2-sol:high
   claude-code: claude-code/opus:high
 ---
 
