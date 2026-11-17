@@ -57,6 +57,13 @@ check 'statusline still installed' jq -e '.statusLine.command == "bash ~/.claude
 cp "$T/config/settings.json" "$T/before"
 bash "$ROOT/link.sh" "$T/config" > "$T/repeat-output"
 check 'installer remains idempotent' cmp "$T/before" "$T/config/settings.json"
+check 'ponytail extras turned off' jq -e '.skillOverrides["ponytail:ponytail-audit"] == "off"' "$T/fresh/settings.json"
+
+# Skills pi reads from ~/.agents/skills are shared by link; a missing one is skipped.
+mkdir -p "$T/home/.agents/skills/gh" "$T/shared"
+HOME="$T/home" bash "$ROOT/link.sh" "$T/shared" > /dev/null
+check 'shared skill linked' test "$(readlink "$T/shared/skills/gh")" = ../../home/.agents/skills/gh
+check 'missing shared skill skipped' test ! -e "$T/shared/skills/herdr"
 
 # Preserve fail-closed handling of settings conflicts and invalid input.
 mkdir "$T/conflict" "$T/invalid"

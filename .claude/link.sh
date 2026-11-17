@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install the workflow into Claude config dirs. Idempotent: a second run changes nothing.
 # - Links CLAUDE.md, workflow/, agents/wf-*.md, skills/work, skills/workflow-*, rules/agents.md (relative
-#   links, like stow). Never replaces a real file or folder, or a symlink pointing elsewhere (even dangling).
+#   links, like stow), plus skills/gh and skills/herdr from ~/.agents/skills (shared with pi). Never replaces a real file or folder, or a symlink pointing elsewhere (even dangling).
 # - Removes dangling symlinks in skills/, agents/, rules/ whose chain ends inside dotfiles (old skills/plan).
 # - Merges statusLine, the ponytail marketplace and enabledPlugins into settings.json with jq,
 #   removing only the exact obsolete phase-hook registrations. Other keys are kept; writes only on change.
@@ -49,6 +49,23 @@ stale() {
   case "$d/" in "$src"/*) return 0 ;; esac
   return 1
 }
+
+# link <canonical path> <dest>: relative symlink; never replaces anything else at dest
+link() {
+  local path=$1 dest=$2 dir
+  dir=$(dirname "$dest")
+  mkdir -p "$dir" || { status=1; return; }
+  if [ -e "$dest" ] || [ -L "$dest" ]; then
+    [ -e "$dest" ] && [ "$(canon "$dest")" = "$path" ] && return
+    if [ -L "$dest" ]; then echo "skip $dest: symlink points elsewhere ($(readlink "$dest"))"
+    else echo "skip $dest: real file or folder exists"; fi
+    status=1; return
+  fi
+  ln -s "$(rel "$path" "$(cd "$dir" && pwd -P)")" "$dest" && echo "linked $dest" || status=1
+}
+
+# Skills pi reads from ~/.agents/skills (installed by `gh skill`), shared with Claude by link.
+shared_skills="gh herdr"
 
 # Find stale links in every dir first: a chain can run through another config dir's link.
 stale_list=""
@@ -102,18 +119,12 @@ for cfg in "$@"; do
   done
   for item in CLAUDE.md workflow agents/wf-*.md skills/work skills/workflow-* rules/agents.md; do
     for path in "$src"/$item; do
-      [ -e "$path" ] || continue
-      rel_path="${path#"$src"/}" dest="$cfg/$rel_path"
-      dir=$(dirname "$dest")
-      mkdir -p "$dir" || { status=1; continue; }
-      if [ -e "$dest" ] || [ -L "$dest" ]; then
-        [ -e "$dest" ] && [ "$(canon "$dest")" = "$path" ] && continue
-        if [ -L "$dest" ]; then echo "skip $dest: symlink points elsewhere ($(readlink "$dest"))"
-        else echo "skip $dest: real file or folder exists"; fi
-        status=1; continue
-      fi
-      ln -s "$(rel "$path" "$(cd "$dir" && pwd -P)")" "$dest" && echo "linked $dest" || status=1
+      [ -e "$path" ] && link "$path" "$cfg/${path#"$src"/}"
     done
+  done
+  for name in $shared_skills; do
+    path="$HOME/.agents/skills/$name"
+    [ -e "$path" ] && link "$(canon "$path")" "$cfg/skills/$name"
   done
 
   [ -e "$cfg/.ponytail-band" ] || { printf 'off\n' >"$cfg/.ponytail-band" && echo "hid ponytail band in $cfg"; } || status=1

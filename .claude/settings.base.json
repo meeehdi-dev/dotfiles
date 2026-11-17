@@ -3,5 +3,11 @@
   "model": "opus",
   "permissions": {
     "defaultMode": "auto"
+  },
+  "skillOverrides": {
+    "ponytail:ponytail-audit": "off",
+    "ponytail:ponytail-debt": "off",
+    "ponytail:ponytail-gain": "off",
+    "ponytail:ponytail-help": "off"
   }
 }

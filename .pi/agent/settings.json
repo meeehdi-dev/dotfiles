@@ -17,6 +17,7 @@
     "https://github.com/earendil-works/pi-claude-code"
   ],
   "skills": [
+    "-~/.agents/skills/plannotator/SKILL.md",
     "-~/.agents/skills/plannotator-annotate/SKILL.md",
     "-~/.agents/skills/plannotator-inbox/SKILL.md",
     "-~/.agents/skills/plannotator-last/SKILL.md"
