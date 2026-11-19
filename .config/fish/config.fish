@@ -83,6 +83,9 @@ if command -v fnm >/dev/null
 end
 
 # claude
+# pi-claude-code: pin to Personal; an explicit CLAUDE_CONFIG_DIR selects a different Keychain login than unset
+set -gx PI_CLAUDE_CODE_CONFIG_DIR $HOME/.claude
+
 function claude
     set -l profile (printf '%s\n' None Personal VO2 LVMH | fzf --prompt='Claude account> ')
     if test -z "$profile"
