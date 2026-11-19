@@ -214,7 +214,7 @@ export default function usage(pi: ExtensionAPI) {
         const bar = `${remainingCells ? theme.fg(warning ? "warning" : window.label === "7d" ? "mdLink" : "accent", "█".repeat(remainingCells)) : ""}${used ? theme.fg("muted", "░".repeat(used)) : ""}`;
         return `${theme.fg(warning ? "warning" : "text", `${Math.round(remaining)}%`)} ${bar}${theme.fg("muted", ` ↻${countdown(window.resetAt)}`)}`;
       });
-      ctx.ui.setStatus(STATUS, `${claude ? `${theme.fg("accent", label)} ` : ""}${parts.join(theme.fg("dim", " │ "))}`);
+      ctx.ui.setStatus(STATUS, parts.join(theme.fg("dim", " │ ")));
     };
 
     const toUsage = (body: unknown): Usage => claude

@@ -192,7 +192,8 @@ test("Claude Personal and VO2 read only their own Keychain item and render their
     assert.equal(h.fetches[0].options.headers["anthropic-beta"], "oauth-2025-04-20");
     assert.equal(h.fetches[0].options.headers["ChatGPT-Account-Id"], undefined);
     assert.equal(h.fetches[0].options.redirect, "error");
-    assert.match(h.statuses.at(-1).text, new RegExp(`Claude ${label}.*${100 - used}%.*↻1h.*5%.*↻1d`));
+    assert.match(h.statuses.at(-1).text, new RegExp(`${100 - used}%.*↻1h.*5%.*↻1d`));
+    assert.doesNotMatch(h.statuses.at(-1).text, /Claude/);
     assert.doesNotMatch(h.statuses.at(-1).text, /private-/);
     await h.close();
   }
@@ -226,7 +227,7 @@ test("Claude request failure clears old quota without exposing credentials", asy
     }) }) });
   t.after(() => h.close());
   await h.start();
-  assert.match(h.statuses.at(-1).text, /Claude Personal.*75%/);
+  assert.match(h.statuses.at(-1).text, /^(?!.*Claude).*75%/);
   ok = false;
   h.setNow(now + 60_000);
   h.timers.find(({ kind, delay }) => kind === "interval" && delay === 60_000).callback();
@@ -249,7 +250,7 @@ test("Claude usage rate limiting keeps the last known quota", async (t) => {
   h.setNow(now + 60_000);
   h.timers.find(({ kind, delay }) => kind === "interval" && delay === 60_000).callback();
   await h.settle();
-  assert.match(h.statuses.at(-1).text, /Claude Personal.*75%/);
+  assert.match(h.statuses.at(-1).text, /^(?!.*Claude).*75%/);
   assert.equal(h.fetches.length, 2);
 
   // Another session starting during the shared backoff shows the cached quota without calling the endpoint.
@@ -260,7 +261,7 @@ test("Claude usage rate limiting keeps the last known quota", async (t) => {
   process.env.TMPDIR = h.cacheRoot;
   await second.start();
   assert.equal(second.fetches.length, 0);
-  assert.match(second.statuses.at(-1).text, /Claude Personal.*75%/);
+  assert.match(second.statuses.at(-1).text, /^(?!.*Claude).*75%/);
   await second.close();
 });
 
@@ -302,7 +303,7 @@ test("switching from GPT to Claude fetches Claude data and clears a displayed GP
   assert.equal(h.statuses[atSwitch].text, undefined);
   await h.settle();
   assert.equal(h.fetches.length, 2);
-  assert.match(h.statuses.at(-1).text, /Claude VO2.*10%/);
+  assert.match(h.statuses.at(-1).text, /^(?!.*Claude).*10%/);
   assert.doesNotMatch(h.statuses.at(-1).text, /80%|7d/);
 });
 
