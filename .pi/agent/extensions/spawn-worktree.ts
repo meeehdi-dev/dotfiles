@@ -111,7 +111,9 @@ export default function (pi: ExtensionAPI) {
       progress(`Creating worktree ${branch}…`);
       const created = (await herdr(["worktree", "create", "--workspace", source, "--branch", branch,
         ...(label ? ["--label", label] : []), "--no-focus"], signal)).result;
-      const { checkout_path: path, repo_root: repoRoot } = created.workspace.worktree as { checkout_path: string; repo_root: string };
+      const { checkout_path: path, repo_root: repoRoot, repo_name: repo } = created.workspace.worktree as { checkout_path: string; repo_root: string; repo_name: string };
+      const title = label || branch;
+      if (!pi.getSessionName()) pi.setSessionName(`hub: ${title}`);
       const pane: string = created.root_pane.pane_id;
       const notes: string[] = [];
 
@@ -139,7 +141,7 @@ export default function (pi: ExtensionAPI) {
       const name = agentName(branch);
       const fork = await forkableCopy(session, `Worktree ready at ${path} on branch ${branch}. You are now the agent running in this worktree; continue from the next message.`);
       try {
-        await herdr(["agent", "start", name, "--kind", "pi", "--pane", pane, "--timeout", "60000", "--", "--fork", fork], signal);
+        await herdr(["agent", "start", name, "--kind", "pi", "--pane", pane, "--timeout", "60000", "--", "--fork", fork, "--name", `${repo}: ${title}`], signal);
       } finally {
         await rm(dirname(fork), { recursive: true, force: true }); // pi copied it into its own session store
       }
