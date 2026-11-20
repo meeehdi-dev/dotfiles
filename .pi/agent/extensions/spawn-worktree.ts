@@ -1,0 +1,105 @@
+import { execFile } from "node:child_process";
+import { copyFile, mkdir, readFile, access } from "node:fs/promises";
+import { homedir } from "node:os";
+import { dirname, join, sep } from "node:path";
+import { promisify } from "node:util";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Type } from "typebox";
+
+const exec = promisify(execFile);
+// Must match [worktrees] directory in ~/.config/herdr/config.toml.
+const WORKTREES_DIR = join(homedir(), ".herdr", "worktrees");
+const DEFAULT_INCLUDES = ["**/.env", "**/.env.*"];
+
+export function agentName(branch: string): string {
+  const slug = (branch.split("/").pop() ?? branch).toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "");
+  return (/^[a-z]/.test(slug) ? slug : `w-${slug}`).slice(0, 32).replace(/-+$/, "");
+}
+
+// Copies gitignored, untracked files (env files by default, or .worktreeinclude globs) from the main checkout.
+export async function copyIncludes(repoRoot: string, worktree: string, signal?: AbortSignal): Promise<string[]> {
+  const include = await readFile(join(repoRoot, ".worktreeinclude"), "utf8").catch(() => "");
+  const patterns = include.split("\n").map((l) => l.trim()).filter((l) => l && !l.startsWith("#"));
+  const { stdout } = await exec("git", ["ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--",
+    ...(patterns.length ? patterns : DEFAULT_INCLUDES).map((p) => `:(glob)${p}`)], { cwd: repoRoot, signal, maxBuffer: 64 << 20 });
+  const files = stdout.split("\0").filter((f) => f && !f.endsWith("/") && !f.split("/").includes("node_modules"));
+  for (const file of files) {
+    await mkdir(dirname(join(worktree, file)), { recursive: true });
+    await copyFile(join(repoRoot, file), join(worktree, file));
+  }
+  return files;
+}
+
+async function herdr(args: string[], signal?: AbortSignal) {
+  try {
+    const { stdout } = await exec("herdr", args, { signal, maxBuffer: 16 << 20 });
+    return JSON.parse(stdout || "{}");
+  } catch (error) {
+    const err = error as { stderr?: string; message: string };
+    throw new Error(`herdr ${args.slice(0, 2).join(" ")} failed: ${err.stderr?.trim() || err.message}`);
+  }
+}
+
+export default function (pi: ExtensionAPI) {
+  pi.on("project_trust", async (event) =>
+    event.cwd.startsWith(WORKTREES_DIR + sep) ? { trusted: "yes", remember: true } : { trusted: "undecided" });
+
+  pi.registerTool({
+    name: "spawn_worktree",
+    label: "Spawn Worktree",
+    description: "Create a herdr git worktree from a herdr workspace, copy env files, run pnpm install, and start a pi agent there on a fork of the current session, kicked off with the given prompt. Returns immediately after the kickoff is sent.",
+    promptSnippet: "Create a herdr worktree and start a forked pi agent in it on a task",
+    promptGuidelines: [
+      "Use spawn_worktree when the user wants a task carried out in a separate worktree. Pick the source workspace from `herdr workspace list` (non-linked workspaces with a git repo), a conventional branch name like feat/<ticket>-<slug>, and a kickoff that states the plan; call it once per repo for multi-repo tasks.",
+    ],
+    parameters: Type.Object({
+      workspace: Type.String({ description: "Source herdr workspace ID of the main repo checkout (e.g. w2Q)" }),
+      branch: Type.String({ minLength: 1, description: "Branch name to create, e.g. feat/jda-858-siren-check" }),
+      label: Type.Optional(Type.String({ description: "Short herdr workspace label" })),
+      kickoff: Type.String({ minLength: 1, description: "First prompt for the forked agent: the plan and where to start" }),
+    }),
+    async execute(_id, { workspace, branch, label, kickoff }, signal, onUpdate, ctx) {
+      if (process.env.HERDR_ENV !== "1") throw new Error("spawn_worktree requires running inside herdr");
+      const session = ctx.sessionManager.getSessionFile();
+      if (!session) throw new Error("spawn_worktree requires a persisted session to fork");
+      const progress = (text: string) => onUpdate?.({ content: [{ type: "text", text }], details: undefined });
+
+      progress(`Creating worktree ${branch}…`);
+      const created = (await herdr(["worktree", "create", "--workspace", workspace, "--branch", branch,
+        ...(label ? ["--label", label] : []), "--no-focus"], signal)).result;
+      const path: string = created.worktree.checkout_path;
+      const pane: string = created.root_pane.pane_id;
+      const notes: string[] = [];
+
+      progress("Copying env files…");
+      try {
+        const files = await copyIncludes(created.worktree.repo_root, path, signal);
+        notes.push(`Copied: ${files.join(", ") || "nothing"}`);
+      } catch (error) {
+        notes.push(`Env copy failed: ${(error as Error).message}`);
+      }
+
+      if (await access(join(path, "pnpm-lock.yaml")).then(() => true, () => false)) {
+        progress("pnpm install…");
+        try {
+          await exec("pnpm", ["install", "--frozen-lockfile", "--prefer-offline"], { cwd: path, signal, timeout: 600_000, maxBuffer: 64 << 20 });
+          notes.push("pnpm install: ok");
+        } catch (error) {
+          const err = error as { stderr?: string; message: string };
+          notes.push(`pnpm install failed (agent told): ${(err.stderr || err.message).trim().split("\n").slice(-5).join(" | ")}`);
+          kickoff += "\n\nNote: `pnpm install --frozen-lockfile --prefer-offline` failed during worktree setup; fix dependencies first.";
+        }
+      }
+
+      progress("Starting pi…");
+      const name = agentName(branch);
+      await herdr(["agent", "start", name, "--kind", "pi", "--pane", pane, "--timeout", "60000", "--", "--fork", session], signal);
+      await herdr(["agent", "prompt", name, kickoff], signal);
+
+      return {
+        content: [{ type: "text", text: `Spawned agent "${name}" in workspace ${created.workspace.workspace_id} (pane ${pane}) at ${path}.\n${notes.join("\n")}` }],
+        details: undefined,
+      };
+    },
+  });
+}
