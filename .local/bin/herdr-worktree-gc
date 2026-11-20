@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Remove herdr worktrees whose branch has a merged GitHub PR at exactly the worktree's HEAD.
-# Skips worktrees with a detected agent in any pane (removal would kill it).
 # Usage: herdr-worktree-gc [--dry-run]
 set -uo pipefail
 
@@ -20,8 +19,6 @@ for ws in $primaries; do
     pr=$(cd "$root" && gh pr list --head "$branch" --state merged --limit 20 --json number,headRefOid \
            -q "[.[] | select(.headRefOid == \"$head\")][0].number // empty" 2>/dev/null)
     [ -n "$pr" ] || continue
-    agents=$(herdr pane list --workspace "$wid" | jq '[.result.panes[] | select(.agent)] | length') || continue
-    if [ "$agents" != 0 ]; then log "skip $path: agent running"; continue; fi
     if [ $dry = 1 ]; then log "would remove $path ($branch, PR #$pr)"; continue; fi
     if herdr worktree remove --workspace "$wid" >/dev/null; then
       git -C "$root" branch -D "$branch" >/dev/null && log "removed $path and branch $branch (PR #$pr)"
