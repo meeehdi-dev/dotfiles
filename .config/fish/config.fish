@@ -20,9 +20,6 @@ set -x HOMEBREW_NO_ENV_HINTS "1"
 # interactive rm for folders
 alias rm "rm -I"
 
-# ssh
-alias ssh='ghostty +ssh --'
-
 # Warm credentials manually; the hour count applies only to SSH, not GPG's cache.
 function work
     set -l hours 1
