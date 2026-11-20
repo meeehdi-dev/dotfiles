@@ -69,6 +69,20 @@ async function herdr(args: string[], signal?: AbortSignal) {
   }
 }
 
+type Workspace = { workspace_id: string; label: string; worktree?: { repo_name: string; is_linked_worktree: boolean } };
+
+// Resolves a workspace ID, label or repo name to a primary (non-linked) workspace ID.
+export function resolveWorkspace(workspaces: Workspace[], query: string): string {
+  const primary = workspaces.filter((w) => !w.worktree?.is_linked_worktree);
+  const q = query.toLowerCase();
+  const byId = primary.find((w) => w.workspace_id === query);
+  if (byId) return byId.workspace_id;
+  const matches = primary.filter((w) => w.label.toLowerCase() === q || w.worktree?.repo_name.toLowerCase() === q);
+  if (matches.length === 1) return matches[0].workspace_id;
+  const list = (ws: Workspace[]) => ws.map((w) => `${w.label} (${w.workspace_id})`).join(", ");
+  throw new Error(matches.length ? `"${query}" is ambiguous: ${list(matches)}` : `No primary workspace "${query}". Available: ${list(primary)}`);
+}
+
 export default function (pi: ExtensionAPI) {
   pi.on("project_trust", async (event) =>
     event.cwd.startsWith(WORKTREES_DIR + sep) ? { trusted: "yes", remember: true } : { trusted: "undecided" });
@@ -79,10 +93,10 @@ export default function (pi: ExtensionAPI) {
     description: "Create a herdr git worktree from a herdr workspace, copy env files, run pnpm install, and start a pi agent there on a fork of the current session, kicked off with the given prompt. Returns immediately after the kickoff is sent.",
     promptSnippet: "Create a herdr worktree and start a forked pi agent in it on a task",
     promptGuidelines: [
-      "Use spawn_worktree when the user wants a task carried out in a separate worktree. Pick the source workspace from `herdr workspace list` (non-linked workspaces with a git repo), a conventional branch name like feat/<ticket>-<slug>, and a kickoff that states the plan; call it once per repo for multi-repo tasks.",
+      "Use spawn_worktree when the user wants a task carried out in a separate worktree. Pass the source workspace by its herdr label or repo name (no lookup needed), a conventional branch name like feat/<ticket>-<slug>, and a kickoff that states the plan; call it once per repo for multi-repo tasks.",
     ],
     parameters: Type.Object({
-      workspace: Type.String({ description: "Source herdr workspace ID of the main repo checkout (e.g. w2Q)" }),
+      workspace: Type.String({ description: "Source workspace: herdr label, repo name, or ID of the main checkout (e.g. rearview, spk)" }),
       branch: Type.String({ minLength: 1, description: "Branch name to create, e.g. feat/jda-858-siren-check" }),
       label: Type.Optional(Type.String({ description: "Short herdr workspace label" })),
       kickoff: Type.String({ minLength: 1, description: "First prompt for the forked agent: the plan and where to start" }),
@@ -93,8 +107,9 @@ export default function (pi: ExtensionAPI) {
       if (!session) throw new Error("spawn_worktree requires a persisted session to fork");
       const progress = (text: string) => onUpdate?.({ content: [{ type: "text", text }], details: undefined });
 
+      const source = resolveWorkspace((await herdr(["workspace", "list"], signal)).result.workspaces, workspace);
       progress(`Creating worktree ${branch}…`);
-      const created = (await herdr(["worktree", "create", "--workspace", workspace, "--branch", branch,
+      const created = (await herdr(["worktree", "create", "--workspace", source, "--branch", branch,
         ...(label ? ["--label", label] : []), "--no-focus"], signal)).result;
       const { checkout_path: path, repo_root: repoRoot } = created.workspace.worktree as { checkout_path: string; repo_root: string };
       const pane: string = created.root_pane.pane_id;

@@ -78,3 +78,18 @@ test("forkableCopy closes dangling tool calls of the last assistant message", as
     rmSync(join(clean, ".."), { recursive: true });
   } finally { rmSync(dir, { recursive: true }); }
 });
+
+test("resolveWorkspace matches id, label or repo name among primary workspaces", () => {
+  const ws = [
+    { workspace_id: "w1", label: "rearview" },
+    { workspace_id: "w2", label: "lvmh-jardin", worktree: { repo_name: "hld-jardin", is_linked_worktree: false } },
+    { workspace_id: "w3", label: "jda-858", worktree: { repo_name: "hld-jardin", is_linked_worktree: true } },
+    { workspace_id: "w4", label: "dup" }, { workspace_id: "w5", label: "Dup" },
+  ];
+  assert.equal(mod.resolveWorkspace(ws, "w2"), "w2");
+  assert.equal(mod.resolveWorkspace(ws, "Rearview"), "w1");
+  assert.equal(mod.resolveWorkspace(ws, "hld-jardin"), "w2");
+  assert.throws(() => mod.resolveWorkspace(ws, "jda-858"), /No primary workspace/);
+  assert.throws(() => mod.resolveWorkspace(ws, "w3"), /No primary workspace/);
+  assert.throws(() => mod.resolveWorkspace(ws, "dup"), /ambiguous/);
+});
