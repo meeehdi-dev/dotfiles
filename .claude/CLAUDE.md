@@ -17,6 +17,7 @@
 - Git is read-only unless explicitly authorized. Workflow participation alone does not authorize publishing, worktree cleanup, or rewriting history.
 - Use the `gh` CLI when possible for GitHub operations.
 - Use Conventional Commits for commit messages.
+- Before committing or pushing, check credentials non-interactively: `echo | gpg --batch --pinentry-mode error --local-user "$(git config user.signingkey)" --sign -o /dev/null` and `ssh-add -l`. If either fails, stop and ask me to run `work` (fish) instead of committing; a GPG prompt hangs the session and breaks the terminal display.
 - Use workflow phases only after I run `/work`; its rules live in `~/.claude/workflow/rules.md`. Otherwise handle requests directly, without mandatory plans or review gates.
 
 ## Communication
