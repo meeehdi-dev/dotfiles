@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Remove herdr worktrees whose branch has a merged GitHub PR at exactly the worktree's HEAD.
+# Skips worktrees with a detected agent in any pane (removal would kill it).
+# Usage: herdr-worktree-gc [--dry-run]
+set -uo pipefail
+
+dry=0; [ "${1:-}" = --dry-run ] && dry=1
+log() { printf '%s %s\n' "$(date '+%F %T')" "$*"; }
+
+primaries=$(herdr workspace list | jq -r '.result.workspaces[] | select(.worktree and (.worktree.is_linked_worktree | not)) | .workspace_id') \
+  || { log "herdr workspace list failed"; exit 1; }
+
+for ws in $primaries; do
+  wl=$(herdr worktree list --workspace "$ws") || { log "worktree list failed: $ws"; continue; }
+  root=$(jq -r '.result.source.repo_root' <<<"$wl")
+  jq -r '.result.worktrees[] | select(.is_linked_worktree and (.is_detached | not) and .open_workspace_id and .branch)
+         | [.open_workspace_id, .branch, .path] | @tsv' <<<"$wl" |
+  while IFS=$'\t' read -r wid branch path; do
+    head=$(git -C "$path" rev-parse HEAD 2>/dev/null) || continue
+    pr=$(cd "$root" && gh pr list --head "$branch" --state merged --limit 20 --json number,headRefOid \
+           -q "[.[] | select(.headRefOid == \"$head\")][0].number // empty" 2>/dev/null)
+    [ -n "$pr" ] || continue
+    agents=$(herdr pane list --workspace "$wid" | jq '[.result.panes[] | select(.agent)] | length') || continue
+    if [ "$agents" != 0 ]; then log "skip $path: agent running"; continue; fi
+    if [ $dry = 1 ]; then log "would remove $path ($branch, PR #$pr)"; continue; fi
+    if herdr worktree remove --workspace "$wid" >/dev/null; then
+      git -C "$root" branch -D "$branch" >/dev/null && log "removed $path and branch $branch (PR #$pr)"
+    else
+      log "skip $path: herdr refused (dirty?)"
+    fi
+  done
+done

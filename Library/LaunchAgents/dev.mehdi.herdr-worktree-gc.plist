@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>dev.mehdi.herdr-worktree-gc</string>
+  <!-- launchd does not expand $HOME in plist values, so a login shell resolves paths -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/sh</string><string>-c</string>
+    <string>export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/bin:/bin"; exec "$HOME/.local/bin/herdr-worktree-gc" >>"$HOME/Library/Logs/herdr-worktree-gc.log" 2>&amp;1</string>
+  </array>
+  <key>StartInterval</key><integer>1800</integer>
+</dict>
+</plist>
