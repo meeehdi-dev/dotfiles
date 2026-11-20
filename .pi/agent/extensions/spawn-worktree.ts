@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
-import { copyFile, mkdir, readFile, access } from "node:fs/promises";
-import { homedir } from "node:os";
+import { randomBytes } from "node:crypto";
+import { copyFile, mkdir, mkdtemp, readFile, access, rm, writeFile } from "node:fs/promises";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, sep } from "node:path";
 import { promisify } from "node:util";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -28,6 +29,34 @@ export async function copyIncludes(repoRoot: string, worktree: string, signal?: 
     await copyFile(join(repoRoot, file), join(worktree, file));
   }
   return files;
+}
+
+// The fork is taken mid-tool-call; providers reject a trailing tool call without a result, so close it out.
+export async function forkableCopy(session: string, note: string): Promise<string> {
+  const text = (await readFile(session, "utf8")).trimEnd();
+  const entries = text.split("\n").map((line) => JSON.parse(line));
+  const done = new Set<string>();
+  let calls: { id: string; name: string }[] = [];
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const message = entries[i].type === "message" ? entries[i].message : undefined;
+    if (message?.role === "toolResult") done.add(message.toolCallId);
+    else if (message?.role === "assistant") {
+      calls = (message.content ?? []).filter((c: { type: string; id: string }) => c.type === "toolCall" && !done.has(c.id));
+      break;
+    } else if (message) break;
+  }
+  let parentId = entries.at(-1).id;
+  const extra = calls.map((call: { id: string; name: string }) => {
+    const id = randomBytes(4).toString("hex");
+    const entry = { type: "message", id, parentId, timestamp: new Date().toISOString(), message: {
+      role: "toolResult", toolCallId: call.id, toolName: call.name, isError: false, timestamp: Date.now(),
+      content: [{ type: "text", text: call.name === "spawn_worktree" ? note : "Not run in this fork." }] } };
+    parentId = id;
+    return JSON.stringify(entry);
+  });
+  const copy = join(await mkdtemp(join(tmpdir(), "spawn-worktree-")), "session.jsonl");
+  await writeFile(copy, [text, ...extra].join("\n") + "\n", { mode: 0o600 });
+  return copy;
 }
 
 async function herdr(args: string[], signal?: AbortSignal) {
@@ -67,13 +96,13 @@ export default function (pi: ExtensionAPI) {
       progress(`Creating worktree ${branch}…`);
       const created = (await herdr(["worktree", "create", "--workspace", workspace, "--branch", branch,
         ...(label ? ["--label", label] : []), "--no-focus"], signal)).result;
-      const path: string = created.worktree.checkout_path;
+      const { checkout_path: path, repo_root: repoRoot } = created.workspace.worktree as { checkout_path: string; repo_root: string };
       const pane: string = created.root_pane.pane_id;
       const notes: string[] = [];
 
       progress("Copying env files…");
       try {
-        const files = await copyIncludes(created.worktree.repo_root, path, signal);
+        const files = await copyIncludes(repoRoot, path, signal);
         notes.push(`Copied: ${files.join(", ") || "nothing"}`);
       } catch (error) {
         notes.push(`Env copy failed: ${(error as Error).message}`);
@@ -93,7 +122,12 @@ export default function (pi: ExtensionAPI) {
 
       progress("Starting pi…");
       const name = agentName(branch);
-      await herdr(["agent", "start", name, "--kind", "pi", "--pane", pane, "--timeout", "60000", "--", "--fork", session], signal);
+      const fork = await forkableCopy(session, `Worktree ready at ${path} on branch ${branch}. You are now the agent running in this worktree; continue from the next message.`);
+      try {
+        await herdr(["agent", "start", name, "--kind", "pi", "--pane", pane, "--timeout", "60000", "--", "--fork", fork], signal);
+      } finally {
+        await rm(dirname(fork), { recursive: true, force: true }); // pi copied it into its own session store
+      }
       await herdr(["agent", "prompt", name, kickoff], signal);
 
       return {
