@@ -87,6 +87,18 @@ export default function (pi: ExtensionAPI) {
   pi.on("project_trust", async (event) =>
     event.cwd.startsWith(WORKTREES_DIR + sep) ? { trusted: "yes", remember: true } : { trusted: "undecided" });
 
+  // Tools can't replace the session; once the hub settles after a spawn, start a fresh one via a command.
+  let resetHub = false;
+  pi.registerCommand("spawn-worktree-reset", {
+    description: "Start a new hub session after spawning worktrees",
+    handler: async (_args, ctx) => { await ctx.newSession(); },
+  });
+  pi.on("agent_settled", () => {
+    if (!resetHub) return;
+    resetHub = false;
+    pi.sendUserMessage("/spawn-worktree-reset", { expandPromptTemplates: true });
+  });
+
   pi.registerTool({
     name: "spawn_worktree",
     label: "Spawn Worktree",
@@ -146,6 +158,8 @@ export default function (pi: ExtensionAPI) {
         await rm(dirname(fork), { recursive: true, force: true }); // pi copied it into its own session store
       }
       await herdr(["agent", "prompt", name, kickoff], signal);
+      await herdr(["workspace", "focus", created.workspace.workspace_id], signal);
+      resetHub = true;
 
       return {
         content: [{ type: "text", text: `Spawned agent "${name}" in workspace ${created.workspace.workspace_id} (pane ${pane}) at ${path}.\n${notes.join("\n")}` }],
