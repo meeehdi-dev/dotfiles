@@ -9,16 +9,22 @@
 ## Testing and verification
 
 - Do not write or run end-to-end (E2E) tests unless explicitly requested. General implementation, coverage, or verification requests do not authorize E2E tests.
-- Run relevant, safe tests, typechecks, and non-fixing lint automatically within the active phase's limits. Inspect unfamiliar scripts first for E2E tests and side effects.
+- Run relevant, safe tests, typechecks, and non-fixing lint automatically within the task's limits. Inspect unfamiliar scripts first for E2E tests and side effects.
 - Never weaken tests to get a pass. Report actual check results, distinguishing new failures from pre-existing or environmental problems.
 
-## Git and workflow
+## Git
 
-- Git is read-only unless explicitly authorized. Workflow participation alone does not authorize publishing, worktree cleanup, or rewriting history.
+- Git is read-only unless explicitly authorized. Authority to change code does not authorize publishing, worktree cleanup, or rewriting history.
 - Use the `gh` CLI when possible for GitHub operations.
 - Use Conventional Commits for commit messages.
-- Before committing or pushing, check credentials non-interactively: `echo | gpg --batch --pinentry-mode error --local-user "$(git config user.signingkey)" --sign -o /dev/null` and `ssh-add -l`. If either fails, stop and ask me to run `work` (fish) instead of committing; a GPG prompt hangs the session and breaks the terminal display.
-- Use workflow phases only after I run `/work`; its rules live in `~/.pi/agent/workflow/rules.md`. Otherwise handle requests directly, without mandatory plans or review gates.
+- Before committing or pushing, check credentials non-interactively: `echo | gpg --batch --pinentry-mode error --local-user "$(git config user.signingkey)" --sign -o /dev/null` and `ssh-add -l`. If either fails, stop and ask me to unlock them; a GPG prompt hangs the session and breaks the terminal display.
+
+## Subagents
+
+- Planning requests go to `planner` (after `explorer` when the cause or code location is unknown). Show the plan in chat; use Plannotator only when I ask for it.
+- Building goes to `builder`; run builders in parallel when slices touch disjoint files.
+- Reviewing goes to `reviewer`.
+- I glue the steps together: don't chain plan → build → review automatically unless I ask. Handle small tasks directly.
 
 ## Communication
 
