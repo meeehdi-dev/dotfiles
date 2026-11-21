@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # PATH shim used only by `maison` (see config.fish): maison runs `claude --settings '{apiKeyHelper, statusLine}'`,
-# and that flag beats settings.json. Drop its statusLine so the profile's own one (workflow badge) applies.
+# and that flag beats settings.json. Drop its statusLine so the profile's own one (usage bars) applies.
 PATH=${PATH#"$(dirname "$0")":}
 args=() prev=""
 for a in "$@"; do

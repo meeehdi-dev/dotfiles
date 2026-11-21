@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Install the workflow into Claude config dirs. Idempotent: a second run changes nothing.
-# - Links CLAUDE.md, workflow/, agents/wf-*.md, skills/work, skills/workflow-*, rules/agents.md (relative
+# Install the shared Claude setup into Claude config dirs. Idempotent: a second run changes nothing.
+# - Links CLAUDE.md, workflow/ (statusline), agents/*.md, rules/agents.md (relative
 #   links, like stow), plus skills/gh and skills/herdr from ~/.agents/skills (shared with pi). Never replaces a real file or folder, or a symlink pointing elsewhere (even dangling).
-# - Removes dangling symlinks in skills/, agents/, rules/ whose chain ends inside dotfiles (old skills/plan).
+# - Removes dangling symlinks in skills/, agents/, rules/ whose chain ends inside dotfiles (e.g. retired /work skills, wf-* agents).
 # - Merges statusLine, the ponytail marketplace and enabledPlugins into settings.json with jq,
 #   removing only the exact obsolete phase-hook registrations. Other keys are kept; writes only on change.
 #   A key the user set differently, or invalid JSON, skips that whole config dir.
@@ -45,7 +45,10 @@ canon() {
 stale() {
   local d
   [ -L "$1" ] && [ ! -e "$1" ] || return 1
-  d=$(cd "$(dirname "$(follow "$1")")" 2>/dev/null && pwd -P) || return 1
+  # The target's folder may be gone too (retired skills/): check its nearest existing ancestor.
+  d=$(dirname "$(follow "$1")")
+  while [ ! -d "$d" ] && [ "$d" != / ] && [ "$d" != . ]; do d=$(dirname "$d"); done
+  d=$(cd "$d" 2>/dev/null && pwd -P) || return 1
   case "$d/" in "$src"/*) return 0 ;; esac
   return 1
 }
@@ -117,7 +120,7 @@ for cfg in "$@"; do
   printf '%s' "$stale_list" | while IFS= read -r l; do
     case $l in "$cfg"/*) rm "$l" && echo "removed dangling $l" ;; esac
   done
-  for item in CLAUDE.md workflow agents/wf-*.md skills/work skills/workflow-* rules/agents.md; do
+  for item in CLAUDE.md workflow agents/*.md rules/agents.md; do
     for path in "$src"/$item; do
       [ -e "$path" ] && link "$path" "$cfg/${path#"$src"/}"
     done
