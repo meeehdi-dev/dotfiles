@@ -74,9 +74,9 @@ fzf --fish | source
 # zoxide
 zoxide init fish | source
 
-# fnm
-if command -v fnm >/dev/null
-    fnm env --use-on-cd --version-file-strategy=recursive --corepack-enabled --resolve-engines --shell fish | source
+# mise
+if command -v mise >/dev/null
+    mise activate fish | source
 end
 
 # claude
