@@ -24,6 +24,7 @@
 - Planning requests go to `planner` (after `explorer` when the cause or code location is unknown). Show the plan in chat; use Plannotator only when I ask for it.
 - Building goes to `builder`; run builders in parallel when slices touch disjoint files.
 - Reviewing goes to `reviewer`.
+- Use `explorer` on your own for broad read-only searches (many files, unknown location) instead of reading them in the main context.
 - I glue the steps together: don't chain plan → build → review automatically unless I ask. Handle small tasks directly.
 
 ## Communication

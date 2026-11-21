@@ -616,7 +616,7 @@ export default function (pi: ExtensionAPI) {
 		const { agents } = discoverAgents(ctx.cwd, "user");
 		options.sections.subagents = [
 			`Available user agents for the subagent tool: ${formatAgentList(agents, agents.length).text}`,
-			"Route by intent: planning → planner (after explorer when the cause or code location is unknown); building → builder, in parallel mode when slices touch disjoint files; reviewing → reviewer. Pass pointers (paths, plan, diff range), not pasted context. Handle small tasks directly. Never chain steps automatically unless asked. Delegation grants no additional authority.",
+			"Route by intent: planning → planner (after explorer when the cause or code location is unknown); building → builder, in parallel mode when slices touch disjoint files; reviewing → reviewer. Use explorer on your own for broad read-only searches instead of reading many files in the main context. Pass pointers (paths, plan, diff range), not pasted context. Handle small tasks directly. Never chain steps automatically unless asked. Delegation grants no additional authority.",
 			"Project agents are not advertised here; using them requires explicit agentScope and retains the tool's confirmation behavior.",
 		].join("\n");
 	});
