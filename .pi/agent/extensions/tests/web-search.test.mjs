@@ -14,53 +14,11 @@ const path = fileURLToPath(new URL("../web-search.ts", import.meta.url));
 const loaded = await loadExtensions([path], process.cwd(), createEventBus(), createExtensionRuntime());
 assert.deepEqual(loaded.errors, []);
 const tool = loaded.extensions[0].tools.get("web_search").definition;
-const usage = { input: 10, output: 20, cacheRead: 0, cacheWrite: 0, totalTokens: 30, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
-const reply = (text = "Answer") => ({ stopReason: "stop", content: [{ type: "text", text }], usage });
 const execute = (ctx, query = "test query", signal) => tool.execute("search-1", { query }, signal, undefined, ctx);
 
-function openai(complete) {
-  return { model: { provider: "openai-codex", id: "test-gpt" }, modelRegistry: { complete } };
-}
-function searched(options) {
-  options.onProviderStreamEvent({ type: "response.output_item.done", item: {
-    type: "web_search_call", status: "completed", action: { sources: [{ url: "https://example.org/source", title: "Source" }] },
-  } });
-}
-
-test("OpenAI uses the current authenticated model, search-only payload, citations, and usage", async () => {
-  const controller = new AbortController();
-  const ctx = openai(async (model, context, options) => {
-    assert.equal(model, ctx.model);
-    assert.equal(context.messages[0].content, "recent news");
-    assert.match(context.systemPrompt, /untrusted/);
-    assert.equal(options.transport, "sse");
-    assert.equal(options.signal.aborted, false);
-    const original = { model: model.id, tools: [{ type: "function", name: "bash" }], include: ["reasoning.encrypted_content"] };
-    const payload = options.onPayload(original);
-    assert.deepEqual(payload.tools, [{ type: "web_search", external_web_access: true }]);
-    assert.equal(payload.tool_choice, "required");
-    assert.deepEqual(payload.include, ["web_search_call.action.sources"]);
-    assert.equal(original.tools[0].name, "bash");
-    searched(options);
-    options.onProviderStreamEvent({ type: "response.output_item.done", item: { type: "message", content: [{ annotations: [
-      { type: "url_citation", url: "https://example.org/cited", title: "Cited" },
-    ] }] } });
-    return reply();
-  });
-  const result = await execute(ctx, "recent news", controller.signal);
-  assert.match(result.content[0].text, /Source: https:\/\/example.org\/source/);
-  assert.match(result.content[0].text, /Cited: https:\/\/example.org\/cited/);
-  assert.equal(result.usage, usage);
-});
-
-test("OpenAI rejects answers without search evidence and provider failures", async () => {
-  await assert.rejects(execute(openai(async () => reply())), /no completed native web search/);
-  await assert.rejects(execute(openai(async () => ({ ...reply(), stopReason: "error", errorMessage: "quota exhausted" }))), /quota exhausted/);
-});
-
 test("unsupported models, blank queries, and cancellation do not start a search", async () => {
-  const ctx = openai(() => assert.fail("must not call the provider"));
-  await assert.rejects(execute({ ...ctx, model: { provider: "other" } }), /requires an openai-codex or claude-code/);
+  const ctx = { model: { provider: "claude-code", id: "test-claude" }, modelRegistry: { getProviderAuth: () => assert.fail("must not start a search") } };
+  await assert.rejects(execute({ ...ctx, model: { provider: "other" } }), /requires a claude-code model/);
   await assert.rejects(execute(ctx, "  "), /must not be blank/);
   await assert.rejects(execute(ctx, "query", AbortSignal.abort()), { name: "AbortError" });
 });
@@ -86,7 +44,7 @@ if (args[0] === "auth") {
   const events = [
     { type: "assistant", message: { content: [{ type: "tool_use", name: "WebSearch", id: "s1" }] } },
     { type: "user", message: { content: [{ type: "tool_result", tool_use_id: "s1", is_error: mode === "tool-error" }] } },
-    { type: "result", subtype: "success", result: "Answer: https://example.org/", usage: { input_tokens: 4, output_tokens: 5, cache_read_input_tokens: 6 }, total_cost_usd: 0.01,
+    { type: "result", subtype: "success", result: mode === "big" ? "result\\n".repeat(3000) : "Answer: https://example.org/", usage: { input_tokens: 4, output_tokens: 5, cache_read_input_tokens: 6 }, total_cost_usd: 0.01,
       permission_denials: mode === "denied" ? [{ tool_name: "WebSearch" }] : [] },
   ];
   console.log((mode === "no-search" ? events.slice(-1) : events).map(e => JSON.stringify(e)).join("\\n"));
@@ -142,9 +100,9 @@ test("cancelling Claude terminates the subprocess", async (t) => {
   await pending;
 });
 
-test("oversized search results are bounded and preserved in a private temporary file", async () => {
+test("oversized search results are bounded and preserved in a private temporary file", async (t) => {
   const text = "result\n".repeat(3000);
-  const result = await execute(openai(async (_model, _context, options) => { searched(options); return reply(text); }));
+  const result = await execute((await claude(t, "big")).ctx);
   const full = result.details.fullOutputPath;
   try {
     assert.match(result.content[0].text, /Output truncated/);

@@ -1,4 +1,3 @@
-import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir, userInfo } from "node:os";
@@ -6,7 +5,6 @@ import { join } from "node:path";
 import { convertToLlm, type ExtensionAPI, type ExtensionContext, type AgentBeforeSettleEvent, type TurnEndEvent, type BoundaryResult } from "@earendil-works/pi-coding-agent";
 import { matchesKey } from "@earendil-works/pi-tui";
 
-const CHATGPT_ENDPOINT = "https://chatgpt.com/backend-api/wham/usage";
 const CLAUDE_ENDPOINT = "https://api.anthropic.com/api/oauth/usage";
 const STATUS = "z-usage";
 const FIVE_HOURS = 5 * 60 * 60;
@@ -37,16 +35,6 @@ type UsageWindow = { label: "5h" | "7d"; percent: number; resetAt: number };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
-
-function accountId(token: string): string | undefined {
-  try {
-    const claims = JSON.parse(Buffer.from(token.split(".")[1] ?? "", "base64url").toString("utf8"));
-    const id = claims["https://api.openai.com/auth"]?.chatgpt_account_id;
-    return typeof id === "string" && id.length > 0 && !/[\u0000-\u001f\u007f]/.test(id) ? id : undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 function parseUsage(value: unknown): UsageWindow[] {
   if (!isRecord(value) || !isRecord(value.rate_limit)) return [];
@@ -79,46 +67,6 @@ function parseClaudeUsage(value: unknown): UsageWindow[] {
   })) });
 }
 
-type Usage = { windows: UsageWindow[]; permission: "allowed" | "denied" | "absent" | "unknown" };
-
-function usageEvidence(value: unknown): Usage {
-  const windows = parseUsage(value);
-  const rate = isRecord(value) ? value.rate_limit : undefined;
-  if (!isRecord(rate) || !windows.length) return { windows, permission: "unknown" };
-  const supported = Object.values(rate).filter((raw) => raw && typeof raw === "object" &&
-    [FIVE_HOURS, SEVEN_DAYS].includes((raw as { limit_window_seconds: number }).limit_window_seconds));
-  if (supported.length !== windows.length) return { windows, permission: "unknown" };
-  const { allowed, limit_reached: reached } = rate;
-  if ((allowed !== undefined && typeof allowed !== "boolean") || (reached !== undefined && typeof reached !== "boolean") ||
-    (allowed !== undefined && reached !== undefined && allowed === reached)) return { windows, permission: "unknown" };
-  const permission = allowed === true || reached === false ? "allowed" : allowed === false || reached === true ? "denied" : "absent";
-  return { windows, permission };
-}
-
-function quotaState(usage: Usage | undefined): "allowed" | number | undefined {
-  if (!usage || usage.permission === "unknown") return;
-  if (usage.permission === "allowed") return "allowed";
-  const exhausted = usage.windows.filter((window) => window.percent === 100);
-  if (!exhausted.length) return usage.permission === "absent" ? "allowed" : undefined;
-  const reset = Math.max(...exhausted.map((window) => window.resetAt * 1000));
-  return reset > Date.now() ? reset : undefined;
-}
-
-// The adapter can flatten distinct 429 reasons into the same friendly sentence.
-function errorCode(value: unknown): string | undefined {
-  if (!value || typeof value !== "object") return;
-  const item = value as Record<string, unknown>;
-  if (typeof item.code === "string") return item.code;
-  if (typeof item.type === "string" && /^(usage_limit_reached|usage_not_included|rate_limit_exceeded)$/.test(item.type)) return item.type;
-  return errorCode(item.error) ?? errorCode(item.response);
-}
-
-function textCode(text: string): string | undefined {
-  const code = text.match(/\b(usage_limit_reached|usage_not_included|rate_limit_exceeded|insufficient_quota|billing_hard_limit_reached)\b/)?.[1];
-  if (code) return code;
-  if (/\brate limit (?:exceeded|reached)\b|\b(?:tokens|requests) per min(?:ute)?\b|\b[tr]pm\b/i.test(text)) return "rate_limit_exceeded";
-}
-
 function countdown(resetAt: number): string {
   const minutes = Math.ceil(Math.max(0, resetAt * 1000 - Date.now()) / 60_000);
   const days = Math.floor(minutes / 1440), hours = Math.floor((minutes % 1440) / 60), rest = minutes % 60;
@@ -137,15 +85,9 @@ export default function usage(pi: ExtensionAPI) {
   let capture = (_event: TurnEndEvent, _ctx: ExtensionContext) => {};
   let boundary = async (_event: AgentBeforeSettleEvent, _ctx: ExtensionContext): Promise<BoundaryResult | undefined> => {};
   let claudeRecovery = false;
-  let providerCode: string | undefined;
-  let responseStatus: number | undefined;
   let displayedProvider: string | undefined;
 
-  pi.on("turn_start", () => { cancel(); providerCode = undefined; responseStatus = undefined; });
-  pi.on("provider_stream_event", (event) => {
-    if (event.provider === "openai-codex") providerCode = errorCode(event.data) ?? providerCode;
-  });
-  pi.on("after_provider_response", (event) => { responseStatus = event.status; });
+  pi.on("turn_start", () => { cancel(); });
   pi.on("message_end", async (event) => {
     const message = event.message;
     if (message.role !== "assistant" || message.provider !== "claude-code" || message.stopReason !== "error" ||
@@ -166,22 +108,20 @@ export default function usage(pi: ExtensionAPI) {
   const start = (ctx: ExtensionContext) => {
     cleanup();
     const provider = displayedProvider = ctx.model?.provider;
-    const claude = provider === "claude-code";
-    let label = claude ? "Claude" : "ChatGPT";
+    let label = "Claude";
     capture = () => {};
     boundary = async () => {};
     claudeRecovery = false;
     cancel = () => {};
-    if (ctx.mode !== "tui" || (provider !== "openai-codex" && provider !== "claude-code")) {
+    if (ctx.mode !== "tui" || provider !== "claude-code") {
       ctx.ui.setStatus(STATUS, undefined);
       cleanup = () => {};
       return;
     }
 
-    claudeRecovery = claude;
+    claudeRecovery = true;
     let stopped = false;
-    let fetching: Promise<Usage | undefined> | undefined;
-    let refreshId = 0;
+    let fetching: Promise<void> | undefined;
     let requestEpoch = 0;
     let latest: UsageWindow[] = [];
     let hasError = false;
@@ -189,7 +129,7 @@ export default function usage(pi: ExtensionAPI) {
     let timeout: ReturnType<typeof setTimeout> | undefined;
     let refreshTimer: ReturnType<typeof setInterval> | undefined;
     let countdownTimer: ReturnType<typeof setInterval> | undefined;
-    let candidate: { id: string; provider: string; model: string; session: string; refreshId: number } | undefined;
+    let candidate: { id: string; provider: string; model: string; session: string } | undefined;
     let recovery: AbortController | undefined;
     let waitingUntil: number | undefined;
     let wake: (() => void) | undefined;
@@ -217,10 +157,7 @@ export default function usage(pi: ExtensionAPI) {
       ctx.ui.setStatus(STATUS, parts.join(theme.fg("dim", " │ ")));
     };
 
-    const toUsage = (body: unknown): Usage => claude
-      ? { windows: parseClaudeUsage(body), permission: "absent" } : usageEvidence(body);
-
-    const fetchUsage = async (force: boolean): Promise<Usage | undefined> => {
+    const fetchUsage = async (force: boolean): Promise<void> => {
       const epoch = requestEpoch;
       const active = () => !stopped && epoch === requestEpoch;
       let controller: AbortController | undefined;
@@ -229,75 +166,56 @@ export default function usage(pi: ExtensionAPI) {
       // Fresh data from another session, or a shared 429 backoff (no body): never fetch, never show an error.
       const useCache = () => {
         if (!active()) return;
-        const usage = cached?.body !== undefined ? toUsage(cached.body) : undefined;
-        if (usage?.windows.length) { latest = usage.windows; hasError = false; }
+        const windows = cached?.body !== undefined ? parseClaudeUsage(cached.body) : [];
+        if (windows.length) { latest = windows; hasError = false; }
         render();
-        return usage?.windows.length ? usage : undefined;
       };
       try {
         controller = new AbortController();
         request = controller;
         timeout = setTimeout(() => controller?.abort(), TIMEOUT_MS);
-        let token: string | undefined;
         const headers: Record<string, string> = { Accept: "application/json" };
-        if (claude) {
-          const env = { ...process.env, ...(await ctx.modelRegistry.getProviderAuth("claude-code"))?.env };
-          if (!active() || controller.signal.aborted) return;
-          const configDir = env.PI_CLAUDE_CODE_CONFIG_DIR || env.CLAUDE_CONFIG_DIR;
-          label = !configDir || configDir === join(homedir(), ".claude") ? "Claude Personal"
-            : configDir === join(homedir(), ".claude-vo2") ? "Claude VO2" : "Claude";
-          // Claude hashes even an explicit ~/.claude; never fall back to another profile's item.
-          const storageDir = env.CLAUDE_SECURESTORAGE_CONFIG_DIR ?? configDir;
-          const suffix = storageDir ? `-${createHash("sha256").update(storageDir.normalize("NFC")).digest("hex").slice(0, 8)}` : "";
-          file = cacheFile(`claude${suffix}`);
-          cached = readCache(file);
-          if (!force && cached && cached.until > Date.now()) return useCache();
-          const result = await pi.exec("/usr/bin/security", [
-            "find-generic-password", "-a", userInfo().username, "-s", `Claude Code-credentials${suffix}`, "-w",
-          ], { signal: controller.signal, timeout: TIMEOUT_MS, maxBuffer: 64 * 1024 });
-          if (!active() || controller.signal.aborted) return;
-          if (result.code !== 0 || result.killed || result.truncated) throw new Error("Claude credentials unavailable");
-          const credentials = JSON.parse(result.stdout);
-          token = credentials?.claudeAiOauth?.accessToken;
-          if (typeof token !== "string" || !token.trim()) throw new Error("Claude credentials unavailable");
-          headers["anthropic-beta"] = "oauth-2025-04-20";
-        } else {
-          try { token = await ctx.modelRegistry.getApiKeyForProvider("openai-codex"); } catch { token = undefined; }
-          if (!active() || controller.signal.aborted) return;
-          if (typeof token !== "string" || !token.trim()) {
-            latest = [];
-            hasError = false;
-            render();
-            return;
-          }
-          const id = accountId(token);
-          if (id) headers["ChatGPT-Account-Id"] = id;
-          file = cacheFile(`chatgpt-${id ? createHash("sha256").update(id).digest("hex").slice(0, 8) : "default"}`);
-          cached = readCache(file);
-          if (!force && cached && cached.until > Date.now()) return useCache();
-        }
+        const env = { ...process.env, ...(await ctx.modelRegistry.getProviderAuth("claude-code"))?.env };
+        if (!active() || controller.signal.aborted) return;
+        const configDir = env.PI_CLAUDE_CODE_CONFIG_DIR || env.CLAUDE_CONFIG_DIR;
+        label = !configDir || configDir === join(homedir(), ".claude") ? "Claude Personal"
+          : configDir === join(homedir(), ".claude-vo2") ? "Claude VO2" : "Claude";
+        // Claude hashes even an explicit ~/.claude; never fall back to another profile's item.
+        const storageDir = env.CLAUDE_SECURESTORAGE_CONFIG_DIR ?? configDir;
+        const suffix = storageDir ? `-${createHash("sha256").update(storageDir.normalize("NFC")).digest("hex").slice(0, 8)}` : "";
+        file = cacheFile(`claude${suffix}`);
+        cached = readCache(file);
+        if (!force && cached && cached.until > Date.now()) return useCache();
+        const result = await pi.exec("/usr/bin/security", [
+          "find-generic-password", "-a", userInfo().username, "-s", `Claude Code-credentials${suffix}`, "-w",
+        ], { signal: controller.signal, timeout: TIMEOUT_MS, maxBuffer: 64 * 1024 });
+        if (!active() || controller.signal.aborted) return;
+        if (result.code !== 0 || result.killed || result.truncated) throw new Error("Claude credentials unavailable");
+        const credentials = JSON.parse(result.stdout);
+        const token = credentials?.claudeAiOauth?.accessToken;
+        if (typeof token !== "string" || !token.trim()) throw new Error("Claude credentials unavailable");
+        headers["anthropic-beta"] = "oauth-2025-04-20";
         headers.Authorization = `Bearer ${token}`;
-        const response = await fetch(claude ? CLAUDE_ENDPOINT : CHATGPT_ENDPOINT, {
+        const response = await fetch(CLAUDE_ENDPOINT, {
           method: "GET", headers, signal: controller.signal, redirect: "error",
         });
         // The usage endpoint rate-limits per account across all pi sessions: back off everywhere and keep the last known quota.
         if (response.status === 429) {
           const retryAfter = Number(response.headers?.get?.("retry-after")) * 1000;
           writeCache(file, { body: cached?.body, until: Date.now() + (retryAfter > 0 ? retryAfter : BACKOFF_MS) });
-          if (!latest.length && cached?.body !== undefined) latest = toUsage(cached.body).windows;
+          if (!latest.length && cached?.body !== undefined) latest = parseClaudeUsage(cached.body);
           render();
           return;
         }
         if (!response.ok) throw new Error("usage request failed");
         const body: unknown = await response.json();
         if (!active() || controller.signal.aborted) return;
-        const usage = toUsage(body);
-        if (claude && !usage.windows.length) throw new Error("Claude usage unavailable");
+        const windows = parseClaudeUsage(body);
+        if (!windows.length) throw new Error("Claude usage unavailable");
         writeCache(file, { body, until: Date.now() + REFRESH_MS - 5000 });
-        latest = usage.windows;
+        latest = windows;
         hasError = false;
         render();
-        return usage;
       } catch {
         if (active()) {
           latest = [];
@@ -311,11 +229,10 @@ export default function usage(pi: ExtensionAPI) {
         if (request === controller) request = undefined;
       }
     };
-    // Quota verification forces a real request; periodic display refreshes may reuse another session's result.
+    // Periodic display refreshes may reuse another session's result.
     const refresh = (force = true) => {
-      if (stopped) return Promise.resolve(undefined);
+      if (stopped) return Promise.resolve();
       if (!fetching) {
-        refreshId++;
         fetching = fetchUsage(force).finally(() => { fetching = undefined; });
       }
       return fetching;
@@ -349,22 +266,10 @@ export default function usage(pi: ExtensionAPI) {
       cancel();
       const message = event.message;
       if (message.role !== "assistant" || message.stopReason !== "error" || message.provider !== provider) return;
-      if (claude) {
-        const text = message.errorMessage ?? "";
-        if (!/^Claude Code billing:/.test(text) && !/^Claude Code API error:.*\b(usage limit|hit your limit|limit reached|rate limit)\b/i.test(text)) return;
-        candidate = { id: event.messageEntryId, provider: message.provider, model: message.model,
-          session: activeCtx.sessionManager.getSessionId(), refreshId };
-        return;
-      }
-      let code = providerCode ?? errorCode(message);
-      try { code ??= errorCode(JSON.parse(message.errorMessage ?? "")); } catch { /* Adapter errors are usually plain text. */ }
-      code ??= textCode(message.errorMessage ?? "");
-      if (code && code !== "usage_limit_reached") return;
       const text = message.errorMessage ?? "";
-      if (/\b(authentication|unauthorized|invalid[_ ]api[_ ]key|billing|usage_not_included|context_length_exceeded)\b/i.test(text)) return;
-      if (!code && !/^You have hit your ChatGPT usage limit\b/.test(text) && responseStatus !== 429 && !/\b429\b/.test(text)) return;
+      if (!/^Claude Code billing:/.test(text) && !/^Claude Code API error:.*\b(usage limit|hit your limit|limit reached|rate limit)\b/i.test(text)) return;
       candidate = { id: event.messageEntryId, provider: message.provider, model: message.model,
-        session: activeCtx.sessionManager.getSessionId(), refreshId };
+        session: activeCtx.sessionManager.getSessionId() };
     };
 
     boundary = async (event, activeCtx) => {
@@ -384,32 +289,18 @@ export default function usage(pi: ExtensionAPI) {
       const onAbort = () => cancel();
       const signal = activeCtx.signal;
       signal?.addEventListener("abort", onAbort, { once: true });
-      const verify = async (after: number) => {
-        if (fetching && refreshId <= after) await Promise.race([fetching, cancelled]);
-        if (!owns()) return;
-        return Promise.race([refresh(), cancelled]);
-      };
       const stop = (reason: string) => { if (owns()) activeCtx.ui.notify(`${label} quota recovery stopped: ${reason}.`, "warning"); };
       try {
         if (signal?.aborted) return;
-        let state = claude ? claudeReset(activeCtx) : quotaState(await verify(blocked.refreshId));
+        // Retry once after the reset; a new 429 waits again.
+        waitingUntil = claudeReset(activeCtx);
+        render();
+        await Promise.race([new Promise<void>((resolve) => {
+          wake = resolve;
+          if (waitingUntil !== undefined && Date.now() >= waitingUntil) resolve();
+        }), cancelled]);
+        wake = undefined;
         if (!owns()) return;
-        if (typeof state !== "number") { stop("no confirmed exhaustion with a future reset"); return; }
-        while (typeof state === "number" && owns()) {
-          waitingUntil = state;
-          render();
-          await Promise.race([new Promise<void>((resolve) => {
-            wake = resolve;
-            if (waitingUntil !== undefined && Date.now() >= waitingUntil) resolve();
-          }), cancelled]);
-          wake = undefined;
-          if (!owns()) return;
-          // Claude: just retry after the reset; a new 429 waits again.
-          state = claude ? "allowed" : quotaState(await verify(refreshId));
-          if (!owns()) return;
-          if (state === undefined) { stop("usage verification unavailable or reset untrustworthy"); return; }
-        }
-        if (!owns() || state !== "allowed") return;
         const projected = event.context.contextEntries;
         const messages = convertToLlm(projected.filter((entry) => entry.sourceEntry.id !== blocked.id).flatMap((entry) => entry.messages));
         if (!messages.some((message) => message.role !== "system") || messages.at(-1)?.role === "assistant") {

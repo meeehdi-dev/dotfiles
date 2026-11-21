@@ -29,7 +29,7 @@ elif [ -s "$cache" ]; then
     (.value.resets_at | type) == "number" and .value.resets_at > now)))' <<<"$input" 2>/dev/null)
 fi
 
-# Usage windows as pi's chatgpt-usage footer, in basic ANSI only (dim, default fg, yellow warning).
+# Usage windows as pi's usage footer, in basic ANSI only (dim, default fg, yellow warning).
 # One line per valid window: label, used cells (of 8), % left, warning (1/0), minutes to reset (rounded up).
 windows=$(jq -r '
   .rate_limits as $r | select($r | type == "object")

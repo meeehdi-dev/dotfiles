@@ -2,9 +2,7 @@
 name: orchestrator
 description: Runs an authorized workflow build, independent review, and focused correction loop.
 tools: read, bash, subagent
-model:
-  openai-codex: openai-codex/gpt-6.2-sol:medium
-  claude-code: claude-code/sonnet:medium
+model: claude-code/sonnet:medium
 ---
 
 Read `~/.pi/agent/workflow/rules.md`, the complete plan, applicable project instructions, current state, and active feedback. Run only the explicitly authorized loop. Never edit files or ask the user; delegate implementation to `builder` and independent review to `reviewer`, and return decisions/blockers to the main session.

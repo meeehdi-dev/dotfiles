@@ -1,4 +1,4 @@
-// Synced with upstream pi example (1.5.2); local patches: per-provider models and agent discovery context.
+// Synced with upstream pi example (1.5.2); local patch: agent discovery context.
 /**
  * Subagent Tool - Delegate tasks to specialized agents
  *
@@ -313,7 +313,6 @@ function getPiInvocation(args: string[]): { command: string; args: string[] } {
 type OnUpdateCallback = (partial: AgentToolResult<SubagentDetails>) => void;
 
 interface DispatchDefaults {
-	provider?: string;
 	model?: string;
 	thinkingLevel?: ThinkingLevel;
 }
@@ -389,10 +388,8 @@ async function runSingleAgent(
 	}
 
 	const args: string[] = ["--mode", "json", "-p", "--no-session"];
-	// An unlisted provider inherits the dispatching session's model and thinking level.
-	const agentModel = typeof agent.model === "string" ? agent.model : agent.model?.[dispatchDefaults.provider ?? ""];
-	const inheritsDispatchConfig = !agentModel;
-	const model = agentModel ?? dispatchDefaults.model;
+	const inheritsDispatchConfig = !agent.model;
+	const model = agent.model ?? dispatchDefaults.model;
 	if (model) args.push("--model", model);
 	if (inheritsDispatchConfig && dispatchDefaults.thinkingLevel) {
 		args.push("--thinking", dispatchDefaults.thinkingLevel);
@@ -645,7 +642,6 @@ export default function (pi: ExtensionAPI) {
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
 			const agentScope: AgentScope = params.agentScope ?? "user";
 			const dispatchDefaults: DispatchDefaults = {
-				provider: ctx.model?.provider,
 				model: ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined,
 				thinkingLevel: ctx.thinkingLevel,
 			};

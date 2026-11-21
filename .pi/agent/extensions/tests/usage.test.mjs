@@ -23,8 +23,10 @@ const { Agent } = await import(pathToFileURL(join(piRoot, "../pi-agent-core/dist
 const { AssistantMessageEventStream } = await import(pathToFileURL(join(piRoot, "../pi-ai/dist/utils/event-stream.js")));
 const now = 1_700_000_000_000;
 const reset = (seconds) => now / 1000 + seconds;
-const quota = (duration, used, resetAt) => ({ limit_window_seconds: duration, used_percent: used, reset_at: resetAt });
-const jwt = (claims = {}) => `header.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.signature`;
+const iso = (seconds) => new Date(reset(seconds) * 1000).toISOString();
+const usageBody = (used = 100, seconds = 3600, week) => ({ five_hour: { utilization: used, resets_at: iso(seconds) },
+  ...(week ? { seven_day: { utilization: week[0], resets_at: iso(week[1]) } } : {}) });
+const keychain = async () => ({ code: 0, stdout: JSON.stringify({ claudeAiOauth: { accessToken: "private-token" } }) });
 
 function assertQuotaBars(text, expectedRemaining) {
   const cells = [...text.matchAll(/<[^:]+:([█░]+)>/g)].map(([, value]) => value).join("");
@@ -36,14 +38,14 @@ function assertQuotaBars(text, expectedRemaining) {
   });
 }
 
-async function harness({ mode = "tui", provider = "openai-codex", providerEnv = {}, execImpl, token = jwt(), body, fetchImpl, nowMs = now } = {}) {
+async function harness({ mode = "tui", provider = "claude-code", providerEnv = { PI_CLAUDE_CODE_CONFIG_DIR: join(homedir(), ".claude") },
+  execImpl = keychain, body, fetchImpl, nowMs = now } = {}) {
   const runtime = createExtensionRuntime(), bus = createEventBus(), statuses = [], fetches = [], timers = [];
   const listeners = new Set(), notifications = [];
   let branch = [], sessionId = "session-one";
-  const factory = execImpl ? await importExtension.import(extensionPath, { default: true }) : undefined;
-  const loaded = factory
-    ? { extensions: [await loadExtensionFromFactory((api) => factory({ ...api, exec: execImpl }), process.cwd(), bus, runtime)], errors: [] }
-    : await loadExtensions([extensionPath], process.cwd(), bus, runtime);
+  assert.deepEqual((await loadExtensions([extensionPath], process.cwd(), bus, runtime)).errors, [], "Pi must accept the usage extension");
+  const factory = await importExtension.import(extensionPath, { default: true });
+  const loaded = { extensions: [await loadExtensionFromFactory((api) => factory({ ...api, exec: execImpl }), process.cwd(), bus, runtime)], errors: [] };
   assert.deepEqual(loaded.errors, [], "Pi must accept the usage extension");
   const extension = loaded.extensions[0];
   const previous = {
@@ -76,7 +78,6 @@ async function harness({ mode = "tui", provider = "openai-codex", providerEnv = 
       getBranch: () => branch,
     },
     modelRegistry: {
-      getApiKeyForProvider: async (provider) => { assert.equal(provider, "openai-codex"); return token; },
       getProviderAuth: async (provider) => { assert.equal(provider, "claude-code"); return { env: providerEnv }; },
     },
     ui: {
@@ -116,9 +117,8 @@ async function harness({ mode = "tui", provider = "openai-codex", providerEnv = 
 }
 
 // Synthetic fixtures follow the installed adapter shape, not an observed quota incident.
-const failure = (extra = {}) => ({ role: "assistant", provider: "openai-codex", model: "test-model", api: "openai-codex-responses",
-  content: [], stopReason: "error", errorMessage: "You have hit your ChatGPT usage limit (plus plan). Try again in ~60 min.", timestamp: now, ...extra });
-const usageBody = (percent = 100, seconds = 3600, flags = {}) => ({ rate_limit: { primary_window: quota(18000, percent, reset(seconds)), ...flags } });
+const failure = (extra = {}) => ({ role: "assistant", provider: "claude-code", model: "test-model", api: "claude-code",
+  content: [], stopReason: "error", errorMessage: "Claude Code API error: You've hit your usage limit · resets 3pm", timestamp: now, ...extra });
 
 async function fail(h, message = failure(), extra = {}) {
   const user = { id: "user", type: "message", message: { role: "user", content: "original", timestamp: now } };
@@ -136,26 +136,16 @@ function tickCountdown(h, at) {
 }
 
 test("uses reported durations, styles both windows, and counts down from reset timestamps", async (t) => {
-  const token = jwt({ "https://api.openai.com/auth": { chatgpt_account_id: "account-private" } });
-  const h = await harness({ token, body: { rate_limit: {
-    secondary_window: quota(604800, 9.6, reset(2 * 86400 + 3 * 3600)),
-    primary_window: quota(18000, 24.6, reset(9000)),
-  } } });
+  const h = await harness({ body: usageBody(24.6, 9000, [9.6, 2 * 86400 + 3 * 3600]) });
   t.after(() => h.close());
   await h.start();
   assert.equal(h.fetches.length, 1);
-  assert.equal(h.fetches[0].url, "https://chatgpt.com/backend-api/wham/usage");
-  assert.equal(h.fetches[0].options.redirect, "error");
-  assert.equal(h.fetches[0].options.headers.Authorization, `Bearer ${token}`);
-  assert.equal(h.fetches[0].options.headers["ChatGPT-Account-Id"], "account-private");
   assert.deepEqual(h.statuses.at(-1), {
     key: "z-usage",
     text: "<text:75%> <accent:██████><muted:░░><muted: ↻2h30m><dim: │ ><text:90%> <mdLink:███████><muted:░><muted: ↻2d3h>",
   });
   assertQuotaBars(h.statuses.at(-1).text, [6, 7]);
-  assert.doesNotMatch(h.statuses.at(-1).text, /GPT/);
-  assert.ok(!h.statuses.at(-1).text.includes(token));
-  assert.ok(!h.statuses.at(-1).text.includes("account-private"));
+  assert.doesNotMatch(h.statuses.at(-1).text, /Claude|private-token/);
   const [refresh, countdown] = h.timers.filter(({ kind, delay }) => kind === "interval" && delay === 60_000);
   assert.ok(refresh);
   assert.ok(countdown);
@@ -179,7 +169,6 @@ test("Claude Personal and VO2 read only their own Keychain item and render their
         seven_day: { utilization: 95, resets_at: new Date(reset(86400) * 1000).toISOString() },
       } });
     t.after(() => h.close());
-    h.ctx.modelRegistry.getApiKeyForProvider = () => { throw new Error("must not read GPT auth"); };
     await h.start();
     assert.equal(calls.length, 1);
     assert.equal(calls[0].command, "/usr/bin/security");
@@ -190,7 +179,6 @@ test("Claude Personal and VO2 read only their own Keychain item and render their
     assert.equal(h.fetches[0].url, "https://api.anthropic.com/api/oauth/usage");
     assert.equal(h.fetches[0].options.headers.Authorization, `Bearer private-${label}`);
     assert.equal(h.fetches[0].options.headers["anthropic-beta"], "oauth-2025-04-20");
-    assert.equal(h.fetches[0].options.headers["ChatGPT-Account-Id"], undefined);
     assert.equal(h.fetches[0].options.redirect, "error");
     assert.match(h.statuses.at(-1).text, new RegExp(`${100 - used}%.*↻1h.*5%.*↻1d`));
     assert.doesNotMatch(h.statuses.at(-1).text, /Claude/);
@@ -278,7 +266,7 @@ test("switching providers clears old quota immediately and ignores late response
   resolveFetch({ ok: true, json: async () => usageBody(80) });
   await h.settle();
   assert.equal(h.statuses.at(-1).text, undefined);
-  h.ctx.model = { provider: "openai-codex", id: "test-model" };
+  h.ctx.model = { provider: "claude-code", id: "test-model" };
   await h.emit("model_select");
   await h.settle();
   assert.equal(h.fetches.length, 2);
@@ -287,73 +275,36 @@ test("switching providers clears old quota immediately and ignores late response
   assert.match(h.statuses.at(-1).text, /80%/);
 });
 
-test("switching from GPT to Claude fetches Claude data and clears a displayed GPT quota", async (t) => {
-  const h = await harness({ providerEnv: { PI_CLAUDE_CODE_CONFIG_DIR: join(homedir(), ".claude-vo2") },
-    execImpl: async () => ({ code: 0, stdout: JSON.stringify({ claudeAiOauth: { accessToken: "private-vo2" } }) }),
-    fetchImpl: async (url) => ({ ok: true, json: async () => url.includes("anthropic.com")
-      ? { five_hour: { utilization: 90, resets_at: new Date(reset(60) * 1000).toISOString() },
-          seven_day: { utilization: "invalid", resets_at: "invalid" } }
-      : usageBody(20) }) });
-  t.after(() => h.close());
-  await h.start();
-  assert.match(h.statuses.at(-1).text, /80%/);
-  const atSwitch = h.statuses.length;
-  h.ctx.model = { provider: "claude-code", id: "default" };
-  await h.emit("model_select");
-  assert.equal(h.statuses[atSwitch].text, undefined);
-  await h.settle();
-  assert.equal(h.fetches.length, 2);
-  assert.match(h.statuses.at(-1).text, /^(?!.*Claude).*10%/);
-  assert.doesNotMatch(h.statuses.at(-1).text, /80%|7d/);
-});
-
 test("renders fully remaining and fully used quota bars", async (t) => {
-  const h = await harness({ body: { rate_limit: {
-    empty: quota(18000, 0, reset(0)),
-    full: quota(604800, 100, reset(0)),
-  } } });
+  const h = await harness({ body: usageBody(0, 0, [100, 0]) });
   t.after(() => h.close());
   await h.start();
   assert.equal(h.statuses.at(-1).text,
     "<text:100%> <accent:████████><muted: ↻0m><dim: │ ><warning:0%> <muted:░░░░░░░░><muted: ↻0m>");
   assertQuotaBars(h.statuses.at(-1).text, [8, 0]);
-  assert.doesNotMatch(h.statuses.at(-1).text, /GPT/);
 });
 
 test("warns at exactly 10% remaining and mutes the spent cells", async (t) => {
-  const h = await harness({ body: { rate_limit: { primary: quota(18000, 90, reset(0)) } } });
+  const h = await harness({ body: usageBody(90, 0) });
   t.after(() => h.close());
   await h.start();
   assert.equal(h.statuses.at(-1).text,
     "<warning:10%> <warning:█><muted:░░░░░░░><muted: ↻0m>");
   assertQuotaBars(h.statuses.at(-1).text, [1]);
-  assert.doesNotMatch(h.statuses.at(-1).text, /GPT/);
 });
 
 test("omits malformed or missing windows instead of guessing their duration", async (t) => {
-  const h = await harness({ body: { rate_limit: {
-    bad_percent: quota(18000, 101, reset(5000)),
-    unsupported: quota(3600, 5, reset(4000)),
-    valid_week: quota(604800, 70, reset(180000)),
-  } } });
+  const h = await harness({ body: usageBody(101, 5000, [70, 180000]) });
   t.after(() => h.close());
   await h.start();
   assert.equal(h.statuses.at(-1).text, "<text:30%> <mdLink:██><muted:░░░░░░><muted: ↻2d2h>");
   assertQuotaBars(h.statuses.at(-1).text, [2]);
 
   await h.close();
-  const missing = await harness({ body: { rate_limit: { primary_window: quota(18000, "bad", reset(5000)) } } });
+  const missing = await harness({ body: { five_hour: { utilization: "bad", resets_at: iso(5000) }, seven_day: null } });
   t.after(() => missing.close());
   await missing.start();
-  assert.deepEqual(missing.statuses.at(-1), { key: "z-usage", text: undefined });
-});
-
-test("makes no request without usable auth and leaves the item clear", async (t) => {
-  const h = await harness({ token: null, body: { rate_limit: {} } });
-  t.after(() => h.close());
-  await h.start();
-  assert.equal(h.fetches.length, 0);
-  assert.deepEqual(h.statuses.at(-1), { key: "z-usage", text: undefined });
+  assert.deepEqual(missing.statuses.at(-1), { key: "z-usage", text: "<muted:Claude Personal unavailable>" });
 });
 
 test("network, HTTP, and JSON failures show only a generic unavailable status", async (t) => {
@@ -362,24 +313,24 @@ test("network, HTTP, and JSON failures show only a generic unavailable status", 
     async () => ({ ok: false, json: async () => ({ secret: "provider response" }) }),
     async () => ({ ok: true, json: async () => { throw new Error("private response body"); } }),
   ]) {
-    const h = await harness({ token: jwt({ "https://api.openai.com/auth": { chatgpt_account_id: "account-private" } }), fetchImpl });
+    const h = await harness({ fetchImpl });
     t.after(() => h.close());
     await h.start();
     const text = h.statuses.at(-1).text;
-    assert.equal(text, "<muted:ChatGPT unavailable>");
+    assert.equal(text, "<muted:Claude Personal unavailable>");
     assert.equal(h.statuses.at(-1).key, "z-usage");
-    assert.doesNotMatch(text, /private|secret|account-private|provider response/);
+    assert.doesNotMatch(text, /private|secret|provider response/);
     const [, countdown] = h.timers.filter(({ kind, delay }) => kind === "interval" && delay === 60_000);
     assert.ok(countdown);
     countdown.callback();
     await h.settle();
-    assert.deepEqual(h.statuses.at(-1), { key: "z-usage", text: "<muted:ChatGPT unavailable>" });
+    assert.deepEqual(h.statuses.at(-1), { key: "z-usage", text: "<muted:Claude Personal unavailable>" });
     assert.equal(h.fetches.length, 1, "countdown ticks do not trigger an early retry");
   }
 });
 
 test("clears stale quota on failure and replaces unavailable status after the next refresh", async (t) => {
-  const body = { rate_limit: { primary: quota(18000, 25, reset(5000)) } };
+  const body = usageBody(25, 5000);
   let requests = 0;
   const h = await harness({ fetchImpl: async () => {
     requests++;
@@ -395,10 +346,10 @@ test("clears stale quota on failure and replaces unavailable status after the ne
   h.setNow(now + 60_000);
   refresh.callback();
   await h.settle();
-  assert.deepEqual(h.statuses.at(-1), { key: "z-usage", text: "<muted:ChatGPT unavailable>" });
+  assert.deepEqual(h.statuses.at(-1), { key: "z-usage", text: "<muted:Claude Personal unavailable>" });
   countdown.callback();
   await h.settle();
-  assert.deepEqual(h.statuses.at(-1), { key: "z-usage", text: "<muted:ChatGPT unavailable>" });
+  assert.deepEqual(h.statuses.at(-1), { key: "z-usage", text: "<muted:Claude Personal unavailable>" });
   assert.equal(h.fetches.length, 2, "countdown ticks do not trigger an early retry");
 
   h.setNow(now + 120_000);
@@ -409,7 +360,7 @@ test("clears stale quota on failure and replaces unavailable status after the ne
 });
 
 test("does not fetch or start timers outside TUI; shutdown aborts and clears TUI work", async (t) => {
-  const rpc = await harness({ mode: "rpc", body: { rate_limit: {} } });
+  const rpc = await harness({ mode: "rpc", body: usageBody() });
   t.after(() => rpc.close());
   await rpc.start();
   assert.equal(rpc.fetches.length, 0);
@@ -433,16 +384,14 @@ test("does not fetch or start timers outside TUI; shutdown aborts and clears TUI
   timeout.callback();
   await tui.settle();
   assert.equal(signal.aborted, true);
-  assert.deepEqual(tui.statuses.at(-1), { key: "z-usage", text: "<muted:ChatGPT unavailable>" });
+  assert.deepEqual(tui.statuses.at(-1), { key: "z-usage", text: "<muted:Claude Personal unavailable>" });
   await tui.emit("session_shutdown");
   assert.ok(tui.timers.every(({ cleared }) => cleared));
   assert.deepEqual(tui.statuses.at(-1), { key: "z-usage", text: undefined });
 });
 
 test("always-on recovery waits for the later exhausted window and continues once without a prompt", async (t) => {
-  let body = usageBody(100, 3600);
-  body.rate_limit.week = quota(604800, 100, reset(3 * 86400));
-  const h = await harness({ fetchImpl: async () => ({ ok: true, json: async () => body }) });
+  const h = await harness({ body: usageBody(100, 3600, [100, 3 * 86400]) });
   t.after(() => h.close());
   await h.start();
   assert.equal(h.extension.commands.size, 0);
@@ -452,45 +401,29 @@ test("always-on recovery waits for the later exhausted window and continues once
   const pending = h.emit("agent_before_settle", event);
   await h.settle();
   assert.match(h.statuses.at(-1).text, /3d.*Esc cancels/);
-  assert.equal(h.fetches.length, 2, "verification must be newer than failure");
   assert.ok(h.timers.every(({ delay }) => delay <= 60_000), "multi-day waits must never create oversized timers");
   h.key("typing");
   assert.equal(h.listeners.size, 1);
+  h.timers.filter(({ kind, delay }) => kind === "interval" && delay === 60_000)[0].cleared = true;
   tickCountdown(h, now + 3600_000);
   await h.settle();
-  assert.equal(h.fetches.length, 2, "shorter exhausted window cannot trigger a model retry");
-  body = usageBody(0, 500000, { allowed: true, limit_reached: false });
+  assert.equal(h.listeners.size, 1, "shorter exhausted window cannot trigger a model retry");
   tickCountdown(h, now + 3 * 86400_000);
   assert.deepEqual(await pending, { continue: true, entries: [entry, { type: "context_edit", targetId: "failed", replacement: null }] });
   assert.equal(h.listeners.size, 0);
   assert.equal(await h.emit("agent_before_settle", event), undefined, "candidate is consumed");
 });
 
-test("only confirmed subscription exhaustion arms a reset wait", async (t) => {
+test("only Claude usage-limit failures arm a reset wait", async (t) => {
   const cases = [
-    ["explicitly allowed", usageBody(100, 3600, { allowed: true, limit_reached: false }), failure()],
-    ["conflicting flags", usageBody(100, 3600, { allowed: true, limit_reached: true }), failure()],
-    ["malformed flags", usageBody(100, 3600, { allowed: "false" }), failure()],
-    ["denied without exhausted window", usageBody(0, 3600, { allowed: false }), failure()],
-    ["rounded is not exhausted", usageBody(99.6), failure()],
-    ["past reset", usageBody(100, -1), failure()],
-    ["missing reset", { rate_limit: { primary_window: { limit_window_seconds: 18000, used_percent: 100 } } }, failure()],
-    ["malformed body", { secret: "private" }, failure()],
-    ["successful prose", usageBody(), failure({ stopReason: "stop" })],
-    ["other provider", usageBody(), failure({ provider: "other" })],
-    ["transport failure", usageBody(), failure({ errorMessage: "connection lost" })],
-    ["known transient", usageBody(), failure({ errorMessage: '{"error":{"code":"rate_limit_exceeded"}}' })],
-    ["plain transient code", usageBody(), failure({ errorMessage: "rate_limit_exceeded: too many requests (429)" })],
-    ["transient TPM reason", usageBody(), failure({ errorMessage: "429 rate limit reached on tokens per minute (TPM)" })],
-    ["admin denial", usageBody(), failure({ errorMessage: '{"error":{"code":"usage_not_included"}}' })],
-    ["billing", usageBody(), failure({ errorMessage: '{"error":{"code":"insufficient_quota"}}' })],
-    ["generic 429 alone", usageBody(20), failure({ errorMessage: "429 Too Many Requests" })],
-    ["auth 429", usageBody(), failure({ errorMessage: "429 invalid_api_key" })],
-    ["malformed supported window", { rate_limit: { primary: quota(18000, 100, reset(3600)), secondary: quota(604800, "bad", reset(90000)) } }, failure()],
-    ["duplicate supported window", { rate_limit: { primary: quota(18000, 100, reset(3600)), duplicate: quota(18000, 100, reset(90000)) } }, failure()],
+    ["successful prose", failure({ stopReason: "stop" })],
+    ["other provider", failure({ provider: "other" })],
+    ["transport failure", failure({ errorMessage: "connection lost" })],
+    ["server error", failure({ errorMessage: "Claude Code upstream server error (status 529)" })],
+    ["plain 429", failure({ errorMessage: "429 Too Many Requests" })],
   ];
-  for (const [name, body, message] of cases) await t.test(name, async (t) => {
-    const h = await harness({ body });
+  for (const [name, message] of cases) await t.test(name, async (t) => {
+    const h = await harness({ body: usageBody() });
     t.after(() => h.close());
     await h.start();
     assert.equal(await h.emit("agent_before_settle", await fail(h, message)), undefined);
@@ -498,21 +431,6 @@ test("only confirmed subscription exhaustion arms a reset wait", async (t) => {
     assert.ok(!h.statuses.some(({ text }) => text?.includes("Esc cancels")));
     assert.ok(h.notifications.every(({ text }) => !/private|secret/.test(text)));
   });
-});
-
-test("weekly-only, structured subscription, and ambiguous 429 failures require fresh corroboration", async (t) => {
-  for (const message of [failure(), failure({ errorMessage: '{"error":{"code":"usage_limit_reached"}}' }), failure({ errorMessage: "429 Too Many Requests" })]) {
-    const h = await harness({ body: { rate_limit: { secondary_window: quota(604800, 100, reset(90000)), allowed: false, limit_reached: true } } });
-    t.after(() => h.close());
-    await h.start();
-    const pending = h.emit("agent_before_settle", await fail(h, message));
-    await h.settle();
-    assert.match(h.statuses.at(-1).text, /quota reset in 1d1h/);
-    h.key("\u001b");
-    assert.equal(await pending, undefined);
-    assert.equal(h.listeners.size, 0);
-    await h.close();
-  }
 });
 
 test("each cancellation path promptly releases the boundary without consuming input", async (t) => {
@@ -534,64 +452,25 @@ test("each cancellation path promptly releases the boundary without consuming in
   });
 });
 
-test("reset verification extends only with trustworthy evidence, otherwise stops", async (t) => {
-  for (const kind of ["later", "past", "unknown", "denied", "fetch failure", "unsafe context"]) await t.test(kind, async (t) => {
-    let body = usageBody(100, 60), failFetch = false;
-    const h = await harness({ fetchImpl: async () => {
-      if (failFetch) throw new Error("private token");
-      return { ok: true, json: async () => body };
-    } });
-    t.after(() => h.close());
-    await h.start();
-    const event = await fail(h);
-    if (kind === "unsafe context") event.context.contextEntries[0].messages = [failure({ stopReason: "stop" })];
-    const pending = h.emit("agent_before_settle", event);
-    await h.settle();
-    if (kind === "later") body = usageBody(100, 120);
-    if (kind === "unknown") body = {};
-    if (kind === "denied") body = usageBody(0, 120, { allowed: false });
-    if (kind === "fetch failure") failFetch = true;
-    if (kind === "unsafe context") body = usageBody(0, 120, { allowed: true });
-    tickCountdown(h, now + 60_000);
-    await h.settle();
-    if (kind === "later") {
-      assert.match(h.statuses.at(-1).text, /quota reset in 1m/);
-      assert.equal(h.listeners.size, 1);
-      h.key("\u001b");
-    }
-    assert.equal(await pending, undefined);
-    assert.equal(h.listeners.size, 0);
-    if (kind !== "later") {
-      assert.equal(h.notifications.length, 1);
-      assert.doesNotMatch(h.statuses.at(-1).text ?? "", /Esc cancels/, "stopped recovery must remove countdown even after fetch failure");
-    }
-  });
-});
-
-test("a pre-failure in-flight refresh cannot authorize recovery; cancelling ignores late results", async (t) => {
-  let resolveFetch;
-  const h = await harness({ fetchImpl: () => new Promise((resolve) => { resolveFetch = resolve; }) });
+test("an unsafe context stops recovery after the reset instead of continuing", async (t) => {
+  const h = await harness({ body: usageBody(100, 60) });
   t.after(() => h.close());
   await h.start();
-  const pending = h.emit("agent_before_settle", await fail(h));
+  const event = await fail(h);
+  event.context.contextEntries[0].messages = [failure({ stopReason: "stop" })];
+  const pending = h.emit("agent_before_settle", event);
   await h.settle();
-  assert.equal(h.fetches.length, 1);
-  resolveFetch({ ok: true, json: async () => usageBody() });
-  await h.settle();
-  assert.equal(h.fetches.length, 2, "pre-failure data must be replaced");
-  h.key("\u001b");
+  tickCountdown(h, now + 60_000);
   assert.equal(await pending, undefined);
-  assert.equal(h.fetches.at(-1).options.signal.aborted, true);
-  resolveFetch({ ok: true, json: async () => usageBody(0, 120, { allowed: true }) });
-  await h.settle();
   assert.equal(h.listeners.size, 0);
-  assert.equal(await h.emit("agent_before_settle", { outcome: "error", context: { pendingMessages: [] } }), undefined);
+  assert.equal(h.notifications.length, 1);
+  assert.doesNotMatch(h.statuses.at(-1).text ?? "", /Esc cancels/);
 });
 
 async function realSession(h, { transient = false, queued = false, otherEntry = true, failures = 1, errorText } = {}) {
   const requests = [], errors = [], events = [];
   let tools = 0;
-  const model = { ...h.ctx.model, api: "openai-codex-responses", name: "Synthetic", reasoning: false, input: ["text"],
+  const model = { ...h.ctx.model, api: "claude-code", name: "Synthetic", reasoning: false, input: ["text"],
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }, contextWindow: 100000, maxTokens: 1024 };
   const usage = { input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2,
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
@@ -621,7 +500,7 @@ async function realSession(h, { transient = false, queued = false, otherEntry = 
   };
   const session = new AgentSession({ agent, sessionManager: manager, cwd: process.cwd(), resourceLoader,
     settingsManager: SettingsManager.inMemory({ compaction: { enabled: false }, retry: { enabled: true, maxRetries: 1, baseDelayMs: 5 } }),
-    modelRuntime: { getAuth: async () => ({ auth: { apiKey: jwt() } }), hasConfiguredAuth: () => true,
+    modelRuntime: { getAuth: async () => ({ auth: { apiKey: "synthetic" } }), hasConfiguredAuth: () => true,
       getModel: () => model, getPhysicalModel: () => model, getAvailableSnapshot: () => [model],
       getRegisteredProviderIds: () => [], isUsingOAuth: () => false, isUsingSubscription: () => true },
     baseToolsOverride: { probe: { name: "probe", label: "Probe", description: "Synthetic tool", parameters: { type: "object", properties: {} },
@@ -646,7 +525,7 @@ test("real AgentSession retains raw history/tools and composes boundary entries 
   assert.equal(r.requests.length, 2);
   assert.equal(h.listeners.size, 1);
   assert.equal(r.events.filter(({ type }) => type === "agent_settled").length, 0);
-  body = usageBody(0, 3600, { allowed: true });
+  body = usageBody(0, 3600);
   tickCountdown(h, now + 60_000);
   await pending;
   assert.deepEqual(r.errors, []);
@@ -661,31 +540,6 @@ test("real AgentSession retains raw history/tools and composes boundary entries 
   assert.equal(raw.filter((entry) => entry.type === "message" && entry.message.stopReason === "error").length, 1);
   assert.equal(raw.filter((entry) => entry.type === "context_edit" && entry.replacement === null).length, 1);
   assert.equal(h.listeners.size, 0);
-});
-
-test("real AgentSession exhausts native retry budget before quota recovery, without another extension's context", async (t) => {
-  let body = usageBody(100, 60);
-  const h = await harness({ fetchImpl: async () => ({ ok: true, json: async () => body }) });
-  const r = await realSession(h, { failures: 2, errorText: "429 Too Many Requests", otherEntry: false });
-  t.after(async () => { await h.close(); r.session.dispose(); });
-  const pending = r.session.prompt("original prompt");
-  await h.settle();
-  assert.equal(r.requests.length, 2);
-  assert.equal(h.listeners.size, 0);
-  h.timers.find(({ kind, delay, cleared }) => kind === "timeout" && delay === 5 && !cleared).callback();
-  await h.settle();
-  assert.equal(r.requests.length, 3);
-  assert.equal(h.listeners.size, 1);
-  assert.equal(r.events.filter(({ type }) => type === "auto_retry_start").length, 1);
-  body = usageBody(0, 3600);
-  tickCountdown(h, now + 60_000);
-  await pending;
-  assert.equal(r.requests.length, 4);
-  assert.equal(r.tools, 1);
-  assert.equal(r.requests[3].messages.at(-1).role, "toolResult");
-  assert.equal(r.requests[3].messages.filter(({ role }) => role === "user").length, 1);
-  assert.equal(r.manager.getBranch().filter((entry) => entry.type === "message" && entry.message.stopReason === "error").length, 2);
-  assert.deepEqual(r.errors, []);
 });
 
 test("real AgentSession native abort before tree navigation waits for Escape without continuation", async (t) => {
@@ -753,24 +607,13 @@ test("real AgentSession performs native transient retry before settlement and ne
   assert.ok(!h.statuses.some(({ text }) => text?.includes("Esc cancels")));
 });
 
-test("structured transient reason takes precedence over the adapter's ambiguous friendly message", async (t) => {
-  const h = await harness({ body: usageBody() });
-  t.after(() => h.close());
-  await h.start();
-  const event = await fail(h);
-  await h.emit("provider_stream_event", { provider: "openai-codex", model: "test-model", data: { type: "response.failed", response: { error: { code: "rate_limit_exceeded" } } } });
-  await h.emit("turn_end", { message: failure(), messageEntryId: "failed" });
-  assert.equal(await h.emit("agent_before_settle", event), undefined);
-  assert.equal(h.fetches.length, 1);
-});
-
 test("replacement ownership and successful turns invalidate candidates", async (t) => {
   for (const change of ["model", "session", "branch", "success", "aborted", "queued"]) await t.test(change, async (t) => {
     const h = await harness({ body: usageBody() });
     t.after(() => h.close());
     await h.start();
     const event = await fail(h);
-    if (change === "model") h.ctx.model = { provider: "openai-codex", id: "replacement" };
+    if (change === "model") h.ctx.model = { provider: "claude-code", id: "replacement" };
     if (change === "session") h.setSession("replacement");
     if (change === "branch") h.setBranch([]);
     if (change === "success") await h.emit("turn_end", { message: failure({ stopReason: "stop" }), messageEntryId: "success" });
@@ -793,23 +636,6 @@ test("non-TUI sessions never capture failures or start recovery", async (t) => {
     assert.equal(h.listeners.size, 0);
     await h.close();
   }
-});
-
-test("cancelling during credentials lookup cannot launch a late verification request", async (t) => {
-  const h = await harness({ body: usageBody() });
-  t.after(() => h.close());
-  await h.start();
-  let resolveToken;
-  h.ctx.modelRegistry.getApiKeyForProvider = () => new Promise((resolve) => { resolveToken = resolve; });
-  const pending = h.emit("agent_before_settle", await fail(h));
-  await h.settle();
-  h.key("\u001b");
-  assert.equal(await pending, undefined);
-  resolveToken(jwt());
-  await h.settle();
-  assert.equal(h.fetches.length, 1);
-  assert.equal(h.listeners.size, 0);
-  assert.ok(h.timers.every(({ kind, cleared }) => kind !== "timeout" || cleared));
 });
 
 test("real AgentSession newly submitted work releases the wait and is delivered once", async (t) => {

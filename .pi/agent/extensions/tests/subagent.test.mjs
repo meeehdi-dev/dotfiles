@@ -24,9 +24,9 @@ const runSingleAgent = runInNewContext(
   },
 );
 
-async function dispatch(model, provider) {
+async function dispatch(model) {
   const result = await runSingleAgent(
-    { provider, model: `${provider}/session-model`, thinkingLevel: "medium" },
+    { model: "claude-code/session-model", thinkingLevel: "medium" },
     { cwd: "/tmp", agent: { name: "builder", source: "user", model, systemPrompt: "" } },
     "builder", "task", undefined, undefined, undefined,
     (results) => ({ mode: "single", results }),
@@ -35,22 +35,14 @@ async function dispatch(model, provider) {
   return args;
 }
 
-test("subagent selects the dispatching provider's model, including its thinking suffix", async () => {
-  const models = { "openai-codex": "openai-codex/gpt:high", "claude-code": "claude-code/sonnet:high" };
-  for (const provider of Object.keys(models)) {
-    const argv = await dispatch(models, provider);
-    assert.equal(argv[argv.indexOf("--model") + 1], models[provider]);
-    assert.equal(argv.includes("--thinking"), false);
-  }
+test("subagent passes the agent's model, including its thinking suffix", async () => {
+  const argv = await dispatch("claude-code/sonnet:high");
+  assert.equal(argv[argv.indexOf("--model") + 1], "claude-code/sonnet:high");
+  assert.equal(argv.includes("--thinking"), false);
 });
 
-test("subagent preserves scalar models and inherits session defaults for unlisted providers", async () => {
-  const scalar = await dispatch("other/fixed:high", "openai-codex");
-  assert.equal(scalar[scalar.indexOf("--model") + 1], "other/fixed:high");
-  assert.equal(scalar.includes("--thinking"), false);
-  for (const model of [undefined, { "claude-code": "claude-code/sonnet" }]) {
-    const argv = await dispatch(model, "openai-codex");
-    assert.equal(argv[argv.indexOf("--model") + 1], "openai-codex/session-model");
-    assert.equal(argv[argv.indexOf("--thinking") + 1], "medium");
-  }
+test("subagent without a model inherits the session model and thinking level", async () => {
+  const argv = await dispatch(undefined);
+  assert.equal(argv[argv.indexOf("--model") + 1], "claude-code/session-model");
+  assert.equal(argv[argv.indexOf("--thinking") + 1], "medium");
 });
